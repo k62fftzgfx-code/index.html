@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouse Operations Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a2035; color: #e0e6f0; padding: 16px; min-height: 100vh; }
+  h1 { font-size: 15px; font-weight: 500; color: #c8d8f0; margin-bottom: 14px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin-bottom: 14px; background: #222d45; padding: 12px 16px; border-radius: 12px; border: 0.5px solid #2e3d5c; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+  .ctrl-group label.ctrl-label { font-size: 10px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.6px; }
+  select.simple-select { font-size: 12px; padding: 5px 9px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; cursor: pointer; outline: none; }
+
+  .custom-dropdown { position: relative; min-width: 140px; }
+  .dropdown-trigger { font-size: 12px; padding: 5px 26px 5px 9px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; cursor: pointer; user-select: none; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .dropdown-trigger::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #7a8daa; font-size: 10px; }
+  .dropdown-trigger.open { border-color: #4a7ab0; border-radius: 8px 8px 0 0; }
+  .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1e2840; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 100; overflow-y: auto; min-width: 180px; }
+  .dropdown-menu.open { display: block; }
+  .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 7px 11px; cursor: pointer; font-size: 12px; color: #c8d8f0; transition: background 0.1s; }
+  .dropdown-item:hover { background: #253050; }
+  .dropdown-item.all-item { border-bottom: 0.5px solid #2e3d5c; color: #7dd4f0; font-size: 11px; }
+  .dropdown-item input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
+
+  .date-range { display: none; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; background: #222d45; padding: 10px 16px; border-radius: 10px; border: 0.5px solid #3a5080; }
+  .date-range.visible { display: flex; }
+  .date-range .dr-label { font-size: 10px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px; }
+  .date-range input[type=date] { font-size: 12px; padding: 4px 9px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; outline: none; color-scheme: dark; }
+
+  .btn-refresh { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #a0c4f0; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
+  .btn-refresh:hover { background: #2e3d60; }
+
+  .status { font-size: 11px; color: #7a8daa; margin-bottom: 12px; padding: 6px 12px; background: #222d45; border-radius: 8px; border: 0.5px solid #2e3d5c; }
+  .status.ok  { color: #5bbf8a; border-color: #2a4a3a; }
+  .status.err { color: #e07070; border-color: #4a2a2a; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .kpi-card { background: #1e2840; border-radius: 12px; border: 0.5px solid #2e3d5c; padding: 14px 16px; }
+  .kpi-label { font-size: 10px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .kpi-bar { height: 3px; background: #4a9fd4; border-radius: 2px; margin-bottom: 10px; width: 60%; }
+  .kpi-value { font-size: 22px; font-weight: 500; color: #e0e8f8; }
+  .kpi-value.highlight { color: #7dd4f0; }
+
+  .charts-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chart-card { background: #1e2840; border-radius: 14px; border: 0.5px solid #2e3d5c; padding: 14px 18px; }
+  .chart-card.main  { flex: 3; min-width: 400px; overflow: hidden; }
+  .chart-card.donut { flex: 1; min-width: 220px; }
+  .chart-card.full  { width: 100%; overflow: hidden; }
+  .card-title { font-size: 12px; font-weight: 500; color: #c8d8f0; margin-bottom: 10px; }
+
+  .chart-scroll-wrap { overflow-x: auto; overflow-y: hidden; width: 100%; }
+  .chart-scroll-wrap::-webkit-scrollbar { height: 5px; }
+  .chart-scroll-wrap::-webkit-scrollbar-track { background: #1a2035; }
+  .chart-scroll-wrap::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 3px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 10px; color: #8a9dba; margin-top: 10px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-box  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .leg-line { width: 18px; height: 2px; border-radius: 2px; flex-shrink: 0; }
+
+  .donut-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .dl-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #8a9dba; }
+  .dl-box  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<h1>Warehouse Operations Dashboard</h1>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label class="ctrl-label">Granularity</label>
+    <select class="simple-select" id="granularity">
+      <option value="daily">Daily</option>
+      <option value="weekly" selected>Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label class="ctrl-label">Year</label>
+    <div class="custom-dropdown">
+      <div class="dropdown-trigger" id="year-trigger" onclick="toggleDropdown('year')">All years</div>
+      <div class="dropdown-menu" id="year-menu">
+        <label class="dropdown-item all-item"><input type="checkbox" id="year-all" checked onchange="toggleAll('year')"> All years</label>
+        <label class="dropdown-item"><input type="checkbox" class="year-cb" value="2025" checked onchange="onCbChange('year')"> 2025</label>
+        <label class="dropdown-item"><input type="checkbox" class="year-cb" value="2026" checked onchange="onCbChange('year')"> 2026</label>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label class="ctrl-label">Location</label>
+    <div class="custom-dropdown">
+      <div class="dropdown-trigger" id="loc-trigger" onclick="toggleDropdown('loc')">All locations</div>
+      <div class="dropdown-menu" id="loc-menu">
+        <label class="dropdown-item all-item"><input type="checkbox" id="loc-all" checked onchange="toggleAll('loc')"> All locations</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL"        checked onchange="onCbChange('loc')"> Markham, IL</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Reno, NV"           checked onchange="onCbChange('loc')"> Reno, NV</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Stockton, CA"       checked onchange="onCbChange('loc')"> Stockton, CA</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="San Bernardino, CA" checked onchange="onCbChange('loc')"> San Bernardino, CA</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Denver, CO"         checked onchange="onCbChange('loc')"> Denver, CO</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Columbus, OH"       checked onchange="onCbChange('loc')"> Columbus, OH</label>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label class="ctrl-label">Direction</label>
+    <select class="simple-select" id="direction">
+      <option value="ALL">All directions</option>
+      <option value="HIGHWAY">Highway</option>
+      <option value="INTERMODAL">Intermodal</option>
+      <option value="East coast">East Coast</option>
+      <option value="Local Delivery">Local Delivery</option>
+      <option value="Cross Dock">Cross Dock</option>
+    </select>
+  </div>
+  <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
+</div>
+
+<div class="date-range" id="date-range-row">
+  <div><label class="dr-label">From</label><input type="date" id="date-from" onchange="render()"></div>
+  <div><label class="dr-label">To</label><input type="date" id="date-to" onchange="render()"></div>
+</div>
+
+<div class="status" id="status">Connecting to Google Sheets...</div>
+
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">Total HWY/IMD</div><div class="kpi-bar"></div><div class="kpi-value" id="kpi-hwyimd">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value highlight" id="kpi-lcp">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="kpi-hourly">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="kpi-cost">—</div></div>
+</div>
+
+<div class="charts-row">
+  <div class="chart-card main">
+    <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
+    <div class="chart-scroll-wrap" id="scroll1">
+      <canvas id="comboChart" role="img" aria-label="Combo chart pallets and labor cost"></canvas>
+    </div>
+    <div class="legend" id="combo-legend"></div>
+  </div>
+  <div class="chart-card donut">
+    <div class="card-title">Proportion of each direction</div>
+    <div style="position:relative; width:100%;" id="donut-wrap">
+      <canvas id="donutChart" role="img" aria-label="Donut chart"></canvas>
+    </div>
+    <div class="donut-legend" id="donut-legend"></div>
+  </div>
+</div>
+
+<div class="charts-row">
+  <div class="chart-card full">
+    <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
+    <div class="chart-scroll-wrap" id="scroll2">
+      <canvas id="chart2" role="img" aria-label="Operating cost and avg hourly rate"></canvas>
+    </div>
+    <div class="legend">
+      <span class="leg-item"><span class="leg-box" style="background:#5a8fd4"></span>Operating Cost</span>
+      <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly rate</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxo-dN8yl7464gG8Pw4vyHWdP6lw-zA3D5915TgVPjBF6EKGA13mrGd_KnG1lZUa3Q/exec';
+
+// Назви колонок з таблиці
+const COL = {
+  date:     'Data',
+  day:      'Day',
+  yearWeek: 'YearWeek',
+  year:     'Year',
+  hours:    'Time',
+  highway:       'HIGHWAY',
+  intermodal:    'INTERMODAL',
+  eastCoast:     'East coast',
+  localDelivery: 'Local Delivery',
+  crossDock:     'Cross Dock',
+  sumPallets:    'Sum Pallets',
+  costs:         'Costs',
+  costs2:        'Costs2',
+  laborCostPerPallet: 'Labor cost per pallets',
+  hwyImd:        'HWY/IMD',
+  avgHourlyRate: 'Average hourly price'
+};
+
+const DIR_FIELD  = [COL.highway, COL.intermodal, COL.crossDock, COL.localDelivery, COL.eastCoast];
+const DIR_LABELS = ['Highway','Intermodal','Cross Dock','Local Delivery','East Coast'];
+const DIR_COLORS = ['#4a9fd4','#2d5f8a','#d4e8d0','#6aab90','#1a3a5c'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let rawData = [];
+let comboInst=null, donutInst=null, chart2Inst=null;
+
+function getHeights() {
+  const vh=window.innerHeight;
+  return { h1:Math.max(220,Math.round(vh*0.30)), h2:Math.max(160,Math.round(vh*0.22)), donut:Math.max(180,Math.round(vh*0.25)) };
+}
+
+function toggleDropdown(name) {
+  const menu=document.getElementById(name+'-menu'),trigger=document.getElementById(name+'-trigger');
+  const isOpen=menu.classList.contains('open');
+  document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
+  if(!isOpen){menu.classList.add('open');trigger.classList.add('open');}
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.custom-dropdown')){
+    document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
+    document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
+  }
+});
+function toggleAll(name){
+  const allCb=document.getElementById(name+'-all');
+  document.querySelectorAll('.'+name+'-cb').forEach(c=>c.checked=allCb.checked);
+  updateTrigger(name);render();
+}
+function onCbChange(name){
+  const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked);
+  document.getElementById(name+'-all').checked=checked.length===all.length;
+  updateTrigger(name);render();
+}
+function updateTrigger(name){
+  const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked).map(c=>c.value);
+  const t=document.getElementById(name+'-trigger');
+  if(name==='year') t.textContent=checked.length===0?'None':checked.length===all.length?'All years':checked.join(', ');
+  else t.textContent=checked.length===0?'None':checked.length===all.length?'All locations':checked.length===1?checked[0]:checked.length+' locations';
+}
+
+function toNum(v){if(!v&&v!==0)return 0;const n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?0:n;}
+function fmtTop(v){return v>=1000?(v/1000).toFixed(1)+'K':Math.round(v).toString();}
+function fmtKPI(v,prefix=''){
+  if(v===null||v===undefined||isNaN(v))return '—';
+  if(v>=1000000)return prefix+(v/1000000).toFixed(2)+'M';
+  if(v>=1000)return prefix+(v/1000).toFixed(1)+'K';
+  return prefix+v.toFixed(2);
+}
+
+function parseDate(s){
+  if(!s)return null;s=String(s).trim();
+  if(s.includes('/')){
+    const p=s.split('/');if(p.length<3)return null;
+    const y=parseInt(p[2].length===2?'20'+p[2]:p[2]),m=parseInt(p[0]),d=parseInt(p[1]);
+    if(isNaN(y)||isNaN(m)||isNaN(d))return null;
+    return{y,m,d,str:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`};
+  }
+  const dt=new Date(s);if(isNaN(dt))return null;
+  return{y:dt.getFullYear(),m:dt.getMonth()+1,d:dt.getDate(),str:s};
+}
+
+function getBucketKey(row,gran){
+  const pd=parseDate(row[COL.date]);if(!pd)return null;
+  if(gran==='weekly'){const yw=String(row[COL.yearWeek]||'').trim();return yw.length>=6?yw:null;}
+  if(gran==='daily')return pd.str;
+  if(gran==='monthly')return`${pd.y}-${String(pd.m).padStart(2,'0')}`;
+  return null;
+}
+function getDisplayLabel(key,gran){
+  if(gran==='weekly')return'CW'+key.slice(4);
+  if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
+  const p=key.split('-');return p[1]+'/'+p[2];
+}
+function median(arr){
+  const a=arr.filter(v=>v>0).sort((a,b)=>a-b);if(!a.length)return null;
+  const mid=Math.floor(a.length/2);return a.length%2===0?(a[mid-1]+a[mid])/2:a[mid];
+}
+function resizeCanvas(el,wrap,count,scroll,h){
+  const BAR_W=42;
+  if(scroll){const w=Math.max(wrap.clientWidth||800,count*BAR_W+100);el.style.width=w+'px';el.style.height=h+'px';el.width=w;el.height=h;}
+  else{el.style.width='100%';el.style.height=h+'px';el.width=wrap.clientWidth||800;el.height=h;}
+}
+
+function isSummaryRow(r){return String(r[COL.day]||'').trim()==='Sunday';}
+
+function render(){
+  const gran=document.getElementById('granularity').value;
+  const dirF=document.getElementById('direction').value;
+  const years=Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
+  const locs=Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+  const isDaily=gran==='daily',isScroll=isDaily||gran==='weekly';
+  const H=getHeights();
+
+  document.getElementById('date-range-row').classList.toggle('visible',isDaily);
+  const dateFrom=isDaily?document.getElementById('date-from').value:null;
+  const dateTo=isDaily?document.getElementById('date-to').value:null;
+
+  const filtered=rawData.filter(r=>{
+    if(!locs.includes(r._location))return false;
+    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return false;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
+    return true;
+  });
+
+  const buckets={},lcpB={},b2={};
+
+  // KPI accumulators
+  // Labor cost per pallet = sum(Costs2 Sunday) / sum(Sum Pallets all rows)
+  // Avg hourly price = sum(Costs2 Sunday) / sum(Time all rows)
+  // Total HWY/IMD = sum(HWY/IMD Sunday)
+  // Total cost = sum(Costs2 Sunday)
+  let kpiHwyImd=0, kpiCosts2=0, kpiSumPallets=0, kpiTotalTime=0;
+
+  filtered.forEach(r=>{
+    const key=getBucketKey(r,gran);if(!key)return;
+    const sum=isSummaryRow(r);
+
+    // Chart 1 buckets
+    if(!buckets[key]){buckets[key]={totalPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);lcpB[key]=[];}
+    if(!sum){
+      DIR_FIELD.forEach(f=>{
+        if(dirF!=='ALL'&&f!==dirF)return;
+        const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;
+      });
+    }
+    if(sum&&toNum(r[COL.laborCostPerPallet])>0) lcpB[key].push(toNum(r[COL.laborCostPerPallet]));
+
+    // Chart 2 buckets
+    if(sum){
+      if(!b2[key])b2[key]={costs2:[],hourly:[]};
+      if(toNum(r[COL.costs2])>0) b2[key].costs2.push(toNum(r[COL.costs2]));
+      if(toNum(r[COL.avgHourlyRate])>0) b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
+    }
+
+    // KPI
+    if(sum){
+      kpiHwyImd  += toNum(r[COL.hwyImd]);
+      kpiCosts2  += toNum(r[COL.costs2]);
+    }
+    // Sum Pallets і Time — з усіх рядків
+    kpiSumPallets += toNum(r[COL.sumPallets]);
+    kpiTotalTime  += toNum(r[COL.hours]);
+  });
+
+  // KPI розрахунки
+  const kpiLCP      = kpiSumPallets > 0 ? kpiCosts2 / kpiSumPallets : null;
+  const kpiAvgHourly = kpiTotalTime > 0 ? kpiCosts2 / kpiTotalTime  : null;
+
+  document.getElementById('kpi-hwyimd').textContent = fmtKPI(kpiHwyImd);
+  document.getElementById('kpi-lcp').textContent    = kpiLCP!==null ? '$'+kpiLCP.toFixed(2) : '—';
+  document.getElementById('kpi-hourly').textContent = kpiAvgHourly!==null ? '$'+kpiAvgHourly.toFixed(2) : '—';
+  document.getElementById('kpi-cost').textContent   = fmtKPI(kpiCosts2,'$');
+
+  const keys=Object.keys(buckets).sort();
+  if(!keys.length)return;
+
+  const dispLabels=keys.map(k=>getDisplayLabel(k,gran));
+  const dirs=dirF==='ALL'?DIR_FIELD:DIR_FIELD.filter(f=>f===dirF);
+  const lcpVals=keys.map(k=>{const m=median(lcpB[k]||[]);return m!==null?parseFloat(m.toFixed(2)):null;});
+  const validLcp=lcpVals.filter(v=>v!==null);
+  const lcpMin=validLcp.length?Math.min(...validLcp)-1:0;
+
+  // Chart 1
+  const c1=document.getElementById('comboChart'),sw1=document.getElementById('scroll1');
+  resizeCanvas(c1,sw1,keys.length,isScroll,H.h1);
+
+  const barDS=dirs.map(f=>{
+    const i=DIR_FIELD.indexOf(f);
+    return{type:'bar',label:DIR_LABELS[i],data:keys.map(k=>buckets[k][f]||0),
+      backgroundColor:DIR_COLORS[i]+'dd',borderColor:DIR_COLORS[i],borderWidth:0,stack:'p',yAxisID:'yP',order:2};
+  });
+  const lineDS={type:'line',label:'Labor cost/pallet',data:lcpVals,
+    borderColor:'#7dd4f0',backgroundColor:'transparent',borderWidth:2,
+    pointRadius:isDaily?2:4,pointBackgroundColor:'#7dd4f0',pointBorderColor:'#1e2840',pointBorderWidth:2,
+    tension:0.3,spanGaps:true,yAxisID:'yL',order:1};
+
+  document.getElementById('combo-legend').innerHTML=
+    dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return`<span class="leg-item"><span class="leg-box" style="background:${DIR_COLORS[i]}"></span>${DIR_LABELS[i]}</span>`;}).join('')+
+    `<span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost/pallet</span>`;
+
+  if(comboInst){comboInst.destroy();comboInst=null;}
+  comboInst=new Chart(c1,{
+    data:{labels:dispLabels,datasets:[...barDS,lineDS]},
+    options:{responsive:false,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:6}},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+          callbacks:{label:ctx=>ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`}}},
+      scales:{
+        x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
+        yP:{type:'linear',position:'left',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
+        yL:{type:'linear',position:'right',min:lcpMin,ticks:{color:'#7dd4f0',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
+      }},
+    plugins:[{id:'tl',afterDatasetsDraw(chart){
+      if(isDaily)return;
+      const{ctx}=chart;
+      const bds=chart.data.datasets.filter(d=>d.yAxisID==='yP');if(!bds.length)return;
+      const tot={};bds.forEach(d=>d.data.forEach((v,i)=>{tot[i]=(tot[i]||0)+(v||0);}));
+      const li=chart.data.datasets.map((d,i)=>({d,i})).filter(x=>x.d.yAxisID==='yP').pop()?.i;
+      if(li===undefined)return;
+      const meta=chart.getDatasetMeta(li);
+      ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
+      meta.data.forEach((bar,i)=>{const t=tot[i]||0;if(t===0)return;ctx.fillText(fmtTop(t),bar.x,bar.y-3);});
+      ctx.restore();
+      const lni=chart.data.datasets.findIndex(d=>d.yAxisID==='yL');if(lni<0)return;
+      const lm=chart.getDatasetMeta(lni),ld=chart.data.datasets[lni].data;
+      lm.data.forEach((pt,i)=>{
+        const val=ld[i];if(val===null||val===undefined)return;
+        const bw=32,bh=18,br=4,bx=pt.x-bw/2,by=pt.y+7;
+        ctx.save();ctx.fillStyle='#1e2840';ctx.strokeStyle='#7dd4f0';ctx.lineWidth=1;
+        ctx.beginPath();ctx.roundRect(bx,by,bw,bh,br);ctx.fill();ctx.stroke();
+        ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(val.toFixed(1),pt.x,by+bh/2);ctx.restore();
+      });
+    }}]
+  });
+
+  // Donut
+  document.getElementById('donut-wrap').style.height=H.donut+'px';
+  const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
+  const gTot=dTot.reduce((a,b)=>a+b,0);
+  document.getElementById('donut-legend').innerHTML=DIR_LABELS.map((lbl,i)=>{
+    if(dTot[i]===0)return'';
+    const v=dTot[i],kv=v>=1000?(v/1000).toFixed(1)+'K':v,pct=gTot>0?((v/gTot)*100).toFixed(2):'0';
+    return`<span class="dl-item"><span class="dl-box" style="background:${DIR_COLORS[i]}"></span>${lbl}: ${kv} (${pct}%)</span>`;
+  }).join('');
+  if(donutInst){donutInst.destroy();donutInst=null;}
+  donutInst=new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{labels:DIR_LABELS,datasets:[{data:dTot,backgroundColor:DIR_COLORS.map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:3,hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+          callbacks:{label:ctx=>{const v=ctx.raw,pct=gTot>0?((v/gTot)*100).toFixed(2):'0';return` ${v>=1000?(v/1000).toFixed(1)+'K':v} (${pct}%)`;}}}}},
+    plugins:[{id:'dl',afterDraw(chart){
+      const{ctx,chartArea:{width,height,left,top}}=chart;
+      const cx=left+width/2,cy=top+height/2,meta=chart.getDatasetMeta(0);
+      ctx.save();
+      meta.data.forEach((arc,i)=>{
+        const v=chart.data.datasets[0].data[i];if(!v||v===0)return;
+        const pct=gTot>0?((v/gTot)*100).toFixed(2):'0',kv=v>=1000?(v/1000).toFixed(1)+'K':v;
+        const angle=(arc.startAngle+arc.endAngle)/2,r=arc.outerRadius+22;
+        const x=cx+Math.cos(angle)*r,y=cy+Math.sin(angle)*r;
+        ctx.font='10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';
+        ctx.textAlign=x>cx?'left':'right';ctx.textBaseline='middle';
+        ctx.fillText(`${kv} (${pct}%)`,x,y);
+      });
+      ctx.restore();
+    }}]
+  });
+
+  // Chart 2
+  const keys2=[...new Set([...keys,...Object.keys(b2)])].sort();
+  const disp2=keys2.map(k=>getDisplayLabel(k,gran));
+  const c2v=keys2.map(k=>{if(!b2[k])return null;const s=b2[k].costs2;return s.length?s.reduce((a,b)=>a+b,0):null;});
+  const hv=keys2.map(k=>{if(!b2[k])return null;const a=b2[k].hourly;if(!a.length)return null;return parseFloat((a.reduce((x,y)=>x+y,0)/a.length).toFixed(2));});
+  const vH=hv.filter(v=>v!==null);
+  const hMin=vH.length?Math.min(...vH)-1:0;
+
+  const c2=document.getElementById('chart2'),sw2=document.getElementById('scroll2');
+  resizeCanvas(c2,sw2,keys2.length,isScroll,H.h2);
+
+  if(chart2Inst){chart2Inst.destroy();chart2Inst=null;}
+  chart2Inst=new Chart(c2,{
+    data:{labels:disp2,datasets:[
+      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#5a8fd4cc',borderColor:'#5a8fd4',borderWidth:0,yAxisID:'yC',order:2},
+      {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,
+        pointRadius:isDaily?2:4,pointBackgroundColor:'#f0a050',pointBorderColor:'#1e2840',pointBorderWidth:2,
+        tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
+    ]},
+    options:{responsive:false,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:isDaily?6:28,right:14,left:6,bottom:6}},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+          callbacks:{label:ctx=>ctx.dataset.yAxisID==='yH'?` Avg hourly rate: $${Number(ctx.raw).toFixed(2)}`:` Operating Cost: $${Number(ctx.raw).toLocaleString()}`}}},
+      scales:{
+        x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
+        yC:{type:'linear',position:'left',ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
+        yH:{type:'linear',position:'right',min:hMin,ticks:{color:'#f0a050',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
+      }},
+    plugins:[{id:'tl2',afterDatasetsDraw(chart){
+      if(isDaily)return;
+      const{ctx}=chart;
+      const bm=chart.getDatasetMeta(0);if(!bm)return;
+      ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
+      bm.data.forEach((bar,i)=>{const v=c2v[i];if(!v)return;ctx.fillText(fmtTop(v),bar.x,bar.y-3);});
+      ctx.restore();
+      const lm=chart.getDatasetMeta(1);
+      lm.data.forEach((pt,i)=>{
+        const val=hv[i];if(val===null||val===undefined)return;
+        const bw=36,bh=18,br=4,bx=pt.x-bw/2,by=pt.y+7;
+        ctx.save();ctx.fillStyle='#1e2840';ctx.strokeStyle='#f0a050';ctx.lineWidth=1;
+        ctx.beginPath();ctx.roundRect(bx,by,bw,bh,br);ctx.fill();ctx.stroke();
+        ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('$'+val.toFixed(1),pt.x,by+bh/2);ctx.restore();
+      });
+    }}]
+  });
+}
+
+async function loadData(){
+  const st=document.getElementById('status');
+  st.className='status';st.textContent='Loading data from Google Sheets...';
+  try{
+    const res=await fetch(API_URL);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const json=await res.json();
+
+    rawData=[];
+    if(json.sheets){
+      Object.entries(json.sheets).forEach(([loc,rows])=>{
+        rows.forEach(r=>{r._location=loc;rawData.push(r);});
+      });
+    } else if(json.data){
+      rawData=json.data;
+    }
+
+    const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
+    if(dates.length){document.getElementById('date-from').value=dates[0];document.getElementById('date-to').value=dates[dates.length-1];}
+
+    st.className='status ok';
+    st.textContent=`✓ Loaded ${rawData.length} rows · Updated: ${new Date().toLocaleTimeString()}`;
+    render();
+  }catch(e){st.className='status err';st.textContent='✗ Error: '+e.message;}
+}
+
+window.addEventListener('resize',()=>{if(rawData.length)render();});
+document.getElementById('granularity').addEventListener('change',render);
+document.getElementById('direction').addEventListener('change',render);
+loadData();
+</script>
+</body>
+</html>
