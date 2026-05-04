@@ -103,6 +103,28 @@
   .table-scroll { max-height: 320px; overflow-y: auto; }
   .table-scroll::-webkit-scrollbar { width: 4px; }
   .table-scroll::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
+
+  /* Week filter dropdown */
+  .week-dropdown { position: relative; min-width: 160px; }
+  .week-dropdown .dropdown-trigger { font-size: 12px; padding: 5px 26px 5px 9px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; cursor: pointer; user-select: none; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .week-dropdown .dropdown-trigger::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #7a8daa; font-size: 10px; }
+  .week-dropdown .dropdown-trigger.open { border-color: #4a7ab0; border-radius: 8px 8px 0 0; }
+  .week-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #1e2840; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 200; width: 220px; }
+  .week-dropdown-menu.open { display: block; }
+  .week-search { padding: 7px 10px; border-bottom: 0.5px solid #2e3d5c; }
+  .week-search input { width: 100%; font-size: 11px; padding: 4px 8px; border: 1px solid #2e3d5c; border-radius: 6px; background: #1a2035; color: #c8d8f0; outline: none; }
+  .week-search input:focus { border-color: #4a7ab0; }
+  .week-groups { max-height: 260px; overflow-y: auto; }
+  .week-groups::-webkit-scrollbar { width: 4px; }
+  .week-groups::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
+  .week-year-group { }
+  .week-year-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 11px; background: #253050; font-size: 10px; color: #7dd4f0; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; }
+  .week-year-header:hover { background: #2e3d60; }
+  .week-year-header .yr-select-all { font-size: 10px; color: #4a9fd4; cursor: pointer; }
+  .week-item { display: flex; align-items: center; gap: 8px; padding: 5px 11px 5px 18px; cursor: pointer; font-size: 11px; color: #c8d8f0; }
+  .week-item:hover { background: #253050; }
+  .week-item input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
+  .week-item.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -221,6 +243,21 @@
 
 <!-- ===== TAB 2: TIME & STAFF ===== -->
 <div class="tab-content" id="tab-staff">
+
+  <!-- Week filter for Time & Staff -->
+  <div style="display:flex; align-items:flex-end; gap:12px; margin-bottom:14px; background:#222d45; padding:10px 16px; border-radius:12px; border:0.5px solid #2e3d5c;">
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="font-size:10px;color:#7a8daa;text-transform:uppercase;letter-spacing:0.6px;">Week</label>
+      <div class="week-dropdown">
+        <div class="dropdown-trigger" id="week-trigger" onclick="toggleWeekDropdown()">All weeks</div>
+        <div class="week-dropdown-menu" id="week-menu">
+          <div class="week-search"><input type="text" id="week-search-input" placeholder="Search CW..." oninput="filterWeekSearch()"></div>
+          <div class="week-groups" id="week-groups"></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-refresh" style="align-self:flex-end" onclick="selectAllWeeks()">All weeks</button>
+  </div>
 
   <!-- Staff KPI -->
   <div class="kpi-row">
@@ -459,16 +496,19 @@ function renderOperations(){
     return true;
   });
 
-  const buckets={},lcpB={},b2={};
+  const buckets={},b2={};
   let kpiHwyImd=0,kpiCosts2=0,kpiSumPallets=0,kpiTotalTime=0;
 
   filtered.forEach(r=>{
     const key=getBucketKey(r,gran);if(!key)return;
     const sum=isSummaryRow(r);
-    if(!buckets[key]){buckets[key]={totalPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);lcpB[key]=[];}
-    if(!sum){DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});}
-    if(sum&&toNum(r[COL.laborCostPerPallet])>0)lcpB[key].push(toNum(r[COL.laborCostPerPallet]));
+    if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
+    if(!sum){
+      DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});
+      buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
+    }
     if(sum){
+      buckets[key].costs2+=toNum(r[COL.costs2]);
       if(!b2[key])b2[key]={costs2:[],hourly:[]};
       if(toNum(r[COL.costs2])>0)b2[key].costs2.push(toNum(r[COL.costs2]));
       if(toNum(r[COL.avgHourlyRate])>0)b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
@@ -500,7 +540,7 @@ function renderOperations(){
   const keys=Object.keys(buckets).sort();if(!keys.length)return;
   const dispLabels=keys.map(k=>getDisplayLabel(k,gran));
   const dirs=dirF==='ALL'?DIR_FIELD:DIR_FIELD.filter(f=>f===dirF);
-  const lcpVals=keys.map(k=>{const m=median(lcpB[k]||[]);return m!==null?parseFloat(m.toFixed(2)):null;});
+  const lcpVals=keys.map(k=>{const lcp=buckets[k].sumPallets>0?buckets[k].costs2/buckets[k].sumPallets:null;return lcp!==null?parseFloat(lcp.toFixed(2)):null;});
   const validLcp=lcpVals.filter(v=>v!==null);
   const lcpMin=validLcp.length?Math.min(...validLcp)-1:0;
 
@@ -614,6 +654,127 @@ function renderOperations(){
 }
 
 // ===================== STAFF TAB =====================
+
+let allWeeks = []; // all available CW keys from time data
+let selectedWeeks = new Set();
+
+function buildWeekFilter(){
+  // collect unique yearweeks from timeData
+  const ywMap = {}; // year -> Set of yw keys
+  timeData.forEach(r => {
+    const pd = parseDate(r.date); if(!pd) return;
+    const yw = String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
+    if(!ywMap[pd.y]) ywMap[pd.y] = new Set();
+    ywMap[pd.y].add(yw);
+  });
+
+  allWeeks = [];
+  Object.keys(ywMap).sort().forEach(yr => {
+    [...ywMap[yr]].sort().forEach(yw => allWeeks.push(yw));
+  });
+  selectedWeeks = new Set(allWeeks);
+
+  renderWeekGroups();
+  updateWeekTrigger();
+}
+
+function getISOWeek(dt) {
+  const d = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
+function getRowYW(r) {
+  const pd = parseDate(r.date); if(!pd) return null;
+  return String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
+}
+
+function renderWeekGroups(filter=''){
+  const container = document.getElementById('week-groups');
+  const years = {};
+  allWeeks.forEach(yw => {
+    const yr = yw.slice(0,4);
+    if(!years[yr]) years[yr] = [];
+    years[yr].push(yw);
+  });
+
+  container.innerHTML = Object.keys(years).sort().map(yr => {
+    const weeks = years[yr];
+    const items = weeks.map(yw => {
+      const label = 'CW' + yw.slice(5);
+      const hidden = filter && !label.toLowerCase().includes(filter.toLowerCase()) ? 'hidden' : '';
+      const checked = selectedWeeks.has(yw) ? 'checked' : '';
+      return `<label class="week-item ${hidden}"><input type="checkbox" ${checked} onchange="toggleWeek('${yw}', this.checked)"> ${label}</label>`;
+    }).join('');
+    return `<div class="week-year-group">
+      <div class="week-year-header">
+        <span>${yr}</span>
+        <span class="yr-select-all" onclick="selectYearWeeks('${yr}', true)">All</span>
+        <span class="yr-select-all" onclick="selectYearWeeks('${yr}', false)" style="margin-left:6px">None</span>
+      </div>
+      ${items}
+    </div>`;
+  }).join('');
+}
+
+function filterWeekSearch(){
+  const q = document.getElementById('week-search-input').value;
+  renderWeekGroups(q);
+}
+
+function toggleWeek(yw, checked){
+  if(checked) selectedWeeks.add(yw);
+  else selectedWeeks.delete(yw);
+  updateWeekTrigger();
+  renderStaff();
+}
+
+function selectYearWeeks(yr, select){
+  allWeeks.filter(yw=>yw.startsWith(yr)).forEach(yw => {
+    if(select) selectedWeeks.add(yw);
+    else selectedWeeks.delete(yw);
+  });
+  renderWeekGroups(document.getElementById('week-search-input').value);
+  updateWeekTrigger();
+  renderStaff();
+}
+
+function selectAllWeeks(){
+  selectedWeeks = new Set(allWeeks);
+  renderWeekGroups('');
+  document.getElementById('week-search-input').value = '';
+  updateWeekTrigger();
+  renderStaff();
+}
+
+function updateWeekTrigger(){
+  const t = document.getElementById('week-trigger');
+  if(selectedWeeks.size === allWeeks.length) t.textContent = 'All weeks';
+  else if(selectedWeeks.size === 0) t.textContent = 'None';
+  else if(selectedWeeks.size === 1) t.textContent = 'CW' + [...selectedWeeks][0].slice(5);
+  else t.textContent = selectedWeeks.size + ' weeks';
+}
+
+function toggleWeekDropdown(){
+  const menu = document.getElementById('week-menu');
+  const trigger = document.getElementById('week-trigger');
+  const isOpen = menu.classList.contains('open');
+  // close other dropdowns
+  document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
+  if(!isOpen){ menu.classList.add('open'); trigger.classList.add('open'); }
+}
+
+// close week dropdown on outside click
+document.addEventListener('click', e => {
+  if(!e.target.closest('.week-dropdown')){
+    document.getElementById('week-menu')?.classList.remove('open');
+    document.getElementById('week-trigger')?.classList.remove('open');
+  }
+});
+
 function renderStaff(){
   const{years,locs,isDaily,dateFrom,dateTo}=getFilters();
 
@@ -621,11 +782,16 @@ function renderStaff(){
   const selectedLocCbs = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked);
   const selectedLocNames = selectedLocCbs.map(c=>c.getAttribute('data-loc-name')||'').filter(Boolean);
 
-  // Filter time data by location and year
+  // Filter time data by location, year and selected weeks
   const filtered = timeData.filter(r=>{
     const pd=parseDate(r.date); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
+    // Week filter
+    if(allWeeks.length > 0 && selectedWeeks.size < allWeeks.length){
+      const yw = getRowYW(r);
+      if(!yw || !selectedWeeks.has(yw)) return false;
+    }
     // Match location
     const mapped = mapLocName(r.locationName);
     if(!mapped) return false;
@@ -711,6 +877,7 @@ async function loadData(){
     timeData=json.time||[];
     const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
     if(dates.length){document.getElementById('date-from').value=dates[0];document.getElementById('date-to').value=dates[dates.length-1];}
+    buildWeekFilter();
     st.className='status ok';
     st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time rows · Updated: ${new Date().toLocaleTimeString()}`;
     renderAll();
