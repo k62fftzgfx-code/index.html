@@ -230,23 +230,15 @@
     <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="s-shift">—</div></div>
   </div>
 
-  <!-- Top by hours + Avg shift by location -->
+  <!-- Top by hours + Hours by day of week -->
   <div class="charts-row">
     <div class="chart-card half">
       <div class="card-title">Top 10 employees by hours</div>
       <div style="position:relative; width:100%; height:300px;"><canvas id="topChart" role="img" aria-label="Top employees by hours"></canvas></div>
     </div>
     <div class="chart-card half">
-      <div class="card-title">Avg shift duration by location (hrs)</div>
-      <div style="position:relative; width:100%; height:300px;"><canvas id="shiftChart" role="img" aria-label="Avg shift by location"></canvas></div>
-    </div>
-  </div>
-
-  <!-- Hours by day of week -->
-  <div class="charts-row">
-    <div class="chart-card full">
       <div class="card-title">Hours by day of week</div>
-      <div style="position:relative; width:100%; height:260px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
+      <div style="position:relative; width:100%; height:300px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
     </div>
   </div>
 
@@ -321,7 +313,7 @@ const LOC_NAME_MAP = {
 
 let rawData = [], timeData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
-let topInst=null, shiftInst=null, dowInst=null;
+let topInst=null, dowInst=null;
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
 
@@ -681,24 +673,6 @@ function renderStaff(){
     type:'bar',
     data:{labels:topEmp.map(e=>e.name.split(' ')[0]+' '+e.name.split(' ').slice(-1)[0]),datasets:[{data:topEmp.map(e=>parseFloat(e.hours.toFixed(1))),backgroundColor:'#4a9fd4cc',borderColor:'#4a9fd4',borderWidth:0,borderRadius:4}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{ticks:{color:'#8a9dba',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},y:{ticks:{color:'#c8d8f0',font:{size:10}},grid:{display:false},border:{color:'transparent'}}}}
-  });
-
-  // ---- Avg shift by location ----
-  const locHours={}, locCount={};
-  filtered.forEach(r=>{
-    const loc=mapLocName(r.locationName)||r.locationName;
-    if(!locHours[loc])locHours[loc]=0;
-    if(!locCount[loc])locCount[loc]=0;
-    locHours[loc]+=toNum(r.totalHours);
-    locCount[loc]++;
-  });
-  const locNames=Object.keys(locHours).filter(l=>l!=='Other');
-  const locAvg=locNames.map(l=>parseFloat((locHours[l]/locCount[l]).toFixed(2)));
-  if(shiftInst){shiftInst.destroy();shiftInst=null;}
-  shiftInst=new Chart(document.getElementById('shiftChart'),{
-    type:'bar',
-    data:{labels:locNames,datasets:[{data:locAvg,backgroundColor:'#6aab90cc',borderColor:'#6aab90',borderWidth:0,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>` ${ctx.raw}h avg`}}},scales:{x:{ticks:{color:'#8a9dba',font:{size:9},maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},y:{ticks:{color:'#8a9dba',font:{size:10},callback:v=>v+'h'},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}}}}
   });
 
   // ---- Hours by day of week ----
