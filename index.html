@@ -109,22 +109,41 @@
   .week-dropdown .dropdown-trigger { font-size: 12px; padding: 5px 26px 5px 9px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; cursor: pointer; user-select: none; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .week-dropdown .dropdown-trigger::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #7a8daa; font-size: 10px; }
   .week-dropdown .dropdown-trigger.open { border-color: #4a7ab0; border-radius: 8px 8px 0 0; }
-  .week-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #1e2840; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 200; width: 220px; }
+  .week-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #1e2840; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 200; width: 240px; }
   .week-dropdown-menu.open { display: block; }
   .week-search { padding: 7px 10px; border-bottom: 0.5px solid #2e3d5c; }
   .week-search input { width: 100%; font-size: 11px; padding: 4px 8px; border: 1px solid #2e3d5c; border-radius: 6px; background: #1a2035; color: #c8d8f0; outline: none; }
   .week-search input:focus { border-color: #4a7ab0; }
-  .week-groups { max-height: 260px; overflow-y: auto; }
+  .week-groups { max-height: 300px; overflow-y: auto; }
   .week-groups::-webkit-scrollbar { width: 4px; }
   .week-groups::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
-  .week-year-group { }
-  .week-year-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 11px; background: #253050; font-size: 10px; color: #7dd4f0; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; }
-  .week-year-header:hover { background: #2e3d60; }
-  .week-year-header .yr-select-all { font-size: 10px; color: #4a9fd4; cursor: pointer; }
-  .week-item { display: flex; align-items: center; gap: 8px; padding: 5px 11px 5px 18px; cursor: pointer; font-size: 11px; color: #c8d8f0; }
-  .week-item:hover { background: #253050; }
-  .week-item input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
-  .week-item.hidden { display: none; }
+  /* Year level */
+  .wf-year { }
+  .wf-year-header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #1a2840; cursor: pointer; user-select: none; border-bottom: 0.5px solid #2e3d5c; }
+  .wf-year-header:hover { background: #253050; }
+  .wf-year-arrow { font-size: 9px; color: #7a8daa; width: 12px; transition: transform 0.15s; }
+  .wf-year-arrow.open { transform: rotate(90deg); }
+  .wf-year-label { font-size: 11px; font-weight: 500; color: #7dd4f0; flex: 1; }
+  .wf-year-actions { display: flex; gap: 8px; }
+  .wf-action { font-size: 10px; color: #4a9fd4; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .wf-action:hover { background: #2e3d60; }
+  .wf-year-body { display: none; }
+  .wf-year-body.open { display: block; }
+  /* Month level */
+  .wf-month { }
+  .wf-month-header { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 22px; cursor: pointer; user-select: none; border-bottom: 0.5px solid #1a2035; }
+  .wf-month-header:hover { background: #222d45; }
+  .wf-month-arrow { font-size: 9px; color: #7a8daa; width: 10px; transition: transform 0.15s; }
+  .wf-month-arrow.open { transform: rotate(90deg); }
+  .wf-month-label { font-size: 11px; color: #c8d8f0; flex: 1; }
+  .wf-month-actions { display: flex; gap: 6px; }
+  .wf-month-body { display: none; }
+  .wf-month-body.open { display: block; }
+  /* Week level */
+  .wf-week { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 34px; cursor: pointer; font-size: 11px; color: #c8d8f0; border-bottom: 0.5px solid #1a2035; }
+  .wf-week:hover { background: #222d45; }
+  .wf-week input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
+  .wf-week.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -691,32 +710,104 @@ function getRowYW(r) {
   return String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
 }
 
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// track open state
+const openYears = new Set();
+const openMonths = new Set(); // key: "yr-mon"
+
 function renderWeekGroups(filter=''){
   const container = document.getElementById('week-groups');
-  const years = {};
+
+  // Build hierarchy: year -> month -> weeks
+  const tree = {}; // {yr: {mon: [yw, ...]}}
   allWeeks.forEach(yw => {
     const yr = yw.slice(0,4);
-    if(!years[yr]) years[yr] = [];
-    years[yr].push(yw);
+    // find month from timeData
+    let mon = 0;
+    timeData.forEach(r => {
+      const pd = parseDate(r.date); if(!pd) return;
+      const ryw = String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
+      if(ryw === yw) mon = pd.m;
+    });
+    if(!mon) mon = 1;
+    if(!tree[yr]) tree[yr] = {};
+    if(!tree[yr][mon]) tree[yr][mon] = new Set();
+    tree[yr][mon].add(yw);
   });
 
-  container.innerHTML = Object.keys(years).sort().map(yr => {
-    const weeks = years[yr];
-    const items = weeks.map(yw => {
-      const label = 'CW' + yw.slice(5);
-      const hidden = filter && !label.toLowerCase().includes(filter.toLowerCase()) ? 'hidden' : '';
-      const checked = selectedWeeks.has(yw) ? 'checked' : '';
-      return `<label class="week-item ${hidden}"><input type="checkbox" ${checked} onchange="toggleWeek('${yw}', this.checked)"> ${label}</label>`;
+  const html = Object.keys(tree).sort().map(yr => {
+    const isYrOpen = openYears.has(yr) || filter;
+    const months = Object.keys(tree[yr]).sort((a,b)=>parseInt(a)-parseInt(b));
+    const monthsHtml = months.map(mon => {
+      const monKey = yr+'-'+mon;
+      const isMonOpen = openMonths.has(monKey) || filter;
+      const weeks = [...tree[yr][mon]].sort();
+      const weeksHtml = weeks.map(yw => {
+        const label = 'CW' + yw.slice(5);
+        const hidden = filter && !label.toLowerCase().includes(filter.toLowerCase()) ? 'hidden' : '';
+        const checked = selectedWeeks.has(yw) ? 'checked' : '';
+        return `<label class="wf-week ${hidden}"><input type="checkbox" ${checked} onchange="toggleWeek('${yw}', this.checked)"> ${label}</label>`;
+      }).join('');
+      const monName = MONTH_SHORT[parseInt(mon)-1];
+      return `<div class="wf-month">
+        <div class="wf-month-header" onclick="toggleMonthOpen('${monKey}')">
+          <span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span>
+          <span class="wf-month-label">${monName}</span>
+          <span class="wf-month-actions">
+            <span class="wf-action" onclick="event.stopPropagation();selectMonthWeeks('${yr}','${mon}',true)">All</span>
+            <span class="wf-action" onclick="event.stopPropagation();selectMonthWeeks('${yr}','${mon}',false)">None</span>
+          </span>
+        </div>
+        <div class="wf-month-body ${isMonOpen?'open':''}" id="mon-${monKey}">${weeksHtml}</div>
+      </div>`;
     }).join('');
-    return `<div class="week-year-group">
-      <div class="week-year-header">
-        <span>${yr}</span>
-        <span class="yr-select-all" onclick="selectYearWeeks('${yr}', true)">All</span>
-        <span class="yr-select-all" onclick="selectYearWeeks('${yr}', false)" style="margin-left:6px">None</span>
+
+    return `<div class="wf-year">
+      <div class="wf-year-header" onclick="toggleYearOpen('${yr}')">
+        <span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span>
+        <span class="wf-year-label">${yr}</span>
+        <span class="wf-year-actions">
+          <span class="wf-action" onclick="event.stopPropagation();selectYearWeeks('${yr}',true)">All</span>
+          <span class="wf-action" onclick="event.stopPropagation();selectYearWeeks('${yr}',false)">None</span>
+        </span>
       </div>
-      ${items}
+      <div class="wf-year-body ${isYrOpen?'open':''}" id="yr-${yr}">${monthsHtml}</div>
     </div>`;
   }).join('');
+
+  container.innerHTML = html;
+}
+
+function toggleYearOpen(yr){
+  if(openYears.has(yr)) openYears.delete(yr);
+  else openYears.add(yr);
+  renderWeekGroups(document.getElementById('week-search-input').value);
+}
+
+function toggleMonthOpen(monKey){
+  if(openMonths.has(monKey)) openMonths.delete(monKey);
+  else openMonths.add(monKey);
+  renderWeekGroups(document.getElementById('week-search-input').value);
+}
+
+function selectMonthWeeks(yr, mon, select){
+  allWeeks.forEach(yw => {
+    if(yw.slice(0,4) !== yr) return;
+    // check if this week belongs to month
+    let wmon = 0;
+    timeData.forEach(r => {
+      const pd = parseDate(r.date); if(!pd) return;
+      const ryw = String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
+      if(ryw === yw) wmon = pd.m;
+    });
+    if(String(wmon) === String(mon)){
+      if(select) selectedWeeks.add(yw);
+      else selectedWeeks.delete(yw);
+    }
+  });
+  renderWeekGroups(document.getElementById('week-search-input').value);
+  updateWeekTrigger();
+  renderStaff();
 }
 
 function filterWeekSearch(){
