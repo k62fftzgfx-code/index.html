@@ -565,8 +565,9 @@ function getFilters(){
 }
 
 function renderAll(){
-  if(currentTab==='operations')renderOperations();
-  else renderStaff();
+  if(currentTab==='operations') renderOperations();
+  else if(currentTab==='staff') renderStaff();
+  else if(currentTab==='inventory') renderInventory();
 }
 
 // ===================== OPERATIONS TAB =====================
@@ -802,7 +803,7 @@ function renderInventory() {
     if(!years.includes(pd.y)) return false;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
     const loc = mapAmzLoc(r.location);
-    return locs.includes(loc) || loc === 'Other';
+    return locs.includes(loc);
   });
 
   // Filter HD
@@ -811,7 +812,7 @@ function renderInventory() {
     if(!years.includes(pd.y)) return false;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
     const loc = mapHdLoc(r.location);
-    return locs.includes(loc) || loc === 'ALL' || loc === 'Other';
+    return locs.includes(loc) || loc === 'ALL';
   });
 
   // KPI totals
