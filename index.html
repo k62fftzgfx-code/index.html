@@ -154,7 +154,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('operations')">Operations</button>
   <button class="tab-btn" onclick="switchTab('staff')">Time & Staff</button>
-  <button class="tab-btn" onclick="switchTab('inventory')">Inventory</button>
+  <button class="tab-btn" onclick="switchTab('inventory')">Procurement</button>
 </div>
 
 <!-- SHARED CONTROLS -->
@@ -446,7 +446,7 @@ function switchTab(tab) {
   document.getElementById('tab-operations').classList.toggle('active', tab==='operations');
   document.getElementById('tab-staff').classList.toggle('active', tab==='staff');
   document.getElementById('tab-inventory').classList.toggle('active', tab==='inventory');
-  if (tab==='staff') renderStaff();
+  if (tab==='staff') { document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily'); renderStaff(); }
   if (tab==='operations') renderOperations();
   if (tab==='inventory') renderInventory();
 }
@@ -786,9 +786,15 @@ const CAT_COLORS = [
 ];
 
 function renderInventory() {
-  const {gran, years, locs, isDaily, dateFrom, dateTo} = getFilters();
+  const gran = document.getElementById('granularity').value;
+  const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
+  const locs = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+  const isDaily = gran === 'daily';
+  const dateFrom = isDaily ? document.getElementById('date-from').value : null;
+  const dateTo   = isDaily ? document.getElementById('date-to').value   : null;
   const isScroll = isDaily || gran === 'weekly';
   const H = getHeights();
+  document.getElementById('date-range-row').classList.toggle('visible', isDaily);
 
   // Filter Amazon
   const amzFiltered = invData.amazon.filter(r => {
@@ -922,7 +928,7 @@ function getInvBucketKey(dateStr, gran) {
   if(gran==='daily') return pd.str;
   if(gran==='monthly') return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
   if(gran==='weekly') {
-    const wk = getISOWeek ? getISOWeek(pd.dt) : getWeekNum(pd.dt);
+    const wk = typeof getISOWeek === 'function' ? getISOWeek(pd.dt) : getWeekNum(pd.dt);
     return `${pd.y}${String(wk).padStart(2,'0')}`;
   }
   return null;
@@ -939,7 +945,10 @@ function getWeekNum(dt) {
 function getInvDisplayLabel(key, gran) {
   if(gran==='weekly') return 'CW'+key.slice(4);
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
-  const p=key.split('-');return p[1]+'/'+p[2];
+  // daily: key is YYYY-MM-DD
+  const p=key.split('-');
+  if(p.length===3) return p[1]+'/'+p[2];
+  return key;
 }
 
 // ===================== STAFF TAB =====================
