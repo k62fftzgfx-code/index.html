@@ -154,6 +154,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('operations')">Operations</button>
   <button class="tab-btn" onclick="switchTab('staff')">Time & Staff</button>
+  <button class="tab-btn" onclick="switchTab('inventory')">Inventory</button>
 </div>
 
 <!-- SHARED CONTROLS -->
@@ -258,6 +259,72 @@
       </div>
     </div>
   </div>
+</div>
+
+
+<!-- ===== TAB 3: INVENTORY ===== -->
+<div class="tab-content" id="tab-inventory">
+
+  <!-- KPI row -->
+  <div class="kpi-row" style="grid-template-columns: repeat(3,1fr);">
+    <div class="kpi-card"><div class="kpi-label">Total Amazon spend</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="inv-amz-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Home Depot spend</div><div class="kpi-bar" style="background:#e06060"></div><div class="kpi-value" id="inv-hd-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total inventory spend</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="inv-total">—</div></div>
+  </div>
+
+  <!-- Amazon + HD spend over time -->
+  <div class="charts-row">
+    <div class="chart-card full">
+      <div class="card-title">Inventory spend over time (Amazon + Home Depot)</div>
+      <div class="chart-scroll-wrap" id="inv-scroll1">
+        <canvas id="invTimeChart" role="img" aria-label="Inventory spend over time"></canvas>
+      </div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Amazon</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e06060"></span>Home Depot</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Amazon by category + HD by location -->
+  <div class="charts-row">
+    <div class="chart-card main">
+      <div class="card-title">Amazon spend by category</div>
+      <div style="position:relative; width:100%; height:300px;">
+        <canvas id="invCatChart" role="img" aria-label="Amazon by category"></canvas>
+      </div>
+    </div>
+    <div class="chart-card donut">
+      <div class="card-title">Amazon categories share</div>
+      <div style="position:relative; width:100%; height:240px;">
+        <canvas id="invCatDonut" role="img" aria-label="Amazon categories donut"></canvas>
+      </div>
+      <div class="donut-legend" id="inv-cat-legend"></div>
+    </div>
+  </div>
+
+  <!-- Spend by location table -->
+  <div class="charts-row">
+    <div class="chart-card half">
+      <div class="card-title">Amazon spend by location</div>
+      <div class="table-scroll">
+        <table class="staff-table">
+          <thead><tr><th>Location</th><th class="right">Spend ($)</th><th class="right">Orders</th></tr></thead>
+          <tbody id="inv-amz-loc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="chart-card half">
+      <div class="card-title">Home Depot spend by location</div>
+      <div class="table-scroll">
+        <table class="staff-table">
+          <thead><tr><th>Location</th><th class="right">Spend ($)</th><th class="right">Transactions</th></tr></thead>
+          <tbody id="inv-hd-loc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ===== TAB 2: TIME & STAFF ===== -->
@@ -375,11 +442,13 @@ let currentTab = 'operations';
 
 function switchTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')));
   document.getElementById('tab-operations').classList.toggle('active', tab==='operations');
   document.getElementById('tab-staff').classList.toggle('active', tab==='staff');
+  document.getElementById('tab-inventory').classList.toggle('active', tab==='inventory');
   if (tab==='staff') renderStaff();
   if (tab==='operations') renderOperations();
+  if (tab==='inventory') renderInventory();
 }
 
 function toggleThresholdPanel() {
@@ -672,6 +741,207 @@ function renderOperations(){
   });
 }
 
+
+// ===================== INVENTORY TAB =====================
+
+let invData = { amazon: [], hd: [] };
+let invTimeInst = null, invCatInst = null, invCatDonutInst = null;
+
+// Amazon PO Number -> location key
+const AMZ_LOC_MAP = {
+  'wh markham':       'Markham, IL',
+  'wh colorado':      'Denver, CO',
+  'wh stockton':      'Stockton, CA',
+  'wh reno':          'Reno, NV',
+  'wh columbus':      'Columbus, OH',
+  'wh collumbus':     'Columbus, OH',
+  'wh fontana':       'San Bernardino, CA',
+  'wh san bernardino':'San Bernardino, CA',
+  'wh greenville':    'Greenville, SC'
+};
+
+// Home Depot Job Name -> location key
+const HD_LOC_MAP = {
+  'wh markham':       'Markham, IL',
+  'wh stockton':      'Stockton, CA',
+  'wh reno':          'Reno, NV',
+  'wh san bernandino':'San Bernardino, CA',
+  'wh denver':        'Denver, CO',
+  'wh greenville':    'Greenville, SC',
+  'wh columbus':      'Columbus, OH',
+  'all':              'ALL'
+};
+
+function mapAmzLoc(po) {
+  return AMZ_LOC_MAP[String(po||'').toLowerCase().trim()] || 'Other';
+}
+function mapHdLoc(job) {
+  return HD_LOC_MAP[String(job||'').toLowerCase().trim()] || 'Other';
+}
+
+const CAT_COLORS = [
+  '#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0',
+  '#a07dd4','#d4c06a','#5bbf8a','#d47a4a','#8ab0d4',
+  '#c8d8f0','#f0d050','#d4506a','#50d4a0','#d49050'
+];
+
+function renderInventory() {
+  const {gran, years, locs, isDaily, dateFrom, dateTo} = getFilters();
+  const isScroll = isDaily || gran === 'weekly';
+  const H = getHeights();
+
+  // Filter Amazon
+  const amzFiltered = invData.amazon.filter(r => {
+    const pd = parseDate(r.date); if(!pd) return false;
+    if(!years.includes(pd.y)) return false;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
+    const loc = mapAmzLoc(r.location);
+    return locs.includes(loc) || loc === 'Other';
+  });
+
+  // Filter HD
+  const hdFiltered = invData.hd.filter(r => {
+    const pd = parseDate(r.date); if(!pd) return false;
+    if(!years.includes(pd.y)) return false;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
+    const loc = mapHdLoc(r.location);
+    return locs.includes(loc) || loc === 'ALL' || loc === 'Other';
+  });
+
+  // KPI totals
+  const amzTotal = amzFiltered.reduce((s,r)=>s+r.netTotal,0);
+  const hdTotal  = hdFiltered.reduce((s,r)=>s+r.total,0);
+  document.getElementById('inv-amz-total').textContent = '$'+amzTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('inv-hd-total').textContent  = '$'+hdTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('inv-total').textContent     = '$'+(amzTotal+hdTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // Group by time bucket
+  const amzBuckets = {}, hdBuckets = {};
+  amzFiltered.forEach(r => {
+    const key = getInvBucketKey(r.date, gran); if(!key) return;
+    amzBuckets[key] = (amzBuckets[key]||0) + r.netTotal;
+  });
+  hdFiltered.forEach(r => {
+    const key = getInvBucketKey(r.date, gran); if(!key) return;
+    hdBuckets[key] = (hdBuckets[key]||0) + r.total;
+  });
+
+  const allKeys = [...new Set([...Object.keys(amzBuckets),...Object.keys(hdBuckets)])].sort();
+  const dispLabels = allKeys.map(k => getInvDisplayLabel(k, gran));
+
+  // Chart 1: Time series
+  const c1 = document.getElementById('invTimeChart');
+  const sw1 = document.getElementById('inv-scroll1');
+  resizeCanvas(c1, sw1, allKeys.length, isScroll, H.h1);
+  if(invTimeInst){invTimeInst.destroy();invTimeInst=null;}
+  invTimeInst = new Chart(c1, {
+    type: 'bar',
+    data: {labels: dispLabels, datasets: [
+      {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
+       backgroundColor:'#f0a050cc', borderColor:'#f0a050', borderWidth:0, borderRadius:3, stack:'s'},
+      {label:'Home Depot', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
+       backgroundColor:'#e06060cc', borderColor:'#e06060', borderWidth:0, borderRadius:3, stack:'s'}
+    ]},
+    options:{responsive:false,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:28,right:14,left:6,bottom:6}},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+        callbacks:{label:ctx=>` ${ctx.dataset.label}: $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`}}},
+      scales:{
+        x:{stacked:true,ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
+        y:{stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':'$'+v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}}
+      }},
+    plugins:[{id:'totals',afterDatasetsDraw(chart){
+      const{ctx}=chart;
+      const ds0=chart.getDatasetMeta(0), ds1=chart.getDatasetMeta(1);
+      ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
+      allKeys.forEach((_,i)=>{
+        const v=(amzBuckets[allKeys[i]]||0)+(hdBuckets[allKeys[i]]||0);
+        if(!v)return;
+        const b0=ds0.data[i], b1=ds1.data[i];
+        const topBar = b1?.y !== undefined ? b1 : b0;
+        if(topBar?.y !== undefined) ctx.fillText('$'+(v>=1000?(v/1000).toFixed(1)+'K':v.toFixed(0)),topBar.x,topBar.y-3);
+      });
+      ctx.restore();
+    }}]
+  });
+
+  // Chart 2: Amazon by category (horizontal bar)
+  const catTotals = {};
+  amzFiltered.forEach(r => {
+    const cat = r.category || 'Other';
+    catTotals[cat] = (catTotals[cat]||0) + r.netTotal;
+  });
+  const catSorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const catLabels = catSorted.map(([k])=>k.length>25?k.slice(0,25)+'…':k);
+  const catVals   = catSorted.map(([,v])=>parseFloat(v.toFixed(2)));
+
+  if(invCatInst){invCatInst.destroy();invCatInst=null;}
+  invCatInst = new Chart(document.getElementById('invCatChart'), {
+    type:'bar',
+    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'cc'),borderColor:CAT_COLORS.slice(0,catLabels.length),borderWidth:0,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+        callbacks:{label:ctx=>` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`}}},
+      scales:{
+        x:{ticks:{color:'#8a9dba',font:{size:10},callback:v=>'$'+(v>=1000?(v/1000).toFixed(0)+'K':v)},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},
+        y:{ticks:{color:'#c8d8f0',font:{size:10}},grid:{display:false},border:{color:'transparent'}}
+      }}
+  });
+
+  // Chart 3: Amazon categories donut
+  const totalCat = catVals.reduce((a,b)=>a+b,0);
+  if(invCatDonutInst){invCatDonutInst.destroy();invCatDonutInst=null;}
+  invCatDonutInst = new Chart(document.getElementById('invCatDonut'), {
+    type:'doughnut',
+    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+        callbacks:{label:ctx=>{const pct=totalCat>0?((ctx.raw/totalCat)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
+    }
+  });
+  document.getElementById('inv-cat-legend').innerHTML = catSorted.slice(0,8).map(([cat,val],i)=>{
+    const pct = totalCat>0?((val/totalCat)*100).toFixed(1):'0';
+    const lbl = cat.length>20?cat.slice(0,20)+'…':cat;
+    return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]}"></span>${lbl}: ${pct}%</span>`;
+  }).join('');
+
+  // Tables: by location
+  const amzByLoc = {}, hdByLoc = {};
+  amzFiltered.forEach(r=>{ const l=mapAmzLoc(r.location); if(!amzByLoc[l])amzByLoc[l]={spend:0,orders:new Set()}; amzByLoc[l].spend+=r.netTotal; amzByLoc[l].orders.add(r.orderId); });
+  hdFiltered.forEach(r=>{ const l=mapHdLoc(r.location); if(!hdByLoc[l])hdByLoc[l]={spend:0,txns:0}; hdByLoc[l].spend+=r.total; hdByLoc[l].txns++; });
+
+  document.getElementById('inv-amz-loc-tbody').innerHTML = Object.entries(amzByLoc).sort((a,b)=>b[1].spend-a[1].spend)
+    .map(([loc,d])=>`<tr><td>${loc}</td><td class="right">$${d.spend.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="right">${d.orders.size}</td></tr>`).join('');
+  document.getElementById('inv-hd-loc-tbody').innerHTML = Object.entries(hdByLoc).sort((a,b)=>b[1].spend-a[1].spend)
+    .map(([loc,d])=>`<tr><td>${loc}</td><td class="right">$${d.spend.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="right">${d.txns}</td></tr>`).join('');
+}
+
+function getInvBucketKey(dateStr, gran) {
+  const pd = parseDate(dateStr); if(!pd) return null;
+  if(gran==='daily') return pd.str;
+  if(gran==='monthly') return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
+  if(gran==='weekly') {
+    const wk = getISOWeek ? getISOWeek(pd.dt) : getWeekNum(pd.dt);
+    return `${pd.y}${String(wk).padStart(2,'0')}`;
+  }
+  return null;
+}
+
+function getWeekNum(dt) {
+  const d = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
+function getInvDisplayLabel(key, gran) {
+  if(gran==='weekly') return 'CW'+key.slice(4);
+  if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
+  const p=key.split('-');return p[1]+'/'+p[2];
+}
+
 // ===================== STAFF TAB =====================
 
 let allWeeks = []; // all available CW keys from time data
@@ -781,19 +1051,25 @@ function renderWeekGroups(filter=''){
 function toggleYearOpen(yr){
   if(openYears.has(yr)) openYears.delete(yr);
   else openYears.add(yr);
-  renderWeekGroups(document.getElementById('week-search-input').value);
+  // toggle body visibility directly without full re-render
+  const body = document.getElementById('yr-'+yr);
+  const arrow = body?.previousElementSibling?.querySelector('.wf-year-arrow');
+  if(body){ body.classList.toggle('open', openYears.has(yr)); }
+  if(arrow){ arrow.classList.toggle('open', openYears.has(yr)); }
 }
 
 function toggleMonthOpen(monKey){
   if(openMonths.has(monKey)) openMonths.delete(monKey);
   else openMonths.add(monKey);
-  renderWeekGroups(document.getElementById('week-search-input').value);
+  const body = document.getElementById('mon-'+monKey);
+  const arrow = body?.previousElementSibling?.querySelector('.wf-month-arrow');
+  if(body){ body.classList.toggle('open', openMonths.has(monKey)); }
+  if(arrow){ arrow.classList.toggle('open', openMonths.has(monKey)); }
 }
 
 function selectMonthWeeks(yr, mon, select){
   allWeeks.forEach(yw => {
     if(yw.slice(0,4) !== yr) return;
-    // check if this week belongs to month
     let wmon = 0;
     timeData.forEach(r => {
       const pd = parseDate(r.date); if(!pd) return;
@@ -803,9 +1079,11 @@ function selectMonthWeeks(yr, mon, select){
     if(String(wmon) === String(mon)){
       if(select) selectedWeeks.add(yw);
       else selectedWeeks.delete(yw);
+      // update checkbox in DOM directly
+      const cb = document.querySelector(`input[onchange="toggleWeek('${yw}', this.checked)"]`);
+      if(cb) cb.checked = select;
     }
   });
-  renderWeekGroups(document.getElementById('week-search-input').value);
   updateWeekTrigger();
   renderStaff();
 }
@@ -820,21 +1098,26 @@ function toggleWeek(yw, checked){
   else selectedWeeks.delete(yw);
   updateWeekTrigger();
   renderStaff();
+  // keep dropdown open - do NOT re-render groups (would reset DOM)
 }
 
 function selectYearWeeks(yr, select){
   allWeeks.filter(yw=>yw.startsWith(yr)).forEach(yw => {
     if(select) selectedWeeks.add(yw);
     else selectedWeeks.delete(yw);
+    const cb = document.querySelector(`input[onchange="toggleWeek('${yw}', this.checked)"]`);
+    if(cb) cb.checked = select;
   });
-  renderWeekGroups(document.getElementById('week-search-input').value);
   updateWeekTrigger();
   renderStaff();
 }
 
 function selectAllWeeks(){
   selectedWeeks = new Set(allWeeks);
-  renderWeekGroups('');
+  allWeeks.forEach(yw => {
+    const cb = document.querySelector(`input[onchange="toggleWeek('${yw}', this.checked)"]`);
+    if(cb) cb.checked = true;
+  });
   document.getElementById('week-search-input').value = '';
   updateWeekTrigger();
   renderStaff();
@@ -966,11 +1249,13 @@ async function loadData(){
     if(json.sheets){Object.entries(json.sheets).forEach(([loc,rows])=>{rows.forEach(r=>{r._location=loc;rawData.push(r);});});}
     else if(json.data){rawData=json.data;}
     timeData=json.time||[];
+    invData.amazon=json.amazon||[];
+    invData.hd=json.hd||[];
     const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
     if(dates.length){document.getElementById('date-from').value=dates[0];document.getElementById('date-to').value=dates[dates.length-1];}
     buildWeekFilter();
     st.className='status ok';
-    st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time rows · Updated: ${new Date().toLocaleTimeString()}`;
+    st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time + ${invData.amazon.length} amz + ${invData.hd.length} hd · Updated: ${new Date().toLocaleTimeString()}`;
     renderAll();
   }catch(e){st.className='status err';st.textContent='✗ Error: '+e.message;}
 }
