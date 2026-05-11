@@ -280,7 +280,8 @@
       </div>
       <div class="legend">
         <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Amazon</span>
-        <span class="leg-item"><span class="leg-box" style="background:#e06060"></span>Home Depot</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e06060cc"></span>Home Depot (direct)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e0606055;border:1px solid #e06060"></span>Home Depot (shared/ALL)</span>
       </div>
     </div>
   </div>
@@ -768,15 +769,16 @@ const HD_LOC_MAP = {
   'wh san bernandino':'San Bernardino, CA',
   'wh denver':        'Denver, CO',
   'wh greenville':    'Greenville, SC',
-  'wh columbus':      'Columbus, OH',
-  'all':              'ALL'
+  'wh columbus':      'Columbus, OH'
 };
 
 function mapAmzLoc(po) {
   return AMZ_LOC_MAP[String(po||'').toLowerCase().trim()] || 'Other';
 }
 function mapHdLoc(job) {
-  return HD_LOC_MAP[String(job||'').toLowerCase().trim()] || 'Other';
+  const key = String(job||'').toLowerCase().trim();
+  if(key === 'all') return '__ALL__';
+  return HD_LOC_MAP[key] || 'Other';
 }
 
 const CAT_COLORS = [
@@ -805,13 +807,27 @@ function renderInventory() {
     return locs.includes(loc);
   });
 
-  // Filter HD
-  const hdFiltered = invData.hd.filter(r => {
+  // Filter HD - split ALL rows across selected locations
+  const hdFilteredRaw = invData.hd.filter(r => {
     const pd = parseDate(r.date); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
     const loc = mapHdLoc(r.location);
-    return locs.includes(loc) || loc === 'ALL';
+    return locs.includes(loc) || loc === '__ALL__';
+  });
+  // Expand ALL rows into per-location rows
+  const hdFiltered = [];
+  const activeLocs = locs.filter(l => l !== 'Greenville, SC' || locs.includes('Greenville, SC'));
+  hdFilteredRaw.forEach(r => {
+    const loc = mapHdLoc(r.location);
+    if(loc === '__ALL__') {
+      // distribute equally across selected locs
+      const share = r.total / locs.length;
+      const sharePre = r.preTax / locs.length;
+      locs.forEach(l => hdFiltered.push({...r, location: l, total: share, preTax: sharePre, _isShared: true}));
+    } else {
+      hdFiltered.push({...r, location: loc, _isShared: false});
+    }
   });
 
   // KPI totals
@@ -827,12 +843,17 @@ function renderInventory() {
     const key = getInvBucketKey(r.date, gran); if(!key) return;
     amzBuckets[key] = (amzBuckets[key]||0) + r.netTotal;
   });
+  const hdSharedBuckets = {};
   hdFiltered.forEach(r => {
     const key = getInvBucketKey(r.date, gran); if(!key) return;
-    hdBuckets[key] = (hdBuckets[key]||0) + r.total;
+    if(r._isShared) {
+      hdSharedBuckets[key] = (hdSharedBuckets[key]||0) + r.total;
+    } else {
+      hdBuckets[key] = (hdBuckets[key]||0) + r.total;
+    }
   });
 
-  const allKeys = [...new Set([...Object.keys(amzBuckets),...Object.keys(hdBuckets)])].sort();
+  const allKeys = [...new Set([...Object.keys(amzBuckets),...Object.keys(hdBuckets),...Object.keys(hdSharedBuckets)])].sort();
   const dispLabels = allKeys.map(k => getInvDisplayLabel(k, gran));
 
   // Chart 1: Time series
@@ -845,8 +866,11 @@ function renderInventory() {
     data: {labels: dispLabels, datasets: [
       {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
        backgroundColor:'#f0a050cc', borderColor:'#f0a050', borderWidth:0, borderRadius:3, stack:'s'},
-      {label:'Home Depot', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e06060cc', borderColor:'#e06060', borderWidth:0, borderRadius:3, stack:'s'}
+      {label:'Home Depot (direct)', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
+       backgroundColor:'#e06060cc', borderColor:'#e06060', borderWidth:0, borderRadius:3, stack:'s'},
+      {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
+       backgroundColor:'#e0606055', borderColor:'#e06060', borderWidth:1, borderRadius:3, stack:'s',
+       borderDash:[4,4]}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
@@ -862,7 +886,7 @@ function renderInventory() {
       const ds0=chart.getDatasetMeta(0), ds1=chart.getDatasetMeta(1);
       ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
       allKeys.forEach((_,i)=>{
-        const v=(amzBuckets[allKeys[i]]||0)+(hdBuckets[allKeys[i]]||0);
+        const v=(amzBuckets[allKeys[i]]||0)+(hdBuckets[allKeys[i]]||0)+(hdSharedBuckets[allKeys[i]]||0);
         if(!v)return;
         const b0=ds0.data[i], b1=ds1.data[i];
         const topBar = b1?.y !== undefined ? b1 : b0;
@@ -915,12 +939,22 @@ function renderInventory() {
   // Tables: by location
   const amzByLoc = {}, hdByLoc = {};
   amzFiltered.forEach(r=>{ const l=mapAmzLoc(r.location); if(!amzByLoc[l])amzByLoc[l]={spend:0,orders:new Set()}; amzByLoc[l].spend+=r.netTotal; amzByLoc[l].orders.add(r.orderId); });
-  hdFiltered.forEach(r=>{ const l=mapHdLoc(r.location); if(!hdByLoc[l])hdByLoc[l]={spend:0,txns:0}; hdByLoc[l].spend+=r.total; hdByLoc[l].txns++; });
+  hdFiltered.forEach(r=>{ 
+    const l = r.location || mapHdLoc(r.location);
+    if(!hdByLoc[l]) hdByLoc[l]={spend:0,direct:0,shared:0,txns:0};
+    hdByLoc[l].spend += r.total;
+    if(r._isShared) hdByLoc[l].shared += r.total;
+    else hdByLoc[l].direct += r.total;
+    hdByLoc[l].txns++;
+  });
 
   document.getElementById('inv-amz-loc-tbody').innerHTML = Object.entries(amzByLoc).sort((a,b)=>b[1].spend-a[1].spend)
     .map(([loc,d])=>`<tr><td>${loc}</td><td class="right">$${d.spend.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="right">${d.orders.size}</td></tr>`).join('');
   document.getElementById('inv-hd-loc-tbody').innerHTML = Object.entries(hdByLoc).sort((a,b)=>b[1].spend-a[1].spend)
-    .map(([loc,d])=>`<tr><td>${loc}</td><td class="right">$${d.spend.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="right">${d.txns}</td></tr>`).join('');
+    .map(([loc,d])=>{
+      const sharedStr = d.shared > 0 ? `<span style="color:#7a8daa;font-size:10px;margin-left:4px">(+$${d.shared.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} shared)</span>` : '';
+      return `<tr><td>${loc}</td><td class="right">$${d.direct.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${sharedStr}</td><td class="right">${d.txns}</td></tr>`;
+    }).join('');
 }
 
 function getInvBucketKey(dateStr, gran) {
