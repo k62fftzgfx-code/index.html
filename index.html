@@ -292,24 +292,24 @@
   <div class="charts-row">
     <div class="chart-card" style="flex:1; min-width:240px;">
       <div class="card-title">Amazon by location</div>
-      <div style="position:relative; width:100%; height:220px;">
+      <div style="position:relative; width:100%; height:240px;">
         <canvas id="invAmzLocDonut"></canvas>
       </div>
-      <div class="donut-legend" id="inv-amz-loc-legend"></div>
+      <div class="donut-legend" id="inv-amz-loc-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
     </div>
     <div class="chart-card" style="flex:1; min-width:240px;">
       <div class="card-title">Home Depot by location</div>
-      <div style="position:relative; width:100%; height:220px;">
+      <div style="position:relative; width:100%; height:240px;">
         <canvas id="invHdLocDonut"></canvas>
       </div>
-      <div class="donut-legend" id="inv-hd-loc-legend"></div>
+      <div class="donut-legend" id="inv-hd-loc-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
     </div>
     <div class="chart-card" style="flex:1; min-width:240px;">
       <div class="card-title">Amazon by family</div>
-      <div style="position:relative; width:100%; height:220px;">
+      <div style="position:relative; width:100%; height:240px;">
         <canvas id="invCatDonut"></canvas>
       </div>
-      <div class="donut-legend" id="inv-cat-legend"></div>
+      <div class="donut-legend" id="inv-cat-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
     </div>
   </div>
 
@@ -686,7 +686,7 @@ function renderOperations(){
   donutInst=new Chart(document.getElementById('donutChart'),{
     type:'doughnut',
     data:{labels:DIR_LABELS,datasets:[{data:dTot,backgroundColor:DIR_COLORS.map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:3,hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{const v=ctx.raw,pct=gTot>0?((v/gTot)*100).toFixed(2):'0';return` ${v>=1000?(v/1000).toFixed(1)+'K':v} (${pct}%)`; }}}}},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{const v=ctx.raw,pct=gTot>0?((v/gTot)*100).toFixed(2):'0';return` ${v>=1000?(v/1000).toFixed(1)+'K':v} (${pct}%)`; }}}}},
     plugins:[{id:'dl',afterDraw(chart){
       const{ctx,chartArea:{width,height,left,top}}=chart;
       const cx=left+width/2,cy=top+height/2,meta=chart.getDatasetMeta(0);
@@ -919,7 +919,7 @@ function renderInventory() {
   window.invAmzLocInst = new Chart(document.getElementById('invAmzLocDonut'), {
     type:'doughnut',
     data:{labels:amzLocLabels,datasets:[{data:amzLocVals,backgroundColor:CAT_COLORS.slice(0,amzLocLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=amzLocTotal>0?((ctx.raw/amzLocTotal)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
     }
@@ -951,7 +951,7 @@ function renderInventory() {
   window.invHdLocInst = new Chart(document.getElementById('invHdLocDonut'), {
     type:'doughnut',
     data:{labels:hdLocLabels,datasets:[{data:hdLocVals,backgroundColor:hdLocColors,borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=hdLocTotal>0?((ctx.raw/hdLocTotal)*100).toFixed(1):'0';const isShared=hdByLocShared[hdLocSorted[ctx.dataIndex]?.[0]]>0;return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)${isShared?' ~shared':''}`;}}}}
     }
@@ -978,7 +978,7 @@ function renderInventory() {
   invCatDonutInst = new Chart(document.getElementById('invCatDonut'), {
     type:'doughnut',
     data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=totalCat>0?((ctx.raw/totalCat)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
     }
@@ -1362,7 +1362,7 @@ function renderStaff(){
   window.locHoursDonutInst = new Chart(document.getElementById('locHoursDonut'),{
     type:'doughnut',
     data:{labels:locHoursLabels,datasets:[{data:locHoursVals,backgroundColor:LOC_COLORS.slice(0,locHoursLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=locHoursTotal>0?((ctx.raw/locHoursTotal)*100).toFixed(1):'0';return` ${ctx.raw}h (${pct}%)`;}}}}
     }
