@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Warehouse Operations Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a2035; color: #e0e6f0; padding: 16px; min-height: 100vh; }
@@ -103,6 +104,10 @@
   .table-scroll { max-height: 320px; overflow-y: auto; }
   .table-scroll::-webkit-scrollbar { width: 4px; }
   .table-scroll::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
+  .map-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #2e3d5c; background: #1a2035; color: #7a8daa; cursor: pointer; transition: all 0.15s; }
+  .map-btn.active { background: #253050; border-color: #4a7ab0; color: #c8d8f0; }
+  .map-btn:hover { color: #c8d8f0; }
+  .map-tooltip { position:absolute; pointer-events:none; background:#1a2540; border:1px solid #3a5080; border-radius:8px; padding:10px 14px; font-size:11px; color:#c8d8f0; line-height:1.8; z-index:100; display:none; min-width:160px; }
 
   /* Week filter dropdown */
   .week-dropdown { position: relative; min-width: 160px; }
@@ -288,21 +293,19 @@
     </div>
   </div>
 
-  <!-- 3 Donuts: Amazon by loc, HD by loc, Amazon by family -->
+  <!-- Map + Amazon by family -->
   <div class="charts-row">
-    <div class="chart-card" style="flex:1; min-width:240px;">
-      <div class="card-title">Amazon by location</div>
-      <div style="position:relative; width:100%; height:240px;">
-        <canvas id="invAmzLocDonut"></canvas>
+    <div class="chart-card" style="flex:2; min-width:400px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Spend by location</div>
+        <div style="display:flex;gap:6px;">
+          <button class="map-btn active" id="map-btn-amz" onclick="setMapMode('amazon')">Amazon</button>
+          <button class="map-btn" id="map-btn-hd" onclick="setMapMode('hd')">Home Depot</button>
+          <button class="map-btn" id="map-btn-both" onclick="setMapMode('both')">Both</button>
+        </div>
       </div>
-      <div class="donut-legend" id="inv-amz-loc-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
-    </div>
-    <div class="chart-card" style="flex:1; min-width:240px;">
-      <div class="card-title">Home Depot by location</div>
-      <div style="position:relative; width:100%; height:240px;">
-        <canvas id="invHdLocDonut"></canvas>
-      </div>
-      <div class="donut-legend" id="inv-hd-loc-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
+      <div id="inv-map-wrap" style="position:relative;width:100%;height:320px;"></div>
+      <div id="inv-map-legend" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px 8px;margin-top:8px;"></div>
     </div>
     <div class="chart-card" style="flex:1; min-width:240px;">
       <div class="card-title">Amazon by family</div>
@@ -746,6 +749,178 @@ function renderOperations(){
 }
 
 
+
+// ===================== MAP =====================
+let currentMapMode = 'amazon';
+
+const LOC_COORDS = {
+  'Markham, IL':        { lat: 41.59, lng: -87.67 },
+  'Reno, NV':          { lat: 39.53, lng: -119.81 },
+  'Stockton, CA':      { lat: 37.96, lng: -121.29 },
+  'San Bernardino, CA':{ lat: 34.10, lng: -117.29 },
+  'Denver, CO':        { lat: 39.74, lng: -104.98 },
+  'Columbus, OH':      { lat: 39.96, lng: -82.99 },
+  'Greenville, SC':    { lat: 34.85, lng: -82.39 }
+};
+
+// US map projection bounds
+const US_BOUNDS = { minLng:-124.8, maxLng:-66.9, minLat:24.4, maxLat:49.4 };
+
+function setMapMode(mode) {
+  currentMapMode = mode;
+  document.querySelectorAll('.map-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('map-btn-'+mode).classList.add('active');
+  renderMap();
+}
+
+function lngToX(lng, w) {
+  return (lng - US_BOUNDS.minLng) / (US_BOUNDS.maxLng - US_BOUNDS.minLng) * w;
+}
+function latToY(lat, h) {
+  return (1 - (lat - US_BOUNDS.minLat) / (US_BOUNDS.maxLat - US_BOUNDS.minLat)) * h;
+}
+
+function renderMap() {
+  const wrap = document.getElementById('inv-map-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const W = wrap.clientWidth || 500;
+  const H = 320;
+
+  // Build location data
+  const locData = {};
+  Object.keys(LOC_COORDS).forEach(loc => {
+    locData[loc] = { amz: 0, hd: 0, hdShared: 0 };
+  });
+
+  // Amazon
+  invData.amazon.filter(r => {
+    const pd = parseDate(r.date); if(!pd) return false;
+    const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
+    return years.includes(pd.y);
+  }).forEach(r => {
+    const loc = mapAmzLoc(r.location||'');
+    if(locData[loc]) locData[loc].amz += parseFloat(r.netTotal||0);
+  });
+
+  // HD
+  invData.hd.filter(r => {
+    const pd = parseDate(r.date); if(!pd) return false;
+    const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
+    return years.includes(pd.y);
+  }).forEach(r => {
+    const loc = mapHdLoc(r.location||'');
+    if(loc === '__ALL__') {
+      const locs = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+      const share = parseFloat(r.total||0) / locs.length;
+      locs.forEach(l => { if(locData[l]) { locData[l].hd += share; locData[l].hdShared += share; } });
+    } else if(locData[loc]) {
+      locData[loc].hd += parseFloat(r.total||0);
+    }
+  });
+
+  // Get value by mode
+  const getValue = (d) => {
+    if(currentMapMode === 'amazon') return d.amz;
+    if(currentMapMode === 'hd') return d.hd;
+    return d.amz + d.hd;
+  };
+
+  const maxVal = Math.max(...Object.values(locData).map(getValue), 1);
+  const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a'];
+  const locKeys = Object.keys(LOC_COORDS);
+  const totalVal = Object.values(locData).reduce((s,d)=>s+getValue(d),0);
+
+  // Create SVG
+  const svg = d3.select(wrap).append('svg')
+    .attr('width', W).attr('height', H)
+    .style('background', 'transparent');
+
+  // Draw simple US state outlines using path
+  // Draw grid lines for reference
+  svg.append('rect').attr('width',W).attr('height',H)
+    .attr('rx',8).attr('fill','#1a2840').attr('opacity',0.3);
+
+  // Draw simple US boundary as path
+  const usPath = [
+    [-124.8,48.4],[-124.8,24.4],[-80,24.4],[-80,25.5],[-81.5,30],
+    [-81,31],[-81.5,32],[-80.5,32.5],[-75.5,35.5],[-75.5,37],
+    [-74,38],[-71.5,41.5],[-70,42],[-67,47],[-67.5,47.5],
+    [-69.5,47.5],[-70.5,48.5],[-72,49],[-95,49],[-110,49],[-124.8,49],[-124.8,48.4]
+  ];
+
+  const pathStr = usPath.map((p,i) => {
+    const x = lngToX(p[0], W);
+    const y = latToY(p[1], H);
+    return (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ') + ' Z';
+
+  svg.append('path').attr('d', pathStr)
+    .attr('fill', '#1e2840').attr('stroke', '#2e3d5c').attr('stroke-width', 1.5);
+
+  // Tooltip
+  const tooltip = d3.select(wrap).append('div').attr('class','map-tooltip');
+
+  // Draw location circles
+  locKeys.forEach((loc, i) => {
+    const coords = LOC_COORDS[loc];
+    const d = locData[loc];
+    const val = getValue(d);
+    const cx = lngToX(coords.lng, W);
+    const cy = latToY(coords.lat, H);
+    const r = val > 0 ? Math.max(10, Math.min(40, (val/maxVal)*40)) : 8;
+    const color = LOC_COLORS_MAP[i];
+    const pct = totalVal > 0 ? ((val/totalVal)*100).toFixed(1) : '0';
+    const abbr = LOC_ABBR[loc]||loc;
+
+    // Circle
+    svg.append('circle')
+      .attr('cx', cx).attr('cy', cy).attr('r', r)
+      .attr('fill', color+'bb').attr('stroke', color).attr('stroke-width', 1.5)
+      .style('cursor','pointer')
+      .on('mouseover', function(event) {
+        d3.select(this).attr('r', r+4).attr('fill', color+'ee');
+        const amzPct = totalVal>0?((d.amz/(Object.values(locData).reduce((s,x)=>s+x.amz,1)))*100).toFixed(1):'0';
+        const hdPct  = totalVal>0?((d.hd/(Object.values(locData).reduce((s,x)=>s+x.hd,1)))*100).toFixed(1):'0';
+        tooltip.style('display','block')
+          .style('left',(cx+r+8)+'px').style('top',(cy-40)+'px')
+          .html(`<strong>${loc}</strong><br>Amazon: $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>Home Depot: $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)${d.hdShared>0?'<br><span style=\'color:#7a8daa;font-size:10px\'>incl. shared: $'+d.hdShared.toFixed(2)+'</span>':''}`);
+      })
+      .on('mouseout', function() {
+        d3.select(this).attr('r', r).attr('fill', color+'bb');
+        tooltip.style('display','none');
+      });
+
+    // Label
+    svg.append('text')
+      .attr('x', cx).attr('y', cy + r + 13)
+      .attr('text-anchor','middle').attr('font-size','10px')
+      .attr('fill','#c8d8f0').attr('font-family','-apple-system,sans-serif')
+      .text(abbr);
+
+    // Value inside circle if big enough
+    if(r >= 16) {
+      svg.append('text')
+        .attr('x', cx).attr('y', cy+1)
+        .attr('text-anchor','middle').attr('dominant-baseline','middle')
+        .attr('font-size','9px').attr('font-weight','bold')
+        .attr('fill','#fff').attr('font-family','-apple-system,sans-serif')
+        .text(val>=1000?(val/1000).toFixed(0)+'K':'$'+val.toFixed(0));
+    }
+  });
+
+  // Legend
+  const legend = document.getElementById('inv-map-legend');
+  if(legend) {
+    legend.innerHTML = locKeys.map((loc,i) => {
+      const val = getValue(locData[loc]);
+      const pct = totalVal>0?((val/totalVal)*100).toFixed(1):'0';
+      return `<span class="dl-item"><span class="dl-box" style="background:${LOC_COLORS_MAP[i]}"></span>${LOC_ABBR[loc]||loc}: $${val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)</span>`;
+    }).join('');
+  }
+}
+
 // ===================== INVENTORY TAB =====================
 
 let invData = { amazon: [], hd: [] };
@@ -902,67 +1077,10 @@ function renderInventory() {
     }}]
   });
 
-  // Chart 2: Amazon by location donut
-  const amzByLocTotals = {};
-  amzFiltered.forEach(r => {
-    const loc = mapAmzLoc(r['PO Number'] || r.location || '');
-    const val = parseFloat(r['Item Net Total'] || r.netTotal || 0);
-    if(!amzByLocTotals[loc]) amzByLocTotals[loc] = 0;
-    amzByLocTotals[loc] += val;
-  });
-  const amzLocSorted = Object.entries(amzByLocTotals).sort((a,b)=>b[1]-a[1]);
-  const amzLocLabels = amzLocSorted.map(([k])=>k);
-  const amzLocVals   = amzLocSorted.map(([,v])=>parseFloat(v.toFixed(2)));
-  const amzLocTotal  = amzLocVals.reduce((a,b)=>a+b,0);
+  // Render map
+  renderMap();
 
-  if(window.invAmzLocInst){window.invAmzLocInst.destroy();}
-  window.invAmzLocInst = new Chart(document.getElementById('invAmzLocDonut'), {
-    type:'doughnut',
-    data:{labels:amzLocLabels,datasets:[{data:amzLocVals,backgroundColor:CAT_COLORS.slice(0,amzLocLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
-      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
-        callbacks:{label:ctx=>{const pct=amzLocTotal>0?((ctx.raw/amzLocTotal)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
-    }
-  });
-  document.getElementById('inv-amz-loc-legend').innerHTML = amzLocSorted.map(([loc,val],i)=>{
-    const pct = amzLocTotal>0?((val/amzLocTotal)*100).toFixed(1):'0';
-    return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]}"></span>${loc}: $${val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)</span>`;
-  }).join('');
-
-  // Chart 3: Home Depot by location donut
-  const hdByLocTotals = {}, hdByLocShared = {};
-  hdFiltered.forEach(r => {
-    const loc = r.location || mapHdLoc(r['Job Name'] || '');
-    const val = parseFloat(r.total || r['Total Amount Paid'] || 0);
-    if(!hdByLocTotals[loc]) hdByLocTotals[loc] = 0;
-    hdByLocTotals[loc] += val;
-    if(r._isShared){
-      if(!hdByLocShared[loc]) hdByLocShared[loc] = 0;
-      hdByLocShared[loc] += val;
-    }
-  });
-  const hdLocSorted = Object.entries(hdByLocTotals).sort((a,b)=>b[1]-a[1]);
-  const hdLocLabels = hdLocSorted.map(([k])=>k);
-  const hdLocVals   = hdLocSorted.map(([,v])=>parseFloat(v.toFixed(2)));
-  const hdLocTotal  = hdLocVals.reduce((a,b)=>a+b,0);
-  const hdLocColors = hdLocSorted.map(([loc],i) => hdByLocShared[loc] ? CAT_COLORS[i]+'88' : CAT_COLORS[i]+'ee');
-
-  if(window.invHdLocInst){window.invHdLocInst.destroy();}
-  window.invHdLocInst = new Chart(document.getElementById('invHdLocDonut'), {
-    type:'doughnut',
-    data:{labels:hdLocLabels,datasets:[{data:hdLocVals,backgroundColor:hdLocColors,borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:false},
-      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
-        callbacks:{label:ctx=>{const pct=hdLocTotal>0?((ctx.raw/hdLocTotal)*100).toFixed(1):'0';const isShared=hdByLocShared[hdLocSorted[ctx.dataIndex]?.[0]]>0;return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)${isShared?' ~shared':''}`;}}}}
-    }
-  });
-  document.getElementById('inv-hd-loc-legend').innerHTML = hdLocSorted.map(([loc,val],i)=>{
-    const pct = hdLocTotal>0?((val/hdLocTotal)*100).toFixed(1):'0';
-    const isShared = hdByLocShared[loc]>0;
-    return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]};opacity:${isShared?0.5:1}"></span>${loc}: $${val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)${isShared?' <span style="color:#7a8daa;font-size:9px">~shared</span>':''}</span>`;
-  }).join('');
-
-  // Chart 4: Amazon by family donut
+    // Chart 4: Amazon by family donut
   const catTotals = {};
   amzFiltered.forEach(r => {
     // Support both universal script (capitalized) and old script (lowercase)
