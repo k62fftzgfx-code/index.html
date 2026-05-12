@@ -543,8 +543,14 @@ function median(arr){
 }
 function resizeCanvas(el,wrap,count,scroll,h){
   const BAR_W=42;
-  if(scroll){const w=Math.max(wrap.clientWidth||800,count*BAR_W+100);el.style.width=w+'px';el.style.height=h+'px';el.width=w;el.height=h;}
-  else{el.style.width='100%';el.style.height=h+'px';el.width=wrap.clientWidth||800;el.height=h;}
+  const wrapW = wrap.clientWidth || 800;
+  // If few data points or not scrollable mode - use full width
+  if(scroll && count > 20){
+    const w=Math.max(wrapW, count*BAR_W+100);
+    el.style.width=w+'px';el.style.height=h+'px';el.width=w;el.height=h;
+  } else {
+    el.style.width='100%';el.style.height=h+'px';el.width=wrapW;el.height=h;
+  }
 }
 function isSummaryRow(r){return String(r[COL.day]||'').trim()==='Sunday';}
 
@@ -859,7 +865,7 @@ function renderInventory() {
   // Chart 1: Time series
   const c1 = document.getElementById('invTimeChart');
   const sw1 = document.getElementById('inv-scroll1');
-  resizeCanvas(c1, sw1, allKeys.length, isScroll, H.h1);
+  resizeCanvas(c1, sw1, allKeys.length, true, H.h1);
   if(invTimeInst){invTimeInst.destroy();invTimeInst=null;}
   invTimeInst = new Chart(c1, {
     type: 'bar',
