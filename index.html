@@ -335,17 +335,30 @@
 
   <!-- Staff KPI -->
   <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-label">Active employees</div><div class="kpi-bar" style="background:#5bbf8a"></div><div class="kpi-value" id="s-active">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Inactive (3+ weeks)</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="s-inactive">—</div></div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active employees — <span id="s-active" style="color:#5bbf8a;font-weight:500">—</span></div>
+      <div class="kpi-bar" style="background:#5bbf8a"></div>
+      <div id="s-active-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Inactive (3+ weeks) — <span id="s-inactive" style="color:#e07070;font-weight:500">—</span></div>
+      <div class="kpi-bar" style="background:#e07070"></div>
+      <div id="s-inactive-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
+    </div>
     <div class="kpi-card"><div class="kpi-label">Total hours</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="s-hours">—</div></div>
     <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="s-shift">—</div></div>
   </div>
 
-  <!-- Top by hours + Hours by day of week -->
+  <!-- Top 10 table + Hours by day of week -->
   <div class="charts-row">
     <div class="chart-card half">
       <div class="card-title">Top 10 employees by hours</div>
-      <div style="position:relative; width:100%; height:300px;"><canvas id="topChart" role="img" aria-label="Top employees by hours"></canvas></div>
+      <div class="table-scroll" style="max-height:320px;">
+        <table class="staff-table" id="top10-table">
+          <thead><tr><th>#</th><th>Name</th><th>Location</th><th style="text-align:right">Hours</th><th style="width:120px"></th></tr></thead>
+          <tbody id="top10-tbody"></tbody>
+        </table>
+      </div>
     </div>
     <div class="chart-card half">
       <div class="card-title">Hours by day of week</div>
@@ -353,18 +366,9 @@
     </div>
   </div>
 
-  <!-- Staff list -->
+  <!-- Inactive employees table only -->
   <div class="charts-row">
-    <div class="chart-card half">
-      <div class="card-title">Active employees</div>
-      <div class="table-scroll">
-        <table class="staff-table">
-          <thead><tr><th>Name</th><th>Location</th><th>Last shift</th><th>Total hrs</th></tr></thead>
-          <tbody id="active-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="chart-card half">
+    <div class="chart-card full">
       <div class="card-title">Inactive employees (3+ weeks)</div>
       <div class="table-scroll">
         <table class="staff-table">
@@ -1017,6 +1021,17 @@ function getInvDisplayLabel(key, gran) {
   return key;
 }
 
+
+// Location abbreviations for staff cards
+const LOC_ABBR = {
+  'Markham, IL':        'MRK',
+  'Reno, NV':          'RNO',
+  'Stockton, CA':      'STK',
+  'San Bernardino, CA':'SBD',
+  'Denver, CO':        'DEN',
+  'Columbus, OH':      'CLB',
+  'Greenville, SC':    'GRV'
+};
 // ===================== STAFF TAB =====================
 
 let allWeeks = []; // all available CW keys from time data
@@ -1281,14 +1296,37 @@ function renderStaff(){
   document.getElementById('s-hours').textContent=fmtTop(totalHours);
   document.getElementById('s-shift').textContent=avgShift.toFixed(1)+'h';
 
-  // ---- Top 10 by hours ----
+  // Active loc badges
+  const activeLocCount = {};
+  active.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); activeLocCount[abbr]=(activeLocCount[abbr]||0)+1; });
+  document.getElementById('s-active-locs').innerHTML = Object.entries(activeLocCount).sort((a,b)=>b[1]-a[1])
+    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#1a3a2a;color:#5bbf8a;font-weight:500">${abbr}:${cnt}</span>`).join('');
+
+  // Inactive loc badges
+  const inactiveLocCount = {};
+  inactive.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); inactiveLocCount[abbr]=(inactiveLocCount[abbr]||0)+1; });
+  document.getElementById('s-inactive-locs').innerHTML = Object.entries(inactiveLocCount).sort((a,b)=>b[1]-a[1])
+    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#3a1a1a;color:#e07070;font-weight:500">${abbr}:${cnt}</span>`).join('');
+
+  // ---- Top 10 by hours - progress bar table ----
   const topEmp=[...active,...inactive].sort((a,b)=>b.hours-a.hours).slice(0,10);
-  if(topInst){topInst.destroy();topInst=null;}
-  topInst=new Chart(document.getElementById('topChart'),{
-    type:'bar',
-    data:{labels:topEmp.map(e=>e.name.split(' ')[0]+' '+e.name.split(' ').slice(-1)[0]),datasets:[{data:topEmp.map(e=>parseFloat(e.hours.toFixed(1))),backgroundColor:'#4a9fd4cc',borderColor:'#4a9fd4',borderWidth:0,borderRadius:4}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{ticks:{color:'#8a9dba',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},y:{ticks:{color:'#c8d8f0',font:{size:10}},grid:{display:false},border:{color:'transparent'}}}}
-  });
+  const maxHours = topEmp.length ? topEmp[0].hours : 1;
+  document.getElementById('top10-tbody').innerHTML = topEmp.map((e,i)=>{
+    const pct = Math.round((e.hours/maxHours)*100);
+    const abbr = LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase();
+    const isInactive = inactive.includes(e);
+    return `<tr>
+      <td style="color:#7a8daa;width:28px">${i+1}</td>
+      <td style="color:${isInactive?'#e07070':'#c8d8f0'}">${e.name}</td>
+      <td style="color:#7a8daa;font-size:10px">${abbr}</td>
+      <td style="text-align:right;font-weight:500;color:#7dd4f0">${e.hours.toFixed(0)}h</td>
+      <td style="padding:0 8px;">
+        <div style="background:#1a2840;border-radius:3px;height:6px;width:100%;">
+          <div style="background:#4a9fd4;border-radius:3px;height:6px;width:${pct}%;transition:width 0.3s;"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 
   // ---- Hours by day of week ----
   const dowHours=[0,0,0,0,0,0,0]; // Mon=0 ... Sun=6
