@@ -353,7 +353,7 @@
   <div class="charts-row" style="align-items:flex-start;">
     <div class="chart-card" style="flex:1.4; min-width:280px;">
       <div class="card-title">All employees by hours</div>
-      <div class="table-scroll" style="max-height:340px;">
+      <div class="table-scroll" style="max-height:320px;">
         <table class="staff-table" id="top10-table">
           <thead><tr><th>#</th><th>Name</th><th>Loc</th><th style="text-align:right">Hours</th><th style="width:80px"></th></tr></thead>
           <tbody id="top10-tbody"></tbody>
@@ -362,18 +362,18 @@
     </div>
     <div class="chart-card" style="flex:1; min-width:200px;">
       <div class="card-title">Hours by day of week</div>
-      <div style="position:relative; width:100%; height:340px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
+      <div style="position:relative; width:100%; height:320px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
     </div>
     <div class="chart-card" style="flex:1; min-width:200px;">
       <div class="card-title">Hours by location</div>
-      <div style="position:relative; width:100%; height:240px;">
+      <div style="position:relative; width:100%; height:200px;">
         <canvas id="locHoursDonut" role="img" aria-label="Hours by location"></canvas>
       </div>
       <div class="donut-legend" id="loc-hours-legend"></div>
     </div>
     <div class="chart-card" style="flex:1.4; min-width:280px;">
       <div class="card-title">Inactive employees (3+ weeks)</div>
-      <div class="table-scroll" style="max-height:340px;">
+      <div class="table-scroll" style="max-height:320px;">
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Location</th><th>Last shift</th><th>Days ago</th></tr></thead>
           <tbody id="inactive-tbody"></tbody>
@@ -1378,8 +1378,12 @@ function renderStaff(){
   active.sort((a,b)=>b.hours-a.hours);
   inactive.sort((a,b)=>b.diffDays-a.diffDays);
 
-  document.getElementById('active-tbody').innerHTML=active.map(e=>`<tr><td>${e.name}</td><td style="color:#7a8daa">${e.loc}</td><td>${fmt(e.lastDt)}</td><td>${e.hours.toFixed(1)}h</td></tr>`).join('');
-  document.getElementById('inactive-tbody').innerHTML=inactive.map(e=>`<tr><td>${e.name}</td><td style="color:#7a8daa">${e.loc}</td><td>${fmt(e.lastDt)}</td><td style="color:#e07070">${e.diffDays}d</td></tr>`).join('');
+
+  document.getElementById('inactive-tbody').innerHTML=inactive.map(e=>{
+    const dtStr = e.lastDt instanceof Date ? `${e.lastDt.getMonth()+1}/${e.lastDt.getDate()}/${e.lastDt.getFullYear()}` : '—';
+    const abbr = LOC_ABBR[e.loc]||e.loc;
+    return `<tr><td>${e.name}</td><td style="color:#7a8daa">${abbr}</td><td>${dtStr}</td><td style="color:#e07070">${e.diffDays}d</td></tr>`;
+  }).join('');
 }
 
 async function loadData(){
