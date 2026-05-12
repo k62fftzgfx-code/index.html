@@ -645,6 +645,7 @@ function renderOperations(){
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yP:{type:'linear',position:'left',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
+        yPR:{type:'linear',position:'right',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{drawOnChartArea:false},border:{color:'transparent'}},
         yL:{type:'linear',position:'right',min:lcpMin,ticks:{color:'#7dd4f0',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
       }},
   plugins:[{id:'tl',afterDatasetsDraw(chart){
@@ -714,6 +715,7 @@ function renderOperations(){
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yC:{type:'linear',position:'left',ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
+        yCR:{type:'linear',position:'right',ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{drawOnChartArea:false},border:{color:'transparent'}},
         yH:{type:'linear',position:'right',min:hMin,ticks:{color:'#f0a050',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
       }},
     plugins:[{id:'tl2',afterDatasetsDraw(chart){
@@ -875,7 +877,8 @@ function renderInventory() {
         callbacks:{label:ctx=>` ${ctx.dataset.label}: $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`}}},
       scales:{
         x:{stacked:true,ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
-        y:{stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':'$'+v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}}
+        y:{stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':'$'+v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
+        yR:{type:'linear',position:'right',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':'$'+v},grid:{drawOnChartArea:false},border:{color:'transparent'}}
       }},
     plugins:[{id:'totals',afterDatasetsDraw(chart){
       const{ctx}=chart;
@@ -961,7 +964,7 @@ function renderInventory() {
     catTotals[cat] = (catTotals[cat]||0) + val;
   });
   const catSorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  const catLabels = catSorted.map(([k])=>k.length>28?k.slice(0,28)+'…':k);
+  const catLabels = catSorted.map(([k])=>k);
   const catVals   = catSorted.map(([,v])=>parseFloat(v.toFixed(2)));
   const totalCat = catVals.reduce((a,b)=>a+b,0);
   if(invCatDonutInst){invCatDonutInst.destroy();invCatDonutInst=null;}
@@ -975,7 +978,7 @@ function renderInventory() {
   });
   document.getElementById('inv-cat-legend').innerHTML = catSorted.slice(0,8).map(([cat,val],i)=>{
     const pct = totalCat>0?((val/totalCat)*100).toFixed(1):'0';
-    const lbl = cat.length>20?cat.slice(0,20)+'…':cat;
+    const lbl = cat;
     return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]}"></span>${lbl}: ${pct}%</span>`;
   }).join('');
 
