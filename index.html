@@ -629,16 +629,17 @@ function renderOpsMap() {
     const s = locStats[r._location];
     if(isSummaryRow(r)){
       s.costs2 += toNum(r[COL.costs2]);
-    } else {
-      s.sumPallets += toNum(r[COL.sumPallets]);
-      s.hours += toNum(r[COL.hours]);
     }
+    // sumPallets and hours from ALL rows (same as KPI card logic)
+    s.sumPallets += toNum(r[COL.sumPallets]);
+    s.hours += toNum(r[COL.hours]);
   });
 
   // Calculate KPIs
   const locKPI = {};
   locs.forEach(loc => {
     const s = locStats[loc];
+  
     locKPI[loc] = {
       lcp:    s.sumPallets > 0 ? s.costs2 / s.sumPallets : 0,
       hourly: s.hours > 0     ? s.costs2 / s.hours       : 0,
@@ -646,6 +647,7 @@ function renderOpsMap() {
       pallets: s.sumPallets
     };
   });
+
 
   const getValue = (d) => {
     if(currentOpsMapMode === 'lcp')    return d.lcp;
