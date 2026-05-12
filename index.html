@@ -289,13 +289,13 @@
   <!-- Amazon by category + HD by location -->
   <div class="charts-row">
     <div class="chart-card main">
-      <div class="card-title">Amazon spend by category</div>
+      <div class="card-title">Amazon spend by family</div>
       <div style="position:relative; width:100%; height:300px;">
         <canvas id="invCatChart" role="img" aria-label="Amazon by category"></canvas>
       </div>
     </div>
     <div class="chart-card donut">
-      <div class="card-title">Amazon categories share</div>
+      <div class="card-title">Amazon family share</div>
       <div style="position:relative; width:100%; height:240px;">
         <canvas id="invCatDonut" role="img" aria-label="Amazon categories donut"></canvas>
       </div>
@@ -905,7 +905,7 @@ function renderInventory() {
   // Chart 2: Amazon by category (horizontal bar)
   const catTotals = {};
   amzFiltered.forEach(r => {
-    const cat = r.category || 'Other';
+    const cat = r.family || r.category || 'Other';
     catTotals[cat] = (catTotals[cat]||0) + r.netTotal;
   });
   const catSorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
