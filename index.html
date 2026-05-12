@@ -260,13 +260,25 @@
     </div>
   </div>
   <div class="charts-row">
-    <div class="chart-card full">
+    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
       <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
       <div class="chart-scroll-wrap" id="scroll2"><canvas id="chart2" role="img" aria-label="Operating cost"></canvas></div>
       <div class="legend">
         <span class="leg-item"><span class="leg-box" style="background:#5a8fd4"></span>Operating Cost</span>
         <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly rate</span>
       </div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:300px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">KPI by location</div>
+        <div style="display:flex;gap:6px;">
+          <button class="map-btn active" id="ops-map-btn-lcp" onclick="setOpsMapMode('lcp')">LCP</button>
+          <button class="map-btn" id="ops-map-btn-hourly" onclick="setOpsMapMode('hourly')">Avg Hourly</button>
+          <button class="map-btn" id="ops-map-btn-cost" onclick="setOpsMapMode('cost')">Total Cost</button>
+        </div>
+      </div>
+      <div id="ops-map-wrap" style="position:relative;width:100%;height:260px;border-radius:8px;overflow:hidden;"></div>
+      <div id="ops-map-legend" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:8px;"></div>
     </div>
   </div>
 </div>
@@ -305,7 +317,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Spend by location</div>
         <div style="display:flex;gap:6px;">
-          <button class="map-btn active" id="map-btn-amz" onclick="setMapMode('amazon')">Amazon</button>
+          <button class="map-btn active" id="map-btn-amazon" onclick="setMapMode('amazon')">Amazon</button>
           <button class="map-btn" id="map-btn-hd" onclick="setMapMode('hd')">Home Depot</button>
           <button class="map-btn" id="map-btn-both" onclick="setMapMode('both')">Both</button>
         </div>
@@ -580,6 +592,171 @@ function renderAll(){
   else if(currentTab==='inventory') renderInventory();
 }
 
+
+// ===================== OPS MAP =====================
+let currentOpsMapMode = 'lcp';
+let opsLeafletMap = null;
+let opsLeafletMarkers = [];
+
+window.setOpsMapMode = function(mode) {
+  currentOpsMapMode = mode;
+  document.querySelectorAll('[id^="ops-map-btn-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ops-map-btn-'+mode).classList.add('active');
+  renderOpsMap();
+};
+
+function renderOpsMap() {
+  const wrap = document.getElementById('ops-map-wrap');
+  if(!wrap) return;
+
+  // Get filters
+  const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
+  const locs  = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+
+  // Build per-location KPIs from rawData
+  const locStats = {};
+  locs.forEach(loc => { locStats[loc] = { costs2:0, sumPallets:0, hours:0 }; });
+
+  rawData.forEach(r => {
+    if(!locs.includes(r._location)) return;
+    const pd = parseDate(r[COL.date]); if(!pd) return;
+    if(!years.includes(pd.y)) return;
+    const s = locStats[r._location];
+    if(isSummaryRow(r)) s.costs2 += toNum(r[COL.costs2]);
+    else s.sumPallets += toNum(r[COL.sumPallets]);
+    s.hours += toNum(r[COL.hours]);
+  });
+
+  // Calculate KPIs
+  const locKPI = {};
+  locs.forEach(loc => {
+    const s = locStats[loc];
+    locKPI[loc] = {
+      lcp:    s.sumPallets > 0 ? s.costs2 / s.sumPallets : 0,
+      hourly: s.hours > 0     ? s.costs2 / s.hours       : 0,
+      cost:   s.costs2,
+      pallets: s.sumPallets
+    };
+  });
+
+  const getValue = (d) => {
+    if(currentOpsMapMode === 'lcp')    return d.lcp;
+    if(currentOpsMapMode === 'hourly') return d.hourly;
+    return d.cost;
+  };
+
+  const formatVal = (d) => {
+    const v = getValue(d);
+    if(currentOpsMapMode === 'cost') return v>=1000?'$'+(v/1000).toFixed(1)+'K':'$'+v.toFixed(0);
+    return '$'+v.toFixed(2);
+  };
+
+  const maxPallets = Math.max(...locs.map(l=>locKPI[l]?.pallets||0), 1);
+  const values = locs.map(l=>getValue(locKPI[l]||{}));
+  const minVal = Math.min(...values.filter(v=>v>0));
+  const maxVal = Math.max(...values, 1);
+
+  // Color gradient green → yellow → red
+  const getColor = (val) => {
+    if(val === 0) return '#3a5080';
+    const t = Math.min(1, Math.max(0, (val - minVal) / (maxVal - minVal || 1)));
+    if(t < 0.5) {
+      const r = Math.round(t*2*231);
+      const g = Math.round(180 + (1-t*2)*75);
+      return `rgb(${r},${g},60)`;
+    } else {
+      const r = 231;
+      const g = Math.round(180*(1-(t-0.5)*2));
+      return `rgb(${r},${g},60)`;
+    }
+  };
+
+  // Check threshold
+  const getThresholdForLoc = (loc) => {
+    const map = {
+      'Markham, IL':'thr-markham','Reno, NV':'thr-reno',
+      'Stockton, CA':'thr-stockton','San Bernardino, CA':'thr-sanb',
+      'Denver, CO':'thr-denver','Columbus, OH':'thr-columbus'
+    };
+    const id = map[loc]; return id ? parseFloat(document.getElementById(id)?.value||0) : 0;
+  };
+
+  // Init Leaflet map once
+  if(!opsLeafletMap) {
+    opsLeafletMap = L.map('ops-map-wrap', {
+      center:[39.5,-98.5], zoom:4,
+      zoomControl:true, scrollWheelZoom:false, attributionControl:false
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      {maxZoom:10,minZoom:3}).addTo(opsLeafletMap);
+  }
+
+  opsLeafletMarkers.forEach(m=>opsLeafletMap.removeLayer(m));
+  opsLeafletMarkers=[];
+
+  locs.forEach(loc => {
+    const coords = LOC_COORDS[loc]; if(!coords) return;
+    const d = locKPI[loc]||{};
+    const val = getValue(d);
+    const r = d.pallets > 0 ? Math.max(14, Math.min(50, (d.pallets/maxPallets)*50)) : 12;
+    const color = getColor(val);
+    const abbr = LOC_ABBR[loc]||loc;
+    const thr = getThresholdForLoc(loc);
+    const isOver = currentOpsMapMode==='lcp' && thr>0 && val>thr;
+    const borderColor = isOver ? '#E24B4A' : color;
+
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="
+        width:${r*2}px;height:${r*2}px;border-radius:50%;
+        background:${color}cc;border:2px solid ${borderColor};
+        display:flex;align-items:center;justify-content:center;
+        font-size:9px;font-weight:bold;color:#fff;
+        font-family:-apple-system,sans-serif;
+        box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;
+        ${isOver?'box-shadow:0 0 12px #E24B4A88;':''}
+      ">${r>16?formatVal(d):''}</div>`,
+      iconSize:[r*2,r*2], iconAnchor:[r,r]
+    });
+
+    const marker = L.marker(coords,{icon})
+      .bindPopup(`
+        <div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:190px;">
+          <strong style="font-size:13px;">${loc}</strong><br><br>
+          <span style="color:#8a9dba">Pallets:</span> ${(d.pallets||0).toLocaleString()}<br>
+          <span style="color:#7dd4f0">LCP:</span> $${(d.lcp||0).toFixed(2)}${thr>0&&d.lcp>thr?' <span style="color:#E24B4A">▲ above threshold</span>':''}<br>
+          <span style="color:#f0a050">Avg hourly:</span> $${(d.hourly||0).toFixed(2)}<br>
+          <span style="color:#6aab90">Total cost:</span> $${(d.cost||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+        </div>
+      `,{className:'leaflet-popup-dark'})
+      .addTo(opsLeafletMap);
+    opsLeafletMarkers.push(marker);
+
+    // Label
+    const labelIcon = L.divIcon({
+      className:'',
+      html:`<div style="font-size:10px;font-weight:600;color:#c8d8f0;font-family:-apple-system,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,0.9);white-space:nowrap;text-align:center;pointer-events:none;">${abbr}</div>`,
+      iconSize:[60,16], iconAnchor:[30,-r-4]
+    });
+    opsLeafletMarkers.push(L.marker(coords,{icon:labelIcon,interactive:false}).addTo(opsLeafletMap));
+  });
+
+  // Legend
+  const legend = document.getElementById('ops-map-legend');
+  if(legend) {
+    legend.innerHTML = locs.filter(l=>LOC_COORDS[l]).map(loc=>{
+      const d = locKPI[loc]||{};
+      const val = getValue(d);
+      const color = getColor(val);
+      const thr = getThresholdForLoc(loc);
+      const isOver = currentOpsMapMode==='lcp' && thr>0 && val>thr;
+      return `<span class="dl-item"><span class="dl-box" style="background:${color};${isOver?'border:1px solid #E24B4A':''}"></span>${LOC_ABBR[loc]||loc}: ${formatVal(d)}${isOver?' ▲':''}</span>`;
+    }).join('');
+  }
+
+  setTimeout(()=>{ if(opsLeafletMap) opsLeafletMap.invalidateSize(); }, 100);
+}
+
 // ===================== OPERATIONS TAB =====================
 function renderOperations(){
   const{gran,dirF,years,locs,isDaily,dateFrom,dateTo}=getFilters();
@@ -752,6 +929,9 @@ function renderOperations(){
       });
     }}]
   });
+
+  // Render ops map
+  renderOpsMap();
 }
 
 
