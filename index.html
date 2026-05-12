@@ -794,19 +794,17 @@ function renderInventory() {
 
   // Filter Amazon
   const amzFiltered = invData.amazon.filter(r => {
-    const dateStr = r['Order Date'] || r.date;
-    const pd = parseDate(dateStr); if(!pd) return false;
+    const pd = parseDate(r.date); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
-    const loc = mapAmzLoc(r['PO Number'] || r.location || '');
+    const loc = mapAmzLoc(r.location || '');
     return locs.includes(loc);
   });
 
   // Filter HD - split ALL rows across selected locations
   const hdFilteredRaw = invData.hd.filter(r => {
-    const dateStr = r['Date'] || r.date;
-    const pd = parseDate(dateStr); if(!pd) return false;
+    const pd = parseDate(r.date); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
-    const loc = mapHdLoc(r['Job Name'] || r.location || '');
+    const loc = mapHdLoc(r.location || '');
     return locs.includes(loc) || loc === '__ALL__';
   });
   // Expand ALL rows into per-location rows
@@ -826,8 +824,8 @@ function renderInventory() {
 
   // KPI totals
   const amzTotal  = amzFiltered.reduce((s,r)=>s+parseFloat(r['Item Net Total']||r.netTotal||0),0);
-  const hdTotal   = hdFiltered.reduce((s,r)=>s+parseFloat(r['Total Amount Paid']||r.total||0),0);
-  const amzOrders = new Set(amzFiltered.map(r=>r['Order ID']||r.orderId)).size;
+  const hdTotal   = hdFiltered.reduce((s,r)=>s+parseFloat(r.total||r['Total Amount Paid']||0),0);
+  const amzOrders = new Set(amzFiltered.map(r=>r['Order ID']||r.orderId||r.date+r.location)).size;
   const hdTxns    = hdFiltered.filter(r=>!r._isShared).length;
   document.getElementById('inv-amz-total').textContent  = '$'+amzTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById('inv-amz-orders').textContent = amzOrders.toLocaleString();
@@ -838,13 +836,13 @@ function renderInventory() {
   // Group by time bucket
   const amzBuckets = {}, hdBuckets = {};
   amzFiltered.forEach(r => {
-    const key = getInvBucketKey(r.date || r['Order Date'], gran); if(!key) return;
-    amzBuckets[key] = (amzBuckets[key]||0) + parseFloat(r['Item Net Total']||r.netTotal||0);
+    const key = getInvBucketKey(r.date, gran); if(!key) return;
+    amzBuckets[key] = (amzBuckets[key]||0) + parseFloat(r.netTotal || r['Item Net Total'] || 0);
   });
   const hdSharedBuckets = {};
   hdFiltered.forEach(r => {
-    const key = getInvBucketKey(r.date || r['Date'], gran); if(!key) return;
-    const val = parseFloat(r['Total Amount Paid']||r.total||0);
+    const key = getInvBucketKey(r.date, gran); if(!key) return;
+    const val = parseFloat(r.total || r['Total Amount Paid'] || 0);
     if(r._isShared) {
       hdSharedBuckets[key] = (hdSharedBuckets[key]||0) + val;
     } else {
@@ -897,8 +895,8 @@ function renderInventory() {
   // Chart 2: Amazon by location donut
   const amzByLocTotals = {};
   amzFiltered.forEach(r => {
-    const loc = mapAmzLoc(r['PO Number']||r.location||'');
-    const val = parseFloat(r['Item Net Total']||r.netTotal||0);
+    const loc = mapAmzLoc(r['PO Number'] || r.location || '');
+    const val = parseFloat(r['Item Net Total'] || r.netTotal || 0);
     if(!amzByLocTotals[loc]) amzByLocTotals[loc] = 0;
     amzByLocTotals[loc] += val;
   });
@@ -924,8 +922,8 @@ function renderInventory() {
   // Chart 3: Home Depot by location donut
   const hdByLocTotals = {}, hdByLocShared = {};
   hdFiltered.forEach(r => {
-    const loc = r.location || mapHdLoc(r['Job Name']||'');
-    const val = parseFloat(r['Total Amount Paid']||r.total||0);
+    const loc = r.location || mapHdLoc(r['Job Name'] || '');
+    const val = parseFloat(r.total || r['Total Amount Paid'] || 0);
     if(!hdByLocTotals[loc]) hdByLocTotals[loc] = 0;
     hdByLocTotals[loc] += val;
     if(r._isShared){
@@ -955,12 +953,11 @@ function renderInventory() {
   }).join('');
 
   // Chart 4: Amazon by family donut
-  // Debug: log first row keys
-  if(amzFiltered.length > 0) console.log('Amazon row keys:', Object.keys(amzFiltered[0]).slice(0,10), 'Family:', amzFiltered[0]['Family'], 'Cat:', amzFiltered[0]['Amazon-Internal Product Category']);
   const catTotals = {};
   amzFiltered.forEach(r => {
-    const cat = r['Family'] || r['Amazon-Internal Product Category'] || 'Other';
-    const val = parseFloat(r['Item Net Total']||r.netTotal||0);
+    // Support both universal script (capitalized) and old script (lowercase)
+    const cat = r['Family'] || r.family || r['Amazon-Internal Product Category'] || r.category || 'Other';
+    const val = parseFloat(r['Item Net Total'] || r.netTotal || 0);
     catTotals[cat] = (catTotals[cat]||0) + val;
   });
   const catSorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
