@@ -858,17 +858,17 @@ function renderInventory() {
   // Chart 1: Time series
   const c1 = document.getElementById('invTimeChart');
   const sw1 = document.getElementById('inv-scroll1');
-  resizeCanvas(c1, sw1, allKeys.length, true, H.h1);
+  resizeCanvas(c1, sw1, allKeys.length, allKeys.length > 20, H.h1);
   if(invTimeInst){invTimeInst.destroy();invTimeInst=null;}
   invTimeInst = new Chart(c1, {
     type: 'bar',
     data: {labels: dispLabels, datasets: [
       {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#f0a050cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:60, barPercentage:0.5, categoryPercentage:0.6},
+       backgroundColor:'#f0a050cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (direct)', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e06060cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:60, barPercentage:0.5, categoryPercentage:0.6},
+       backgroundColor:'#e06060cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e0606044', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:60, barPercentage:0.5, categoryPercentage:0.6}
+       backgroundColor:'#e0606044', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
