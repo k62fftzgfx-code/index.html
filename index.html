@@ -349,28 +349,24 @@
     <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="s-shift">—</div></div>
   </div>
 
-  <!-- Top 10 table + Hours by day of week -->
-  <div class="charts-row">
-    <div class="chart-card half">
+  <!-- Top 10 + Hours by day + Inactive in one row -->
+  <div class="charts-row" style="align-items:flex-start;">
+    <div class="chart-card" style="flex:1.2; min-width:280px;">
       <div class="card-title">Top 10 employees by hours</div>
-      <div class="table-scroll" style="max-height:320px;">
+      <div class="table-scroll" style="max-height:260px;">
         <table class="staff-table" id="top10-table">
-          <thead><tr><th>#</th><th>Name</th><th>Location</th><th style="text-align:right">Hours</th><th style="width:120px"></th></tr></thead>
+          <thead><tr><th>#</th><th>Name</th><th>Loc</th><th style="text-align:right">Hours</th><th style="width:80px"></th></tr></thead>
           <tbody id="top10-tbody"></tbody>
         </table>
       </div>
     </div>
-    <div class="chart-card half">
+    <div class="chart-card" style="flex:1; min-width:220px;">
       <div class="card-title">Hours by day of week</div>
-      <div style="position:relative; width:100%; height:300px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
+      <div style="position:relative; width:100%; height:260px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
     </div>
-  </div>
-
-  <!-- Inactive employees table only -->
-  <div class="charts-row">
-    <div class="chart-card full">
+    <div class="chart-card" style="flex:1.2; min-width:280px;">
       <div class="card-title">Inactive employees (3+ weeks)</div>
-      <div class="table-scroll">
+      <div class="table-scroll" style="max-height:260px;">
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Location</th><th>Last shift</th><th>Days ago</th></tr></thead>
           <tbody id="inactive-tbody"></tbody>
@@ -383,7 +379,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxo-dN8yl7464gG8Pw4vyHWdP6lw-zA3D5915TgVPjBF6EKGA13mrGd_KnG1lZUa3Q/exec';
-const TODAY = new Date(2026, 4, 3); // May 3, 2026
+const TODAY = new Date(); // current date
 const INACTIVE_DAYS = 21; // 3 weeks
 
 const COL = {
