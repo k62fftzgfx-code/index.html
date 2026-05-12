@@ -955,6 +955,8 @@ function renderInventory() {
   }).join('');
 
   // Chart 4: Amazon by family donut
+  // Debug: log first row keys
+  if(amzFiltered.length > 0) console.log('Amazon row keys:', Object.keys(amzFiltered[0]).slice(0,10), 'Family:', amzFiltered[0]['Family'], 'Cat:', amzFiltered[0]['Amazon-Internal Product Category']);
   const catTotals = {};
   amzFiltered.forEach(r => {
     const cat = r['Family'] || r['Amazon-Internal Product Category'] || 'Other';
