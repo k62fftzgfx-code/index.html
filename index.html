@@ -774,12 +774,12 @@ const LOC_COORDS = {
 const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a'];
 const locKeys = Object.keys(LOC_COORDS);
 
-function setMapMode(mode) {
+window.setMapMode = function setMapMode(mode) {
   currentMapMode = mode;
   document.querySelectorAll('.map-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('map-btn-'+mode).classList.add('active');
   renderMap();
-}
+};
 
 function renderMap() {
   const wrap = document.getElementById('inv-map-wrap');
@@ -840,23 +840,23 @@ function renderMap() {
     }).addTo(leafletMap);
   }
 
-  // Remove old markers
+  // Remove old markers and labels
   leafletMarkers.forEach(m => leafletMap.removeLayer(m));
   leafletMarkers = [];
 
-  // Add markers
+  // Add markers + labels
   locKeys.forEach((loc, i) => {
     const coords = LOC_COORDS[loc];
     const d = locData[loc];
     const val = getValue(d);
     const r = val > 0 ? Math.max(14, Math.min(50, (val/maxVal)*50)) : 10;
     const color = LOC_COLORS_MAP[i];
-    const pct = totalVal > 0 ? ((val/totalVal)*100).toFixed(1) : '0';
     const amzPct = amzTotal > 0 ? ((d.amz/amzTotal)*100).toFixed(1) : '0';
     const hdPct  = hdTotal  > 0 ? ((d.hd/hdTotal)*100).toFixed(1)   : '0';
     const abbr = LOC_ABBR[loc]||loc;
     const valStr = val >= 1000 ? '$'+(val/1000).toFixed(1)+'K' : '$'+val.toFixed(0);
 
+    // Circle marker
     const icon = L.divIcon({
       className: '',
       html: `<div style="
@@ -866,7 +866,7 @@ function renderMap() {
         font-size:${r>20?'10':'9'}px;font-weight:bold;color:#fff;
         font-family:-apple-system,sans-serif;
         box-shadow:0 2px 8px rgba(0,0,0,0.4);
-        cursor:pointer;transition:all 0.2s;
+        cursor:pointer;
       ">${r>16?valStr:''}</div>`,
       iconSize: [r*2, r*2],
       iconAnchor: [r, r]
@@ -876,17 +876,30 @@ function renderMap() {
       .bindPopup(`
         <div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:180px;">
           <strong style="font-size:13px;">${loc}</strong><br><br>
-          <span style="color:#f0a050">Amazon:</span> $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>
-          <span style="color:#e06060">Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
+          <span style="color:#f0a050">&#9632; Amazon:</span> $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>
+          <span style="color:#e06060">&#9632; Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
           ${d.hdShared>0?`<br><span style="color:#999;font-size:10px">incl. shared: $${d.hdShared.toFixed(2)}</span>`:''}
           <br><br><strong>Total: $${(d.amz+d.hd).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </div>
-      `, {
-        className: 'leaflet-popup-dark'
-      })
+      `, { className: 'leaflet-popup-dark' })
       .addTo(leafletMap);
-
     leafletMarkers.push(marker);
+
+    // Label below circle
+    const labelIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        font-size:10px;font-weight:600;color:#c8d8f0;
+        font-family:-apple-system,sans-serif;
+        text-shadow:0 1px 3px rgba(0,0,0,0.8),0 0 6px rgba(0,0,0,0.9);
+        white-space:nowrap;text-align:center;
+        pointer-events:none;
+      ">${abbr}</div>`,
+      iconSize: [60, 16],
+      iconAnchor: [30, -r-4]
+    });
+    const label = L.marker(coords, {icon: labelIcon, interactive: false}).addTo(leafletMap);
+    leafletMarkers.push(label);
   });
 
   // Legend
