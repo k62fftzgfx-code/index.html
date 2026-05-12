@@ -350,10 +350,10 @@
   </div>
 
   <!-- 4 columns: Top ALL + Hours by day + Donut loc + Inactive -->
-  <div class="charts-row" style="align-items:flex-start;">
+  <div class="charts-row" style="align-items:stretch;">
     <div class="chart-card" style="flex:1.4; min-width:280px;">
       <div class="card-title">All employees by hours</div>
-      <div class="table-scroll" style="max-height:320px;">
+      <div class="table-scroll" style="max-height:360px;">
         <table class="staff-table" id="top10-table">
           <thead><tr><th>#</th><th>Name</th><th>Loc</th><th style="text-align:right">Hours</th><th style="width:80px"></th></tr></thead>
           <tbody id="top10-tbody"></tbody>
@@ -362,18 +362,18 @@
     </div>
     <div class="chart-card" style="flex:1; min-width:200px;">
       <div class="card-title">Hours by day of week</div>
-      <div style="position:relative; width:100%; height:320px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
+      <div style="position:relative; width:100%; height:360px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
     </div>
     <div class="chart-card" style="flex:1; min-width:200px;">
       <div class="card-title">Hours by location</div>
-      <div style="position:relative; width:100%; height:200px;">
+      <div style="position:relative; width:100%; height:180px;">
         <canvas id="locHoursDonut" role="img" aria-label="Hours by location"></canvas>
       </div>
-      <div class="donut-legend" id="loc-hours-legend"></div>
+      <div class="donut-legend" id="loc-hours-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
     </div>
     <div class="chart-card" style="flex:1.4; min-width:280px;">
       <div class="card-title">Inactive employees (3+ weeks)</div>
-      <div class="table-scroll" style="max-height:320px;">
+      <div class="table-scroll" style="max-height:360px;">
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Location</th><th>Last shift</th><th>Days ago</th></tr></thead>
           <tbody id="inactive-tbody"></tbody>
