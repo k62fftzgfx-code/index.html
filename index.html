@@ -265,10 +265,12 @@
 <div class="tab-content" id="tab-inventory">
 
   <!-- KPI row -->
-  <div class="kpi-row" style="grid-template-columns: repeat(3,1fr);">
-    <div class="kpi-card"><div class="kpi-label">Total Amazon spend</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="inv-amz-total">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total Home Depot spend</div><div class="kpi-bar" style="background:#e06060"></div><div class="kpi-value" id="inv-hd-total">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total inventory spend</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="inv-total">—</div></div>
+  <div class="kpi-row" style="grid-template-columns: repeat(5,1fr);">
+    <div class="kpi-card"><div class="kpi-label">Amazon spend</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="inv-amz-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Amazon orders</div><div class="kpi-bar" style="background:#f0a050;width:40%"></div><div class="kpi-value" id="inv-amz-orders">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Home Depot spend</div><div class="kpi-bar" style="background:#e06060"></div><div class="kpi-value" id="inv-hd-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Home Depot transactions</div><div class="kpi-bar" style="background:#e06060;width:40%"></div><div class="kpi-value" id="inv-hd-txns">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Procurement</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="inv-total">—</div></div>
   </div>
 
   <!-- Amazon + HD spend over time -->
@@ -286,42 +288,28 @@
     </div>
   </div>
 
-  <!-- Amazon by category + HD by location -->
+  <!-- 3 Donuts: Amazon by loc, HD by loc, Amazon by family -->
   <div class="charts-row">
-    <div class="chart-card main">
-      <div class="card-title">Amazon spend by family</div>
-      <div style="position:relative; width:100%; height:300px;">
-        <canvas id="invCatChart" role="img" aria-label="Amazon by category"></canvas>
+    <div class="chart-card" style="flex:1; min-width:240px;">
+      <div class="card-title">Amazon by location</div>
+      <div style="position:relative; width:100%; height:220px;">
+        <canvas id="invAmzLocDonut"></canvas>
       </div>
+      <div class="donut-legend" id="inv-amz-loc-legend"></div>
     </div>
-    <div class="chart-card donut">
-      <div class="card-title">Amazon family share</div>
-      <div style="position:relative; width:100%; height:240px;">
-        <canvas id="invCatDonut" role="img" aria-label="Amazon categories donut"></canvas>
+    <div class="chart-card" style="flex:1; min-width:240px;">
+      <div class="card-title">Home Depot by location</div>
+      <div style="position:relative; width:100%; height:220px;">
+        <canvas id="invHdLocDonut"></canvas>
+      </div>
+      <div class="donut-legend" id="inv-hd-loc-legend"></div>
+    </div>
+    <div class="chart-card" style="flex:1; min-width:240px;">
+      <div class="card-title">Amazon by family</div>
+      <div style="position:relative; width:100%; height:220px;">
+        <canvas id="invCatDonut"></canvas>
       </div>
       <div class="donut-legend" id="inv-cat-legend"></div>
-    </div>
-  </div>
-
-  <!-- Spend by location table -->
-  <div class="charts-row">
-    <div class="chart-card half">
-      <div class="card-title">Amazon spend by location</div>
-      <div class="table-scroll">
-        <table class="staff-table">
-          <thead><tr><th>Location</th><th class="right">Spend ($)</th><th class="right">Orders</th></tr></thead>
-          <tbody id="inv-amz-loc-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="chart-card half">
-      <div class="card-title">Home Depot spend by location</div>
-      <div class="table-scroll">
-        <table class="staff-table">
-          <thead><tr><th>Location</th><th class="right">Spend ($)</th><th class="right">Transactions</th></tr></thead>
-          <tbody id="inv-hd-loc-tbody"></tbody>
-        </table>
-      </div>
     </div>
   </div>
 
@@ -752,7 +740,7 @@ function renderOperations(){
 // ===================== INVENTORY TAB =====================
 
 let invData = { amazon: [], hd: [] };
-let invTimeInst = null, invCatInst = null, invCatDonutInst = null;
+let invTimeInst = null, invCatDonutInst = null;
 
 // Amazon PO Number -> location key
 const AMZ_LOC_MAP = {
@@ -806,19 +794,19 @@ function renderInventory() {
 
   // Filter Amazon
   const amzFiltered = invData.amazon.filter(r => {
-    const pd = parseDate(r.date); if(!pd) return false;
+    const dateStr = r['Order Date'] || r.date;
+    const pd = parseDate(dateStr); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
-    if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
-    const loc = mapAmzLoc(r.location);
+    const loc = mapAmzLoc(r['PO Number'] || r.location || '');
     return locs.includes(loc);
   });
 
   // Filter HD - split ALL rows across selected locations
   const hdFilteredRaw = invData.hd.filter(r => {
-    const pd = parseDate(r.date); if(!pd) return false;
+    const dateStr = r['Date'] || r.date;
+    const pd = parseDate(dateStr); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
-    if(isDaily){if(dateFrom&&pd.str<dateFrom)return false;if(dateTo&&pd.str>dateTo)return false;}
-    const loc = mapHdLoc(r.location);
+    const loc = mapHdLoc(r['Job Name'] || r.location || '');
     return locs.includes(loc) || loc === '__ALL__';
   });
   // Expand ALL rows into per-location rows
@@ -837,25 +825,30 @@ function renderInventory() {
   });
 
   // KPI totals
-  const amzTotal = amzFiltered.reduce((s,r)=>s+r.netTotal,0);
-  const hdTotal  = hdFiltered.reduce((s,r)=>s+r.total,0);
-  document.getElementById('inv-amz-total').textContent = '$'+amzTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById('inv-hd-total').textContent  = '$'+hdTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById('inv-total').textContent     = '$'+(amzTotal+hdTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const amzTotal  = amzFiltered.reduce((s,r)=>s+parseFloat(r['Item Net Total']||r.netTotal||0),0);
+  const hdTotal   = hdFiltered.reduce((s,r)=>s+parseFloat(r['Total Amount Paid']||r.total||0),0);
+  const amzOrders = new Set(amzFiltered.map(r=>r['Order ID']||r.orderId)).size;
+  const hdTxns    = hdFiltered.filter(r=>!r._isShared).length;
+  document.getElementById('inv-amz-total').textContent  = '$'+amzTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('inv-amz-orders').textContent = amzOrders.toLocaleString();
+  document.getElementById('inv-hd-total').textContent   = '$'+hdTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('inv-hd-txns').textContent    = hdTxns.toLocaleString();
+  document.getElementById('inv-total').textContent      = '$'+(amzTotal+hdTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 
   // Group by time bucket
   const amzBuckets = {}, hdBuckets = {};
   amzFiltered.forEach(r => {
-    const key = getInvBucketKey(r.date, gran); if(!key) return;
-    amzBuckets[key] = (amzBuckets[key]||0) + r.netTotal;
+    const key = getInvBucketKey(r.date || r['Order Date'], gran); if(!key) return;
+    amzBuckets[key] = (amzBuckets[key]||0) + parseFloat(r['Item Net Total']||r.netTotal||0);
   });
   const hdSharedBuckets = {};
   hdFiltered.forEach(r => {
-    const key = getInvBucketKey(r.date, gran); if(!key) return;
+    const key = getInvBucketKey(r.date || r['Date'], gran); if(!key) return;
+    const val = parseFloat(r['Total Amount Paid']||r.total||0);
     if(r._isShared) {
-      hdSharedBuckets[key] = (hdSharedBuckets[key]||0) + r.total;
+      hdSharedBuckets[key] = (hdSharedBuckets[key]||0) + val;
     } else {
-      hdBuckets[key] = (hdBuckets[key]||0) + r.total;
+      hdBuckets[key] = (hdBuckets[key]||0) + val;
     }
   });
 
@@ -871,9 +864,9 @@ function renderInventory() {
     type: 'bar',
     data: {labels: dispLabels, datasets: [
       {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#f0a050cc', borderColor:'#f0a050', borderWidth:0, borderRadius:3, stack:'s'},
+       backgroundColor:'#f0a050cc', borderColor:'#f0a050', borderWidth:0, borderRadius:3, stack:'s', maxBarThickness:80},
       {label:'Home Depot (direct)', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e06060cc', borderColor:'#e06060', borderWidth:0, borderRadius:3, stack:'s'},
+       backgroundColor:'#e06060cc', borderColor:'#e06060', borderWidth:0, borderRadius:3, stack:'s', maxBarThickness:80},
       {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
        backgroundColor:'#e0606055', borderColor:'#e06060', borderWidth:1, borderRadius:3, stack:'s',
        borderDash:[4,4]}
@@ -902,30 +895,76 @@ function renderInventory() {
     }}]
   });
 
-  // Chart 2: Amazon by category (horizontal bar)
+  // Chart 2: Amazon by location donut
+  const amzByLocTotals = {};
+  amzFiltered.forEach(r => {
+    const loc = mapAmzLoc(r['PO Number']||r.location||'');
+    const val = parseFloat(r['Item Net Total']||r.netTotal||0);
+    if(!amzByLocTotals[loc]) amzByLocTotals[loc] = 0;
+    amzByLocTotals[loc] += val;
+  });
+  const amzLocSorted = Object.entries(amzByLocTotals).sort((a,b)=>b[1]-a[1]);
+  const amzLocLabels = amzLocSorted.map(([k])=>k);
+  const amzLocVals   = amzLocSorted.map(([,v])=>parseFloat(v.toFixed(2)));
+  const amzLocTotal  = amzLocVals.reduce((a,b)=>a+b,0);
+
+  if(window.invAmzLocInst){window.invAmzLocInst.destroy();}
+  window.invAmzLocInst = new Chart(document.getElementById('invAmzLocDonut'), {
+    type:'doughnut',
+    data:{labels:amzLocLabels,datasets:[{data:amzLocVals,backgroundColor:CAT_COLORS.slice(0,amzLocLabels.length).map(c=>c+'ee'),borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+        callbacks:{label:ctx=>{const pct=amzLocTotal>0?((ctx.raw/amzLocTotal)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
+    }
+  });
+  document.getElementById('inv-amz-loc-legend').innerHTML = amzLocSorted.map(([loc,val],i)=>{
+    const pct = amzLocTotal>0?((val/amzLocTotal)*100).toFixed(1):'0';
+    return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]}"></span>${loc}: $${val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)</span>`;
+  }).join('');
+
+  // Chart 3: Home Depot by location donut
+  const hdByLocTotals = {}, hdByLocShared = {};
+  hdFiltered.forEach(r => {
+    const loc = r.location || mapHdLoc(r['Job Name']||'');
+    const val = parseFloat(r['Total Amount Paid']||r.total||0);
+    if(!hdByLocTotals[loc]) hdByLocTotals[loc] = 0;
+    hdByLocTotals[loc] += val;
+    if(r._isShared){
+      if(!hdByLocShared[loc]) hdByLocShared[loc] = 0;
+      hdByLocShared[loc] += val;
+    }
+  });
+  const hdLocSorted = Object.entries(hdByLocTotals).sort((a,b)=>b[1]-a[1]);
+  const hdLocLabels = hdLocSorted.map(([k])=>k);
+  const hdLocVals   = hdLocSorted.map(([,v])=>parseFloat(v.toFixed(2)));
+  const hdLocTotal  = hdLocVals.reduce((a,b)=>a+b,0);
+  const hdLocColors = hdLocSorted.map(([loc],i) => hdByLocShared[loc] ? CAT_COLORS[i]+'88' : CAT_COLORS[i]+'ee');
+
+  if(window.invHdLocInst){window.invHdLocInst.destroy();}
+  window.invHdLocInst = new Chart(document.getElementById('invHdLocDonut'), {
+    type:'doughnut',
+    data:{labels:hdLocLabels,datasets:[{data:hdLocVals,backgroundColor:hdLocColors,borderColor:'#1e2840',borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+        callbacks:{label:ctx=>{const pct=hdLocTotal>0?((ctx.raw/hdLocTotal)*100).toFixed(1):'0';const isShared=hdByLocShared[hdLocSorted[ctx.dataIndex]?.[0]]>0;return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)${isShared?' ~shared':''}`;}}}}
+    }
+  });
+  document.getElementById('inv-hd-loc-legend').innerHTML = hdLocSorted.map(([loc,val],i)=>{
+    const pct = hdLocTotal>0?((val/hdLocTotal)*100).toFixed(1):'0';
+    const isShared = hdByLocShared[loc]>0;
+    return `<span class="dl-item"><span class="dl-box" style="background:${CAT_COLORS[i]};opacity:${isShared?0.5:1}"></span>${loc}: $${val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)${isShared?' <span style="color:#7a8daa;font-size:9px">~shared</span>':''}</span>`;
+  }).join('');
+
+  // Chart 4: Amazon by family donut
   const catTotals = {};
   amzFiltered.forEach(r => {
-    const cat = r.family || r.category || 'Other';
-    catTotals[cat] = (catTotals[cat]||0) + r.netTotal;
+    const cat = r['Family'] || r['Amazon-Internal Product Category'] || 'Other';
+    const val = parseFloat(r['Item Net Total']||r.netTotal||0);
+    catTotals[cat] = (catTotals[cat]||0) + val;
   });
   const catSorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  const catLabels = catSorted.map(([k])=>k.length>25?k.slice(0,25)+'…':k);
+  const catLabels = catSorted.map(([k])=>k.length>28?k.slice(0,28)+'…':k);
   const catVals   = catSorted.map(([,v])=>parseFloat(v.toFixed(2)));
-
-  if(invCatInst){invCatInst.destroy();invCatInst=null;}
-  invCatInst = new Chart(document.getElementById('invCatChart'), {
-    type:'bar',
-    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'cc'),borderColor:CAT_COLORS.slice(0,catLabels.length),borderWidth:0,borderRadius:4}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-      tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
-        callbacks:{label:ctx=>` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`}}},
-      scales:{
-        x:{ticks:{color:'#8a9dba',font:{size:10},callback:v=>'$'+(v>=1000?(v/1000).toFixed(0)+'K':v)},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},
-        y:{ticks:{color:'#c8d8f0',font:{size:10}},grid:{display:false},border:{color:'transparent'}}
-      }}
-  });
-
-  // Chart 3: Amazon categories donut
   const totalCat = catVals.reduce((a,b)=>a+b,0);
   if(invCatDonutInst){invCatDonutInst.destroy();invCatDonutInst=null;}
   invCatDonutInst = new Chart(document.getElementById('invCatDonut'), {
@@ -943,24 +982,10 @@ function renderInventory() {
   }).join('');
 
   // Tables: by location
-  const amzByLoc = {}, hdByLoc = {};
-  amzFiltered.forEach(r=>{ const l=mapAmzLoc(r.location); if(!amzByLoc[l])amzByLoc[l]={spend:0,orders:new Set()}; amzByLoc[l].spend+=r.netTotal; amzByLoc[l].orders.add(r.orderId); });
-  hdFiltered.forEach(r=>{ 
-    const l = r.location || mapHdLoc(r.location);
-    if(!hdByLoc[l]) hdByLoc[l]={spend:0,direct:0,shared:0,txns:0};
-    hdByLoc[l].spend += r.total;
-    if(r._isShared) hdByLoc[l].shared += r.total;
-    else hdByLoc[l].direct += r.total;
-    hdByLoc[l].txns++;
-  });
+  // byloc tables removed
 
-  document.getElementById('inv-amz-loc-tbody').innerHTML = Object.entries(amzByLoc).sort((a,b)=>b[1].spend-a[1].spend)
-    .map(([loc,d])=>`<tr><td>${loc}</td><td class="right">$${d.spend.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="right">${d.orders.size}</td></tr>`).join('');
-  document.getElementById('inv-hd-loc-tbody').innerHTML = Object.entries(hdByLoc).sort((a,b)=>b[1].spend-a[1].spend)
-    .map(([loc,d])=>{
-      const sharedStr = d.shared > 0 ? `<span style="color:#7a8daa;font-size:10px;margin-left:4px">(+$${d.shared.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} shared)</span>` : '';
-      return `<tr><td>${loc}</td><td class="right">$${d.direct.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${sharedStr}</td><td class="right">${d.txns}</td></tr>`;
-    }).join('');
+
+  
 }
 
 function getInvBucketKey(dateStr, gran) {
