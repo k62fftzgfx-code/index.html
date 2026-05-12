@@ -609,11 +609,15 @@ function renderOpsMap() {
   const wrap = document.getElementById('ops-map-wrap');
   if(!wrap) return;
 
-  // Get filters
+  // Get same filters as renderOperations
+  const gran = document.getElementById('granularity').value;
   const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
   const locs  = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+  const isDaily = gran === 'daily';
+  const dateFrom = isDaily ? document.getElementById('date-from').value : null;
+  const dateTo   = isDaily ? document.getElementById('date-to').value   : null;
 
-  // Build per-location KPIs from rawData
+  // Build per-location KPIs from rawData — same filtering as renderOperations
   const locStats = {};
   locs.forEach(loc => { locStats[loc] = { costs2:0, sumPallets:0, hours:0 }; });
 
@@ -621,10 +625,14 @@ function renderOpsMap() {
     if(!locs.includes(r._location)) return;
     const pd = parseDate(r[COL.date]); if(!pd) return;
     if(!years.includes(pd.y)) return;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const s = locStats[r._location];
-    if(isSummaryRow(r)) s.costs2 += toNum(r[COL.costs2]);
-    else s.sumPallets += toNum(r[COL.sumPallets]);
-    s.hours += toNum(r[COL.hours]);
+    if(isSummaryRow(r)){
+      s.costs2 += toNum(r[COL.costs2]);
+    } else {
+      s.sumPallets += toNum(r[COL.sumPallets]);
+      s.hours += toNum(r[COL.hours]);
+    }
   });
 
   // Calculate KPIs
