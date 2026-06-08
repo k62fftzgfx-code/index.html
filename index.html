@@ -106,6 +106,10 @@
   .table-scroll { max-height: 320px; overflow-y: auto; }
   .table-scroll::-webkit-scrollbar { width: 4px; }
   .table-scroll::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
+  /* Error toast */
+  .error-toast { position:fixed; bottom:20px; right:20px; background:#2a1e20; border:1px solid #E24B4A; border-radius:10px; padding:10px 16px; font-size:11px; color:#e07070; z-index:999; display:none; max-width:280px; line-height:1.5; box-shadow:0 4px 16px rgba(0,0,0,0.4); }
+  .error-toast.visible { display:block; }
+  .error-toast-close { float:right; cursor:pointer; color:#7a8daa; margin-left:10px; font-size:13px; }
   .map-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #2e3d5c; background: #1a2035; color: #7a8daa; cursor: pointer; transition: all 0.15s; }
   .map-btn.active { background: #253050; border-color: #4a7ab0; color: #c8d8f0; }
   .map-btn:hover { color: #c8d8f0; }
@@ -545,7 +549,33 @@ function getBucketKey(row,gran){
   const pd=parseDate(row[COL.date]);if(!pd)return null;
   if(gran==='weekly'){const yw=String(row[COL.yearWeek]||'').trim();return yw.length>=6?yw:null;}
   if(gran==='daily')return pd.str;
-  if(gran==='monthly')return`${pd.y}-${String(pd.m).padStart(2,'0')}`;
+  if(gran==='monthly'){
+    // Group by YearWeek's month to avoid Sunday/weekday split across months
+    // Use YearWeek column to find which month this week belongs to
+    const yw=String(row[COL.yearWeek]||'').trim();
+    if(yw.length>=6){
+      // Sunday row has the correct month in its date
+      // For non-Sunday rows, use the YearWeek to find the Sunday date's month
+      // Best approach: use the Month column if available
+      const monthCol = row['Month'] || row['CW Month'] || '';
+      if(monthCol && String(monthCol).includes('-')) return String(monthCol).trim();
+      // Fallback: use YearWeek year + find month from week number
+      const ywYear = parseInt(yw.slice(0,4));
+      const ywWeek = parseInt(yw.slice(4));
+      // Get Sunday date for this week (day 0 of next week)
+      const jan4 = new Date(ywYear, 0, 4);
+      const startOfWeek1 = new Date(jan4);
+      startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay()+6)%7));
+      const weekStart = new Date(startOfWeek1);
+      weekStart.setDate(startOfWeek1.getDate() + (ywWeek-1)*7);
+      const weekSunday = new Date(weekStart);
+      weekSunday.setDate(weekStart.getDate() + 6);
+      const m = weekSunday.getMonth()+1;
+      const y = weekSunday.getFullYear();
+      return `${y}-${String(m).padStart(2,'0')}`;
+    }
+    return`${pd.y}-${String(pd.m).padStart(2,'0')}`;
+  }
   return null;
 }
 function getDisplayLabel(key,gran){
@@ -764,7 +794,18 @@ function renderOpsMap() {
     }).join('');
   }
 
-  setTimeout(()=>{ if(opsLeafletMap) opsLeafletMap.invalidateSize(); }, 100);
+  // Fit ops map to selected locations
+  setTimeout(()=>{
+    if(opsLeafletMap){
+      opsLeafletMap.invalidateSize();
+      const validCoords = locs.filter(l=>LOC_COORDS[l]).map(l=>LOC_COORDS[l]);
+      if(validCoords.length===1){
+        opsLeafletMap.setView(validCoords[0], 7);
+      } else if(validCoords.length>1){
+        opsLeafletMap.fitBounds(validCoords, {padding:[30,30]});
+      }
+    }
+  }, 150);
 }
 
 // ===================== OPERATIONS TAB =====================
@@ -832,7 +873,7 @@ function renderOperations(){
 
   const c1=document.getElementById('comboChart'),sw1=document.getElementById('scroll1');
   resizeCanvas(c1,sw1,keys.length,isScroll,H.h1);
-  const barDS=dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return{type:'bar',label:DIR_LABELS[i],data:keys.map(k=>buckets[k][f]||0),backgroundColor:DIR_COLORS[i]+'dd',borderColor:DIR_COLORS[i],borderWidth:0,stack:'p',yAxisID:'yP',order:2};});
+  const barDS=dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return{type:'bar',label:DIR_LABELS[i],data:keys.map(k=>buckets[k][f]||0),backgroundColor:DIR_COLORS[i]+'dd',borderColor:DIR_COLORS[i],borderWidth:0,stack:'p',yAxisID:'yP',order:2,maxBarThickness:60};});
   const lineDS={type:'line',label:'Labor cost/pallet',data:lcpVals,borderColor:'#7dd4f0',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#7dd4f0',pointBorderColor:'#1e2840',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yL',order:1};
   const thrDS=activeThreshold?{type:'line',label:'Threshold',data:keys.map(()=>activeThreshold),borderColor:'#E24B4A',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:0,yAxisID:'yL',order:0}:null;
 
@@ -910,7 +951,7 @@ function renderOperations(){
   if(chart2Inst){chart2Inst.destroy();chart2Inst=null;}
   chart2Inst=new Chart(c2,{
     data:{labels:disp2,datasets:[
-      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#5a8fd4cc',borderColor:'#5a8fd4',borderWidth:0,yAxisID:'yC',order:2},
+      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#5a8fd4cc',borderColor:'#5a8fd4',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
       {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#f0a050',pointBorderColor:'#1e2840',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},layout:{padding:{top:isDaily?6:28,right:14,left:6,bottom:6}},
@@ -986,7 +1027,7 @@ function renderMap() {
     const pd = parseDate(r.date); if(!pd) return false;
     return years.includes(pd.y);
   }).forEach(r => {
-    const loc = mapAmzLoc(r.location||'');
+    const loc = mapAmzLoc(r);
     if(locData[loc] !== undefined) locData[loc].amz += parseFloat(r.netTotal||0);
   });
 
@@ -1102,8 +1143,18 @@ function renderMap() {
     }).join('');
   }
 
-  // Fix map size after render
-  setTimeout(()=>{ if(leafletMap) leafletMap.invalidateSize(); }, 100);
+  // Fit map to selected locations
+  setTimeout(()=>{
+    if(leafletMap){
+      leafletMap.invalidateSize();
+      const validCoords = locKeys.filter(l=>LOC_COORDS[l]).map(l=>LOC_COORDS[l]);
+      if(validCoords.length===1){
+        leafletMap.setView(validCoords[0], 7);
+      } else if(validCoords.length>1){
+        leafletMap.fitBounds(validCoords, {padding:[30,30]});
+      }
+    }
+  }, 150);
 }
 
 // ===================== INVENTORY TAB =====================
@@ -1113,15 +1164,17 @@ let invTimeInst = null, invCatDonutInst = null;
 
 // Amazon PO Number -> location key
 const AMZ_LOC_MAP = {
-  'wh markham':       'Markham, IL',
-  'wh colorado':      'Denver, CO',
-  'wh stockton':      'Stockton, CA',
-  'wh reno':          'Reno, NV',
-  'wh columbus':      'Columbus, OH',
-  'wh collumbus':     'Columbus, OH',
-  'wh fontana':       'San Bernardino, CA',
-  'wh san bernardino':'San Bernardino, CA',
-  'wh greenville':    'Greenville, SC'
+  'wh markham':           'Markham, IL',
+  'wh colorado':          'Denver, CO',
+  'wh stockton':          'Stockton, CA',
+  'wh reno':              'Reno, NV',
+  'wh sparks':            'Reno, NV',
+  'wh columbus':          'Columbus, OH',
+  'wh collumbus':         'Columbus, OH',
+  'wh fontana':           'San Bernardino, CA',
+  'wh san bernardino':    'San Bernardino, CA',
+  'wh san bernardino, ca':'San Bernardino, CA',
+  'wh greenville':        'Greenville, SC'
 };
 
 // Home Depot Job Name -> location key
@@ -1135,8 +1188,12 @@ const HD_LOC_MAP = {
   'wh columbus':      'Columbus, OH'
 };
 
-function mapAmzLoc(po) {
-  return AMZ_LOC_MAP[String(po||'').toLowerCase().trim()] || 'Other';
+function mapAmzLoc(r_or_po) {
+  // Support both old script (r.location) and new universal script (r['PO Number'])
+  const po = typeof r_or_po === 'object' 
+    ? (r_or_po['PO Number'] || r_or_po.location || '')
+    : r_or_po;
+  return AMZ_LOC_MAP[String(po||'').toLowerCase().trim()] || null;
 }
 function mapHdLoc(job) {
   const key = String(job||'').toLowerCase().trim();
@@ -1163,9 +1220,11 @@ function renderInventory() {
 
   // Filter Amazon
   const amzFiltered = invData.amazon.filter(r => {
-    const pd = parseDate(r.date); if(!pd) return false;
+    // Support both old script (r.date) and universal script (r['Order Date'])
+    const dateStr = r.date || r['Order Date'] || '';
+    const pd = parseDate(dateStr); if(!pd) return false;
     if(!years.includes(pd.y)) return false;
-    const loc = mapAmzLoc(r.location || '');
+    const loc = mapAmzLoc(r);
     return locs.includes(loc);
   });
 
@@ -1193,8 +1252,10 @@ function renderInventory() {
 
   // KPI totals
   const amzTotal  = amzFiltered.reduce((s,r)=>s+parseFloat(r['Item Net Total']||r.netTotal||0),0);
+  // Fix orders count using Order ID field
+  const amzOrderIds = new Set(amzFiltered.map(r=>r['Order ID']||r.orderId||''));
   const hdTotal   = hdFiltered.reduce((s,r)=>s+parseFloat(r.total||r['Total Amount Paid']||0),0);
-  const amzOrders = new Set(amzFiltered.map(r=>r['Order ID']||r.orderId||r.date+r.location)).size;
+  const amzOrders = amzOrderIds.size;
   const hdTxns    = hdFiltered.filter(r=>!r._isShared).length;
   document.getElementById('inv-amz-total').textContent  = '$'+amzTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById('inv-amz-orders').textContent = amzOrders.toLocaleString();
@@ -1205,8 +1266,9 @@ function renderInventory() {
   // Group by time bucket
   const amzBuckets = {}, hdBuckets = {};
   amzFiltered.forEach(r => {
-    const key = getInvBucketKey(r.date, gran); if(!key) return;
-    amzBuckets[key] = (amzBuckets[key]||0) + parseFloat(r.netTotal || r['Item Net Total'] || 0);
+    const dateStr = r.date || r['Order Date'] || '';
+    const key = getInvBucketKey(dateStr, gran); if(!key) return;
+    amzBuckets[key] = (amzBuckets[key]||0) + parseFloat(r['Item Net Total'] || r.netTotal || 0);
   });
   const hdSharedBuckets = {};
   hdFiltered.forEach(r => {
@@ -1415,10 +1477,13 @@ function renderWeekGroups(filter=''){
         return `<label class="wf-week ${hidden}"><input type="checkbox" ${checked} onchange="toggleWeek('${yw}', this.checked)"> ${label}</label>`;
       }).join('');
       const monName = MONTH_SHORT[parseInt(mon)-1];
+      const selectedInMonth = weeks.filter(yw=>selectedWeeks.has(yw)).length;
+      const totalInMonth = weeks.length;
+      const counterColor = selectedInMonth===0?'#e07070':selectedInMonth===totalInMonth?'#5bbf8a':'#f0a050';
       return `<div class="wf-month">
         <div class="wf-month-header" onclick="toggleMonthOpen('${monKey}')">
           <span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span>
-          <span class="wf-month-label">${monName}</span>
+          <span class="wf-month-label">${monName} <span style="color:${counterColor};font-size:10px;font-weight:500">${selectedInMonth}/${totalInMonth}</span></span>
           <span class="wf-month-actions">
             <span class="wf-action" onclick="event.stopPropagation();selectMonthWeeks('${yr}','${mon}',true)">All</span>
             <span class="wf-action" onclick="event.stopPropagation();selectMonthWeeks('${yr}','${mon}',false)">None</span>
@@ -1689,6 +1754,21 @@ function renderStaff(){
   }).join('');
 }
 
+// Error toast
+function showErrorToast(msg) {
+  let toast = document.getElementById('error-toast');
+  if(!toast) {
+    toast = document.createElement('div');
+    toast.id = 'error-toast';
+    toast.className = 'error-toast';
+    toast.innerHTML = '<span class="error-toast-close" onclick="this.parentElement.classList.remove('visible')">✕</span><span id="error-toast-msg"></span>';
+    document.body.appendChild(toast);
+  }
+  document.getElementById('error-toast-msg').textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(()=>toast.classList.remove('visible'), 6000);
+}
+
 async function loadData(){
   const st=document.getElementById('status');
   st.className='status';st.textContent='Loading data from Google Sheets...';
@@ -1705,6 +1785,10 @@ async function loadData(){
     const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
     if(dates.length){document.getElementById('date-from').value=dates[0];document.getElementById('date-to').value=dates[dates.length-1];}
     buildWeekFilter();
+    // Count error cells
+    let errCount = 0;
+    rawData.forEach(r=>Object.values(r).forEach(v=>{if(v==='#REF!'||v==='#VALUE!'||v==='#N/A'||v==='#DIV/0!')errCount++;}));
+    if(errCount>0) showErrorToast(`⚠ ${errCount} error cell(s) found in data (#REF!, #VALUE! etc). Some values may be missing.`);
     st.className='status ok';
     st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time + ${invData.amazon.length} amz + ${invData.hd.length} hd · Updated: ${new Date().toLocaleTimeString()}`;
     renderAll();
