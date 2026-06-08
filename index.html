@@ -547,29 +547,40 @@ function parseDate(s){
 }
 function getBucketKey(row,gran){
   const pd=parseDate(row[COL.date]);if(!pd)return null;
-  if(gran==='weekly'){const yw=String(row[COL.yearWeek]||'').trim();return yw.length>=6?yw:null;}
+  if(gran==='weekly'){
+    const ywRaw=String(row[COL.yearWeek]||'').trim();
+    // Support both '202618' and '2026-18' formats
+    if(ywRaw.includes('-') && ywRaw.length>=7){
+      const parts=ywRaw.split('-');
+      return parts[0]+parts[1].padStart(2,'0');
+    }
+    return ywRaw.length>=6?ywRaw:null;
+  }
   if(gran==='daily')return pd.str;
   if(gran==='monthly'){
-    // Group by Thursday of the week (ISO standard)
-    // Week belongs to the month that contains its Thursday
-    const yw=String(row[COL.yearWeek]||'').trim();
-    if(yw.length>=6){
-      const ywYear = parseInt(yw.slice(0,4));
-      const ywWeek = parseInt(yw.slice(4));
+    // Use YearWeek column to determine month by ISO standard (Thursday rule)
+    const ywRaw = String(row[COL.yearWeek]||'').trim();
+    // Support both formats: '202618' and '2026-18'
+    const ywParts = ywRaw.includes('-') ? ywRaw.split('-') : [ywRaw.slice(0,4), ywRaw.slice(4)];
+    const ywYear = parseInt(ywParts[0]);
+    const ywWeek = parseInt(ywParts[1]);
+    const yw = ywRaw;
+    if(yw.length>=6 && !isNaN(ywYear) && !isNaN(ywWeek) && ywWeek>=1 && ywWeek<=53){
       // Find Monday of this ISO week
       const jan4 = new Date(ywYear, 0, 4);
       const startOfWeek1 = new Date(jan4);
       startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay()+6)%7));
       const weekMonday = new Date(startOfWeek1);
       weekMonday.setDate(startOfWeek1.getDate() + (ywWeek-1)*7);
-      // Thursday = Monday + 3 days
+      // Thursday = Monday + 3 days — determines the month
       const thursday = new Date(weekMonday);
       thursday.setDate(weekMonday.getDate() + 3);
       const m = thursday.getMonth()+1;
       const y = thursday.getFullYear();
       return `${y}-${String(m).padStart(2,'0')}`;
     }
-    return`${pd.y}-${String(pd.m).padStart(2,'0')}`;
+    // Fallback: use actual date if YearWeek missing
+    return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
   }
   return null;
 }
