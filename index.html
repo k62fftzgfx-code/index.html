@@ -1761,7 +1761,7 @@ function showErrorToast(msg) {
     toast = document.createElement('div');
     toast.id = 'error-toast';
     toast.className = 'error-toast';
-    toast.innerHTML = '<span class="error-toast-close" onclick="this.parentElement.classList.remove('visible')">✕</span><span id="error-toast-msg"></span>';
+    toast.innerHTML = `<span class="error-toast-close" onclick="document.getElementById('error-toast').classList.remove('visible')">✕</span><span id="error-toast-msg"></span>`;
     document.body.appendChild(toast);
   }
   document.getElementById('error-toast-msg').textContent = msg;
