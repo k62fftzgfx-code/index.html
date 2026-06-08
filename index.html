@@ -578,10 +578,11 @@ function getBucketKey(row,gran){
       thursday.setDate(weekMonday.getDate() + 3);
       const m = thursday.getMonth()+1;
       const y = thursday.getFullYear();
-      return `${y}-${String(m).padStart(2,'0')}`;
+      // Always return YYYY-MM format for monthly
+      return y + '-' + String(m).padStart(2,'0');
     }
     // Fallback: use actual date if YearWeek missing
-    return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
+    return pd.y + '-' + String(pd.m).padStart(2,'0');
   }
   return null;
 }
@@ -842,8 +843,7 @@ function renderOperations(){
       buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     }
     if(sum){
-      const ywDbg=String(r[COL.yearWeek]||'').trim();
-      if((ywDbg==='2026-23'||ywDbg==='202623')&&r._location==='Markham, IL') console.log('CW23 Sunday bucket key:', key, 'costs2:', toNum(r[COL.costs2]));
+
       buckets[key].costs2+=toNum(r[COL.costs2]);
       if(!b2[key])b2[key]={costs2:[],hourly:[]};
       if(toNum(r[COL.costs2])>0)b2[key].costs2.push(toNum(r[COL.costs2]));
