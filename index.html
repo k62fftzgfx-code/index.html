@@ -566,6 +566,8 @@ function getBucketKey(row,gran){
     const ywWeek = parseInt(ywParts[1]);
     const yw = ywRaw;
     if(yw.length>=6 && !isNaN(ywYear) && !isNaN(ywWeek) && ywWeek>=1 && ywWeek<=53){
+      // Debug: log CW23 rows
+      if(ywWeek===23) console.log('CW23 row:', row[COL.date], 'ywRaw:', ywRaw, 'isSunday:', String(row['Day']||'').trim()==='Sunday', 'costs2:', row[COL.costs2]);
       // Find Monday of this ISO week
       const jan4 = new Date(ywYear, 0, 4);
       const startOfWeek1 = new Date(jan4);
