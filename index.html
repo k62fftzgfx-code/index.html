@@ -566,8 +566,7 @@ function getBucketKey(row,gran){
     const ywWeek = parseInt(ywParts[1]);
     const yw = ywRaw;
     if(yw.length>=6 && !isNaN(ywYear) && !isNaN(ywWeek) && ywWeek>=1 && ywWeek<=53){
-      // Debug: log CW23 rows
-      if(ywWeek===23) console.log('CW23 row:', row[COL.date], 'ywRaw:', ywRaw, 'isSunday:', String(row['Day']||'').trim()==='Sunday', 'costs2:', row[COL.costs2]);
+
       // Find Monday of this ISO week
       const jan4 = new Date(ywYear, 0, 4);
       const startOfWeek1 = new Date(jan4);
@@ -843,6 +842,8 @@ function renderOperations(){
       buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     }
     if(sum){
+      const ywDbg=String(r[COL.yearWeek]||'').trim();
+      if((ywDbg==='2026-23'||ywDbg==='202623')&&r._location==='Markham, IL') console.log('CW23 Sunday bucket key:', key, 'costs2:', toNum(r[COL.costs2]));
       buckets[key].costs2+=toNum(r[COL.costs2]);
       if(!b2[key])b2[key]={costs2:[],hourly:[]};
       if(toNum(r[COL.costs2])>0)b2[key].costs2.push(toNum(r[COL.costs2]));
