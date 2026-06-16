@@ -415,6 +415,38 @@
 </main>
 
 <script>
+  // Plugin: підписи на донатах
+  const doughnutLabelPlugin = {
+    id: 'doughnutLabels',
+    afterDatasetDraw(chart) {
+      if (chart.config.type !== 'doughnut') return;
+      const { ctx, data } = chart;
+      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+      if (!total) return;
+      chart.getDatasetMeta(0).data.forEach((arc, i) => {
+        const val = data.datasets[0].data[i];
+        if (!val) return;
+        const pct = Math.round(val / total * 100);
+        const angle = (arc.startAngle + arc.endAngle) / 2;
+        const r = (arc.innerRadius + arc.outerRadius) / 2;
+        const x = arc.x + Math.cos(angle) * r;
+        const y = arc.y + Math.sin(angle) * r;
+        ctx.save();
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (pct >= 8) {
+          ctx.fillText(`${val}`, x, y - 6);
+          ctx.font = '10px sans-serif';
+          ctx.fillText(`${pct}%`, x, y + 6);
+        }
+        ctx.restore();
+      });
+    }
+  };
+  Chart.register(doughnutLabelPlugin);
+
   const API = 'https://script.google.com/macros/s/AKfycbyF1aER0E8teQrY8xloYfNp0xo8XNiCbHX8CCrh5xNAuWAsCU5Ypcwdop-owFEhzah0Ww/exec';
   const CAMP_COLORS = ['#378ADD','#D85A30','#1D9E75','#BA7517','#7F77DD','#D4537E'];
   let RAW = null;
@@ -454,7 +486,7 @@
       delete window[cbName];
       RAW = data;
 
-      const campaigns = Object.keys(data.campaigns);
+      const campaigns = Object.keys(data.all.campaigns);
       const sel = document.getElementById('campFilter');
       sel.innerHTML = '<option value="all">All campaigns</option>';
       campaigns.forEach(c => {
@@ -463,7 +495,7 @@
         sel.appendChild(o);
       });
 
-      const allDates = data.daily.map(d => d.date).sort();
+      const allDates = data.all.daily.map(d => d.date).sort();
       const minDate = allDates[0] || '';
       const maxDate = allDates[allDates.length - 1] || '';
 
@@ -503,23 +535,20 @@
     const targetedFilter = document.getElementById('targetedFilter').value;
     const from = document.getElementById('dateFrom').value || null;
     const to   = document.getElementById('dateTo').value   || null;
-    const campaigns = Object.keys(RAW.campaigns);
+
+    // Вибираємо потрібний набір даних
+    const tKey = targetedFilter === 'YES' ? 'yes' : targetedFilter === 'NO' ? 'no' : 'all';
+    const dataset = RAW[tKey];
+    const campaigns = Object.keys(dataset.campaigns);
     const activeCamps = campFilter === 'all' ? campaigns : [campFilter];
 
-    // Якщо фільтр Targeted — використовуємо окремі дані
-    let f, targeted;
-    if (targetedFilter === 'all') {
-      f        = campFilter === 'all' ? { ...RAW.funnel } : { ...(RAW.campaigns[campFilter] || RAW.funnel) };
-      targeted = RAW.targeted;
-    } else {
-      const tData = RAW.targeted_breakdown && RAW.targeted_breakdown[targetedFilter];
-      f        = tData && campFilter === 'all' ? { ...tData.funnel } : (tData && tData.campaigns && tData.campaigns[campFilter] ? { ...tData.campaigns[campFilter] } : { ...RAW.funnel });
-      targeted = targetedFilter === 'YES'
-        ? { YES: RAW.targeted.YES, NO: 0, blank: 0 }
-        : { YES: 0, NO: RAW.targeted.NO, blank: 0 };
-    }
+    let f = campFilter === 'all'
+      ? { ...dataset.funnel }
+      : { ...(dataset.campaigns[campFilter] || dataset.funnel) };
 
-    let daily = RAW.daily;
+    const targeted = RAW.targeted;
+
+    let daily = dataset.daily;
     if (from || to) {
       daily = daily.filter(d => {
         if (from && d.date < from) return false;
@@ -528,10 +557,10 @@
       });
 
       if (from || to) {
-        const allDays = RAW.daily.length || 1;
+        const allDays = dataset.daily.length || 1;
         const filteredDays = daily.length;
         const ratio = filteredDays / allDays;
-        const src = campFilter === 'all' ? RAW.funnel : (RAW.campaigns[campFilter] || RAW.funnel);
+        const src = campFilter === 'all' ? dataset.funnel : (dataset.campaigns[campFilter] || dataset.funnel);
         const keys = Object.keys(f);
         keys.forEach(k => { f[k] = Math.round((src[k] || 0) * ratio); });
         f.total = activeCamps.reduce((sum, c) => sum + daily.reduce((s, d) => s + (d[c] || 0), 0), 0);
@@ -539,8 +568,8 @@
     }
 
 
-    const fromLabel = from || (RAW.daily[0] && RAW.daily[0].date) || '';
-    const toLabel   = to   || (RAW.daily[RAW.daily.length-1] && RAW.daily[RAW.daily.length-1].date) || '';
+    const fromLabel = from || (dataset.daily[0] && dataset.daily[0].date) || '';
+    const toLabel   = to   || (dataset.daily[dataset.daily.length-1] && dataset.daily[dataset.daily.length-1].date) || '';
     document.getElementById('rangeInfo').textContent =
       fromLabel && toLabel ? `${fromLabel} → ${toLabel}  ·  ${f.total} candidates` : '';
 
@@ -586,12 +615,14 @@
     const statusLabels = ['Interesting','Not interested','Thinking','App sent','App completed','Rejection'];
     const statusData   = [f.teamInteresting, f.notInterested, f.thinking, f.appSent, f.appCompleted, f.rejection];
     const statusColors = ['#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#73726c'];
+    const statusTotal  = statusData.reduce((a,b)=>a+b,0);
     makeLegend('statusLegend', statusLabels.map((l,i) => `${l} (${statusData[i]})`), statusColors);
     destroyChart('statusChart');
     charts['statusChart'] = new Chart(document.getElementById('statusChart'), {
       type: 'doughnut',
       data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: statusColors, borderWidth: 1 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${statusTotal>0?Math.round(ctx.parsed/statusTotal*100):0}%)` } } } }
     });
 
     // Funnel — SVG воронка
