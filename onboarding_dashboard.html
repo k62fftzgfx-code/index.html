@@ -627,16 +627,16 @@
 
     // Funnel — SVG воронка
     const funnelStages = [
-      { label: 'Total',         val: f.total },
-      { label: '1st call ans.', val: f.call1Answered },
-      { label: 'Interesting',   val: f.teamInteresting },
-      { label: 'App sent',      val: f.appSent },
-      { label: 'App completed', val: f.appCompleted },
-      { label: 'Safety OK',     val: f.safetyApproved },
-      { label: 'Drug passed',   val: f.drugPassed },
-      { label: 'Flight booked', val: f.flightBooked },
-      { label: 'Arrived',       val: f.arrived },
-      { label: 'Hired',         val: f.hired },
+      { label: 'Total',          val: f.total },
+      { label: 'Call answered',  val: f.call1Answered + f.call2Answered },
+      { label: 'Interesting',    val: f.teamInteresting },
+      { label: 'App sent',       val: f.appSent },
+      { label: 'App completed',  val: f.appCompleted },
+      { label: 'Safety OK',      val: f.safetyApproved },
+      { label: 'Drug passed',    val: f.drugPassed },
+      { label: 'Flight booked',  val: f.flightBooked },
+      { label: 'Arrived',        val: f.arrived },
+      { label: 'Hired',          val: f.hired },
     ];
     const funnelEl = document.getElementById('funnelChart');
     const maxVal = funnelStages[0].val || 1;
