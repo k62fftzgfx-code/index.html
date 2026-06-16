@@ -313,6 +313,15 @@
       </div>
       <div class="filter-sep"></div>
       <div class="filter-group">
+        <label>Targeted</label>
+        <select id="targetedFilter">
+          <option value="all">All</option>
+          <option value="YES">Yes</option>
+          <option value="NO">No</option>
+        </select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
         <label>From</label>
         <input type="date" id="dateFrom">
       </div>
@@ -347,9 +356,7 @@
     <div class="charts-grid">
       <div class="chart-card">
         <h3>Onboarding funnel</h3>
-        <div style="position:relative;height:280px;">
-          <canvas id="funnelChart" role="img" aria-label="Onboarding funnel horizontal bar chart"></canvas>
-        </div>
+        <div id="funnelChart" style="height:280px;overflow:hidden;"></div>
       </div>
       <div class="chart-card">
         <h3>Targeted (yes / no)</h3>
@@ -474,7 +481,7 @@
 
       renderDashboard();
 
-      ['campFilter','dateFrom','dateTo'].forEach(id => {
+      ['campFilter','dateFrom','dateTo','targetedFilter'].forEach(id => {
         document.getElementById(id).addEventListener('change', renderDashboard);
       });
 
@@ -492,15 +499,25 @@
   }
 
   function renderDashboard() {
-    const campFilter = document.getElementById('campFilter').value;
+    const campFilter     = document.getElementById('campFilter').value;
+    const targetedFilter = document.getElementById('targetedFilter').value;
     const from = document.getElementById('dateFrom').value || null;
     const to   = document.getElementById('dateTo').value   || null;
     const campaigns = Object.keys(RAW.campaigns);
     const activeCamps = campFilter === 'all' ? campaigns : [campFilter];
 
-    let f = campFilter === 'all'
-      ? { ...RAW.funnel }
-      : { ...(RAW.campaigns[campFilter] || RAW.funnel) };
+    // Якщо фільтр Targeted — використовуємо окремі дані
+    let f, targeted;
+    if (targetedFilter === 'all') {
+      f        = campFilter === 'all' ? { ...RAW.funnel } : { ...(RAW.campaigns[campFilter] || RAW.funnel) };
+      targeted = RAW.targeted;
+    } else {
+      const tData = RAW.targeted_breakdown && RAW.targeted_breakdown[targetedFilter];
+      f        = tData && campFilter === 'all' ? { ...tData.funnel } : (tData && tData.campaigns && tData.campaigns[campFilter] ? { ...tData.campaigns[campFilter] } : { ...RAW.funnel });
+      targeted = targetedFilter === 'YES'
+        ? { YES: RAW.targeted.YES, NO: 0, blank: 0 }
+        : { YES: 0, NO: RAW.targeted.NO, blank: 0 };
+    }
 
     let daily = RAW.daily;
     if (from || to) {
@@ -521,7 +538,6 @@
       }
     }
 
-    const targeted = RAW.targeted;
 
     const fromLabel = from || (RAW.daily[0] && RAW.daily[0].date) || '';
     const toLabel   = to   || (RAW.daily[RAW.daily.length-1] && RAW.daily[RAW.daily.length-1].date) || '';
@@ -578,26 +594,42 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Funnel
-    destroyChart('funnelChart');
-    charts['funnelChart'] = new Chart(document.getElementById('funnelChart'), {
-      type: 'bar',
-      data: {
-        labels: ['Total','1st call ans.','Interesting','App sent','App completed','Safety OK','Drug sent','Drug passed','Flight booked','Arrived','Hired'],
-        datasets: [{
-          data: [f.total,f.call1Answered,f.teamInteresting,f.appSent,f.appCompleted,f.safetyApproved,f.drugSent,f.drugPassed,f.flightBooked,f.arrived,f.hired],
-          backgroundColor: '#378ADD', borderRadius: 4
-        }]
-      },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true },
-          y: { ticks: { font: { size: 11 }, color: '#888' } }
-        }
-      }
+    // Funnel — SVG воронка
+    const funnelStages = [
+      { label: 'Total',         val: f.total },
+      { label: '1st call ans.', val: f.call1Answered },
+      { label: 'Interesting',   val: f.teamInteresting },
+      { label: 'App sent',      val: f.appSent },
+      { label: 'App completed', val: f.appCompleted },
+      { label: 'Safety OK',     val: f.safetyApproved },
+      { label: 'Drug passed',   val: f.drugPassed },
+      { label: 'Flight booked', val: f.flightBooked },
+      { label: 'Arrived',       val: f.arrived },
+      { label: 'Hired',         val: f.hired },
+    ];
+    const funnelEl = document.getElementById('funnelChart');
+    const maxVal = funnelStages[0].val || 1;
+    const sw = funnelEl.offsetWidth || 480;
+    const sh = 280;
+    const rowH = sh / funnelStages.length;
+    const maxBarW = sw - 170;
+    const barColors = ['#378ADD','#3589cc','#3294bf','#2f9fb2','#2caa9e','#1D9E75','#22a86a','#27b25f','#2cbc54','#31c649'];
+    let svgRows = '';
+    funnelStages.forEach((s, i) => {
+      const barW = maxVal > 0 ? Math.max((s.val / maxVal) * maxBarW, s.val > 0 ? 4 : 0) : 0;
+      const x = 90 + (maxBarW - barW) / 2;
+      const y = i * rowH;
+      const prevVal = i > 0 ? funnelStages[i-1].val : null;
+      const convPct = prevVal && prevVal > 0 ? Math.round(s.val / prevVal * 100) : null;
+      const pctColor = convPct >= 50 ? '#1D9E75' : convPct >= 20 ? '#EF9F27' : '#E24B4A';
+      svgRows += `
+        <rect x="${x}" y="${y+2}" width="${barW}" height="${rowH-4}" fill="${barColors[i]}" rx="3"/>
+        <text x="84" y="${y+rowH/2+4}" text-anchor="end" font-size="11" fill="#888">${s.label}</text>
+        <text x="${x+barW+6}" y="${y+rowH/2+4}" font-size="11" font-weight="500" fill="#ddd">${s.val}</text>
+        ${convPct !== null ? `<text x="${sw-4}" y="${y+rowH/2+4}" text-anchor="end" font-size="10" fill="${pctColor}">${convPct}%</text>` : ''}
+      `;
     });
+    funnelEl.innerHTML = `<svg width="100%" height="${sh}" viewBox="0 0 ${sw} ${sh}">${svgRows}</svg>`;
 
     // Targeted
     const tColors = ['#378ADD','#E24B4A','#B4B2A9'];
@@ -609,26 +641,52 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Daily line
+    // Daily stacked bar з сумою зверху
     const dates = [...new Set(daily.map(d => d.date))].sort();
     const dailyDatasets = activeCamps.map((camp, i) => ({
       label: camp,
       data: dates.map(date => { const row = daily.find(d => d.date === date); return row && row[camp] ? row[camp] : 0; }),
-      borderColor: CAMP_COLORS[i % CAMP_COLORS.length],
-      backgroundColor: CAMP_COLORS[i % CAMP_COLORS.length] + '33',
-      tension: 0.3, fill: false, pointRadius: 3
+      backgroundColor: CAMP_COLORS[i % CAMP_COLORS.length],
+      borderRadius: i === activeCamps.length - 1 ? 3 : 0,
+      stack: 'daily'
     }));
+    const dailyTotals = dates.map(date => {
+      const row = daily.find(d => d.date === date);
+      if (!row) return 0;
+      return activeCamps.reduce((sum, c) => sum + (row[c] || 0), 0);
+    });
     makeLegend('dailyLegend', activeCamps, CAMP_COLORS);
     destroyChart('dailyChart');
     charts['dailyChart'] = new Chart(document.getElementById('dailyChart'), {
-      type: 'line',
+      type: 'bar',
       data: { labels: dates, datasets: dailyDatasets },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false },
+          datalabels: { display: false }
+        },
         scales: {
-          x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: true, maxTicksLimit: 16 } },
-          y: { ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true }
+          x: { stacked: true, ticks: { font: { size: 10 }, color: '#888', autoSkip: true, maxTicksLimit: 16 } },
+          y: { stacked: true, ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true }
+        },
+        animation: {
+          onComplete: function() {
+            const chart = this;
+            const ctx = chart.ctx;
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#aaa';
+            ctx.textAlign = 'center';
+            chart.data.labels.forEach((label, i) => {
+              const total = dailyTotals[i];
+              if (!total) return;
+              const meta = chart.getDatasetMeta(activeCamps.length - 1);
+              if (!meta.data[i]) return;
+              const bar = meta.data[i];
+              ctx.fillText(total, bar.x, bar.y - 4);
+            });
+          }
         }
       }
     });
