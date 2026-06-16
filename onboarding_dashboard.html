@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Onboarding Analytics Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #eeede9;
+      --text-primary: #1a1a18;
+      --text-secondary: #6b6b67;
+      --border: rgba(0,0,0,0.12);
+      --border-md: rgba(0,0,0,0.2);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1c;
+        --bg-secondary: #2a2a28;
+        --bg-tertiary: #333331;
+        --text-primary: #f0efe9;
+        --text-secondary: #9a9a94;
+        --border: rgba(255,255,255,0.1);
+        --border-md: rgba(255,255,255,0.2);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .refresh-btn {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .refresh-btn:hover { background: var(--bg-tertiary); }
+
+    main { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+    .filters-bar {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .filters-bar select,
+    .filters-bar input[type="date"] {
+      font-size: 13px;
+      padding: 5px 10px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      height: 32px;
+    }
+
+    .filter-sep {
+      width: 0.5px;
+      height: 20px;
+      background: var(--border-md);
+    }
+
+    .range-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+
+    .metric {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+
+    .metric .mlabel {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .metric .mvalue {
+      font-size: 26px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .metric .msub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .metric.highlight .mvalue { color: #1D9E75; }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .charts-grid.full { grid-template-columns: 1fr; }
+    .charts-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+
+    @media (max-width: 900px) {
+      .charts-grid, .charts-grid.three { grid-template-columns: 1fr; }
+      main { padding: 1rem; }
+      header { padding: 0 1rem; }
+    }
+
+    .chart-card {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+    }
+
+    .chart-card h3 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend span { display: flex; align-items: center; gap: 5px; }
+
+    .legend .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .conv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .conv-item {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+    }
+
+    .conv-item .clabel {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+
+    .conv-item .cval {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .loading-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--border-md);
+      border-top-color: #378ADD;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-screen p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .error-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      gap: 8px;
+    }
+
+    .error-screen p {
+      font-size: 14px;
+      color: #E24B4A;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Onboarding Analytics</h1>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated"></span>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Loading -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="spinner"></div>
+    <p>Loading data...</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-screen" id="errorScreen" style="display:none;">
+    <p id="errorMsg">Failed to load data.</p>
+    <button class="refresh-btn" onclick="loadData()">Try again</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display:none;">
+
+    <!-- Filters -->
+    <div class="filters-bar">
+      <div class="filter-group">
+        <label>Campaign</label>
+        <select id="campFilter"><option value="all">All campaigns</option></select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <label>From</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="filter-group">
+        <label>To</label>
+        <input type="date" id="dateTo">
+      </div>
+      <span class="range-info" id="rangeInfo"></span>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metric-grid" id="metrics"></div>
+
+    <!-- Row 1: Calls + Status -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Recruitment call results</h3>
+        <div style="position:relative;height:220px;">
+          <canvas id="callChart" role="img" aria-label="Recruitment call results bar chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Candidate status</h3>
+        <div id="statusLegend" class="legend"></div>
+        <div style="position:relative;height:180px;">
+          <canvas id="statusChart" role="img" aria-label="Candidate status donut chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Funnel + Targeted -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Onboarding funnel</h3>
+        <div style="position:relative;height:280px;">
+          <canvas id="funnelChart" role="img" aria-label="Onboarding funnel horizontal bar chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Targeted (yes / no)</h3>
+        <div id="targetedLegend" class="legend"></div>
+        <div style="position:relative;height:230px;">
+          <canvas id="targetedChart" role="img" aria-label="Targeted candidates donut chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Daily chart -->
+    <div class="charts-grid full">
+      <div class="chart-card">
+        <h3>Daily submissions by campaign</h3>
+        <div id="dailyLegend" class="legend"></div>
+        <div style="position:relative;height:220px;">
+          <canvas id="dailyChart" role="img" aria-label="Daily submissions line chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: Conversions -->
+    <div class="charts-grid full" style="margin-bottom:14px;">
+      <div class="chart-card">
+        <h3>Conversion rates between stages</h3>
+        <div class="conv-grid" id="convGrid"></div>
+      </div>
+    </div>
+
+    <!-- Row 5: Safety + Drug + Hiring -->
+    <div class="charts-grid three">
+      <div class="chart-card">
+        <h3>Safety check results</h3>
+        <div id="safetyLegend" class="legend"></div>
+        <div style="position:relative;height:190px;">
+          <canvas id="safetyChart" role="img" aria-label="Safety check results donut"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Drug test results</h3>
+        <div id="drugLegend" class="legend"></div>
+        <div style="position:relative;height:190px;">
+          <canvas id="drugChart" role="img" aria-label="Drug test results donut"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Hiring results</h3>
+        <div id="hiringLegend" class="legend"></div>
+        <div style="position:relative;height:190px;">
+          <canvas id="hiringChart" role="img" aria-label="Hiring results donut"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  const API = 'https://script.google.com/macros/s/AKfycbyF1aER0E8teQrY8xloYfNp0xo8XNiCbHX8CCrh5xNAuWAsCU5Ypcwdop-owFEhzah0Ww/exec';
+  const CAMP_COLORS = ['#378ADD','#D85A30','#1D9E75','#BA7517','#7F77DD','#D4537E'];
+  let RAW = null;
+  let charts = {};
+
+  function pct(n, d) { return d > 0 ? Math.round(n / d * 1000) / 10 : 0; }
+
+  function destroyChart(id) {
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  }
+
+  function makeLegend(elId, labels, colors) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = labels.map((l, i) =>
+      `<span><span class="dot" style="background:${colors[i % colors.length]}"></span>${l}</span>`
+    ).join('');
+  }
+
+  async function loadData() {
+    document.getElementById('loadingScreen').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'none';
+
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      RAW = data;
+
+      const campaigns = Object.keys(data.campaigns);
+      const sel = document.getElementById('campFilter');
+      sel.innerHTML = '<option value="all">All campaigns</option>';
+      campaigns.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        sel.appendChild(o);
+      });
+
+      const allDates = data.daily.map(d => d.date).sort();
+      const minDate = allDates[0] || '';
+      const maxDate = allDates[allDates.length - 1] || '';
+
+      const df = document.getElementById('dateFrom');
+      const dt = document.getElementById('dateTo');
+      df.value = minDate; df.min = minDate; df.max = maxDate;
+      dt.value = maxDate; dt.min = minDate; dt.max = maxDate;
+
+      const updated = new Date(data.meta.generatedAt);
+      document.getElementById('lastUpdated').textContent =
+        'Updated: ' + updated.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+
+      renderDashboard();
+
+      ['campFilter','dateFrom','dateTo'].forEach(id => {
+        document.getElementById(id).addEventListener('change', renderDashboard);
+      });
+
+    } catch(e) {
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('errorScreen').style.display = 'flex';
+      document.getElementById('errorMsg').textContent = 'Failed to load data: ' + e.message;
+    }
+  }
+
+  function renderDashboard() {
+    const campFilter = document.getElementById('campFilter').value;
+    const from = document.getElementById('dateFrom').value || null;
+    const to   = document.getElementById('dateTo').value   || null;
+    const campaigns = Object.keys(RAW.campaigns);
+    const activeCamps = campFilter === 'all' ? campaigns : [campFilter];
+
+    let f = campFilter === 'all'
+      ? { ...RAW.funnel }
+      : { ...(RAW.campaigns[campFilter] || RAW.funnel) };
+
+    let daily = RAW.daily;
+    if (from || to) {
+      daily = daily.filter(d => {
+        if (from && d.date < from) return false;
+        if (to   && d.date > to)   return false;
+        return true;
+      });
+
+      if (from || to) {
+        const allDays = RAW.daily.length || 1;
+        const filteredDays = daily.length;
+        const ratio = filteredDays / allDays;
+        const src = campFilter === 'all' ? RAW.funnel : (RAW.campaigns[campFilter] || RAW.funnel);
+        const keys = Object.keys(f);
+        keys.forEach(k => { f[k] = Math.round((src[k] || 0) * ratio); });
+        f.total = activeCamps.reduce((sum, c) => sum + daily.reduce((s, d) => s + (d[c] || 0), 0), 0);
+      }
+    }
+
+    const targeted = RAW.targeted;
+
+    const fromLabel = from || (RAW.daily[0] && RAW.daily[0].date) || '';
+    const toLabel   = to   || (RAW.daily[RAW.daily.length-1] && RAW.daily[RAW.daily.length-1].date) || '';
+    document.getElementById('rangeInfo').textContent =
+      fromLabel && toLabel ? `${fromLabel} → ${toLabel}  ·  ${f.total} candidates` : '';
+
+    // Metrics
+    document.getElementById('metrics').innerHTML = [
+      { label: 'Total candidates', value: f.total, sub: '', hi: false },
+      { label: 'Hired',            value: f.hired, sub: pct(f.hired, f.total) + '% of total', hi: true },
+      { label: 'Safety approved',  value: f.safetyApproved, sub: '', hi: false },
+      { label: 'Drug test passed', value: f.drugPassed, sub: '', hi: false },
+      { label: 'Arrived',          value: f.arrived, sub: '', hi: false },
+      { label: 'Not interested',   value: f.notInterested, sub: '', hi: false },
+      { label: 'Rejected',         value: f.rejection, sub: '', hi: false },
+    ].map(m => `
+      <div class="metric${m.hi ? ' highlight' : ''}">
+        <div class="mlabel">${m.label}</div>
+        <div class="mvalue">${m.value}</div>
+        ${m.sub ? `<div class="msub">${m.sub}</div>` : ''}
+      </div>`).join('');
+
+    // Call results
+    destroyChart('callChart');
+    charts['callChart'] = new Chart(document.getElementById('callChart'), {
+      type: 'bar',
+      data: {
+        labels: ['1st call\nanswered', '1st call\nno answer', 'Voice\nmessage', '2nd call\nanswered', '2nd call\nno answer'],
+        datasets: [{
+          data: [f.call1Answered, f.call1NoAnswer, f.voiceMessage, f.call2Answered, f.call2NoAnswer],
+          backgroundColor: ['#378ADD', '#73726c', '#1D9E75', '#378ADD', '#73726c'],
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: false } },
+          y: { ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Status donut
+    const statusLabels = ['Interesting','Not interested','Thinking','App sent','App completed','Rejection'];
+    const statusData   = [f.teamInteresting, f.notInterested, f.thinking, f.appSent, f.appCompleted, f.rejection];
+    const statusColors = ['#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#73726c'];
+    makeLegend('statusLegend', statusLabels.map((l,i) => `${l} (${statusData[i]})`), statusColors);
+    destroyChart('statusChart');
+    charts['statusChart'] = new Chart(document.getElementById('statusChart'), {
+      type: 'doughnut',
+      data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: statusColors, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Funnel
+    destroyChart('funnelChart');
+    charts['funnelChart'] = new Chart(document.getElementById('funnelChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Total','1st call ans.','Interesting','App sent','App completed','Safety OK','Drug sent','Drug passed','Flight booked','Arrived','Hired'],
+        datasets: [{
+          data: [f.total,f.call1Answered,f.teamInteresting,f.appSent,f.appCompleted,f.safetyApproved,f.drugSent,f.drugPassed,f.flightBooked,f.arrived,f.hired],
+          backgroundColor: '#378ADD', borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true },
+          y: { ticks: { font: { size: 11 }, color: '#888' } }
+        }
+      }
+    });
+
+    // Targeted
+    const tColors = ['#378ADD','#E24B4A','#B4B2A9'];
+    makeLegend('targetedLegend', [`Yes (${targeted.YES})`,`No (${targeted.NO})`,`No info (${targeted.blank})`], tColors);
+    destroyChart('targetedChart');
+    charts['targetedChart'] = new Chart(document.getElementById('targetedChart'), {
+      type: 'doughnut',
+      data: { labels: ['Yes','No','No info'], datasets: [{ data: [targeted.YES, targeted.NO, targeted.blank], backgroundColor: tColors, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Daily line
+    const dates = [...new Set(daily.map(d => d.date))].sort();
+    const dailyDatasets = activeCamps.map((camp, i) => ({
+      label: camp,
+      data: dates.map(date => { const row = daily.find(d => d.date === date); return row && row[camp] ? row[camp] : 0; }),
+      borderColor: CAMP_COLORS[i % CAMP_COLORS.length],
+      backgroundColor: CAMP_COLORS[i % CAMP_COLORS.length] + '33',
+      tension: 0.3, fill: false, pointRadius: 3
+    }));
+    makeLegend('dailyLegend', activeCamps, CAMP_COLORS);
+    destroyChart('dailyChart');
+    charts['dailyChart'] = new Chart(document.getElementById('dailyChart'), {
+      type: 'line',
+      data: { labels: dates, datasets: dailyDatasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: true, maxTicksLimit: 16 } },
+          y: { ticks: { font: { size: 11 }, color: '#888' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Conversions
+    document.getElementById('convGrid').innerHTML = [
+      { label: 'Call → Interested',      val: pct(f.teamInteresting, f.call1Answered) },
+      { label: 'Interested → App sent',  val: pct(f.appSent, f.teamInteresting) },
+      { label: 'App → Safety OK',        val: pct(f.safetyApproved, f.appCompleted) },
+      { label: 'Safety → Drug sent',     val: pct(f.drugSent, f.safetyApproved) },
+      { label: 'Drug passed → Flight',   val: pct(f.flightBooked, f.drugPassed) },
+      { label: 'Arrived → Hired',        val: pct(f.hired, f.arrived) },
+    ].map(c => `
+      <div class="conv-item">
+        <div class="clabel">${c.label}</div>
+        <div class="cval">${c.val}%</div>
+      </div>`).join('');
+
+    // Safety
+    const sColors = ['#1D9E75','#E24B4A'];
+    makeLegend('safetyLegend', [`Approved (${f.safetyApproved})`,`Not approved (${f.safetyNotApproved})`], sColors);
+    destroyChart('safetyChart');
+    charts['safetyChart'] = new Chart(document.getElementById('safetyChart'), {
+      type: 'doughnut',
+      data: { labels: ['Approved','Not approved'], datasets: [{ data: [f.safetyApproved, f.safetyNotApproved], backgroundColor: sColors, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Drug test
+    const dColors = ['#1D9E75','#E24B4A','#EF9F27'];
+    makeLegend('drugLegend', [`Passed (${f.drugPassed})`,`Failed (${f.drugFailed})`,`Sent/pending (${f.drugSent})`], dColors);
+    destroyChart('drugChart');
+    charts['drugChart'] = new Chart(document.getElementById('drugChart'), {
+      type: 'doughnut',
+      data: { labels: ['Passed','Failed','Sent/pending'], datasets: [{ data: [f.drugPassed, f.drugFailed, f.drugSent], backgroundColor: dColors, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Hiring
+    const hColors = ['#1D9E75','#E24B4A'];
+    makeLegend('hiringLegend', [`Hired (${f.hired})`,`Not hired (${f.notHired})`], hColors);
+    destroyChart('hiringChart');
+    charts['hiringChart'] = new Chart(document.getElementById('hiringChart'), {
+      type: 'doughnut',
+      data: { labels: ['Hired','Not hired'], datasets: [{ data: [f.hired, f.notHired], backgroundColor: hColors, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+  }
+
+  loadData();
+</script>
+</body>
+</html>
