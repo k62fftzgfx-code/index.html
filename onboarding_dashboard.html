@@ -427,15 +427,24 @@
     ).join('');
   }
 
-  async function loadData() {
+  function loadData() {
     document.getElementById('loadingScreen').style.display = 'flex';
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('errorScreen').style.display = 'none';
 
-    try {
-      const res = await fetch(API);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+    const cbName = 'dashCb_' + Date.now();
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('errorScreen').style.display = 'flex';
+      document.getElementById('errorMsg').textContent = 'Failed to load data: timeout';
+      script.remove();
+    }, 15000);
+
+    window[cbName] = function(data) {
+      clearTimeout(timeout);
+      script.remove();
+      delete window[cbName];
       RAW = data;
 
       const campaigns = Object.keys(data.campaigns);
@@ -469,11 +478,17 @@
         document.getElementById(id).addEventListener('change', renderDashboard);
       });
 
-    } catch(e) {
+    };
+
+    script.src = API + '?callback=' + cbName;
+    script.onerror = function() {
+      clearTimeout(timeout);
       document.getElementById('loadingScreen').style.display = 'none';
       document.getElementById('errorScreen').style.display = 'flex';
-      document.getElementById('errorMsg').textContent = 'Failed to load data: ' + e.message;
-    }
+      document.getElementById('errorMsg').textContent = 'Failed to load data';
+      script.remove();
+    };
+    document.head.appendChild(script);
   }
 
   function renderDashboard() {
