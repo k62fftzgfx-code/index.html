@@ -1709,9 +1709,9 @@ function renderProductivity(){
     let key=null;
     const yw=String(r.yearWeek||'').trim(); // e.g. "2026-01"
     if(gran==='weekly'&&yw){
-      // convert "2026-01" → "2026-CW01"
+      // convert "2026-01" → "202601" to match getBucketKey format
       const parts=yw.split('-');
-      if(parts.length===2) key=parts[0]+'-CW'+String(parts[1]).padStart(2,'0');
+      if(parts.length===2) key=parts[0]+String(parts[1]).padStart(2,'0');
     } else if(gran==='monthly'||gran==='quarterly'){
       // find refRow by yearWeek match in rawData
       const refRow=rawData.find(rr=>rr._location===loc&&String(rr[COL.yearWeek]||'').trim()===yw);
