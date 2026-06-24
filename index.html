@@ -179,6 +179,7 @@
     <select class="simple-select" id="granularity">
       <option value="weekly" selected>Weekly</option>
       <option value="monthly">Monthly</option>
+      <option value="quarterly">Quarterly</option>
     </select>
   </div>
   <div class="ctrl-group">
@@ -557,8 +558,9 @@ function getBucketKey(row,gran){
     return ywRaw.length>=6?ywRaw:null;
   }
   if(gran==='daily')return pd.str;
-  if(gran==='monthly'){
-    // Use YearWeek to find Thursday of the week -> determines the month
+  if(gran==='monthly'||gran==='quarterly'){
+    // Determine the month via Thursday of the week (same rule as monthly)
+    let mY, mM;
     const ywRaw = String(row[COL.yearWeek]||'').trim();
     const ywParts = ywRaw.includes('-') ? ywRaw.split('-') : [ywRaw.slice(0,4), ywRaw.slice(4)];
     const ywYear = parseInt(ywParts[0]);
@@ -571,15 +573,25 @@ function getBucketKey(row,gran){
       weekMonday.setDate(startOfWeek1.getDate() + (ywWeek-1)*7);
       const thursday = new Date(weekMonday);
       thursday.setDate(weekMonday.getDate() + 3);
-      return thursday.getFullYear() + '-' + String(thursday.getMonth()+1).padStart(2,'0');
+      mY = thursday.getFullYear();
+      mM = thursday.getMonth()+1;
+    } else {
+      mY = pd.y;
+      mM = pd.m;
     }
-    return pd.y + '-' + String(pd.m).padStart(2,'0');
+    if(gran==='monthly'){
+      return mY + '-' + String(mM).padStart(2,'0');
+    }
+    // quarterly: month -> quarter
+    const q = Math.floor((mM-1)/3)+1;
+    return mY + '-Q' + q;
   }
   return null;
 }
 function getDisplayLabel(key,gran){
   if(gran==='weekly')return'CW'+key.slice(4);
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
+  if(gran==='quarterly'){const p=key.split('-');return p[1]+" '"+p[0].slice(2);}
   const p=key.split('-');return p[1]+'/'+p[2];
 }
 function median(arr){
@@ -1366,6 +1378,7 @@ function getInvBucketKey(dateStr, gran) {
   const pd = parseDate(dateStr); if(!pd) return null;
   if(gran==='daily') return pd.str;
   if(gran==='monthly') return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
+  if(gran==='quarterly') return `${pd.y}-Q${Math.floor((pd.m-1)/3)+1}`;
   if(gran==='weekly') {
     const wk = typeof getISOWeek === 'function' ? getISOWeek(pd.dt) : getWeekNum(pd.dt);
     return `${pd.y}${String(wk).padStart(2,'0')}`;
@@ -1384,6 +1397,7 @@ function getWeekNum(dt) {
 function getInvDisplayLabel(key, gran) {
   if(gran==='weekly') return 'CW'+key.slice(4);
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
+  if(gran==='quarterly'){const p=key.split('-');return p[1]+" '"+p[0].slice(2);}
   // daily: key is YYYY-MM-DD
   const p=key.split('-');
   if(p.length===3) return p[1]+'/'+p[2];
