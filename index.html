@@ -415,7 +415,7 @@ const TODAY = new Date(); // current date
 const INACTIVE_DAYS = 21; // 3 weeks
 
 const COL = {
-  date:'Data', day:'Day', yearWeek:'YearWeek', year:'Year', hours:'Time',
+  date:'Data', day:'Day', yearWeek:'YearWeek', yearMonthSort:'YearMonthSort', year:'Year', hours:'Time',
   highway:'HIGHWAY', intermodal:'INTERMODAL', eastCoast:'East coast',
   localDelivery:'Local Delivery', crossDock:'Cross Dock',
   sumPallets:'Sum Pallets', costs:'Costs', costs2:'Costs2',
@@ -558,30 +558,21 @@ function getBucketKey(row,gran){
   }
   if(gran==='daily')return pd.str;
   if(gran==='monthly'){
-    // Use YearWeek column to determine month by ISO standard (Thursday rule)
+    // Use YearWeek to find Thursday of the week -> determines the month
     const ywRaw = String(row[COL.yearWeek]||'').trim();
-    // Support both formats: '202618' and '2026-18'
     const ywParts = ywRaw.includes('-') ? ywRaw.split('-') : [ywRaw.slice(0,4), ywRaw.slice(4)];
     const ywYear = parseInt(ywParts[0]);
     const ywWeek = parseInt(ywParts[1]);
-    const yw = ywRaw;
-    if(yw.length>=6 && !isNaN(ywYear) && !isNaN(ywWeek) && ywWeek>=1 && ywWeek<=53){
-
-      // Find Monday of this ISO week
+    if(!isNaN(ywYear) && !isNaN(ywWeek) && ywWeek>=1 && ywWeek<=53 && ywYear>=2020){
       const jan4 = new Date(ywYear, 0, 4);
       const startOfWeek1 = new Date(jan4);
       startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay()+6)%7));
       const weekMonday = new Date(startOfWeek1);
       weekMonday.setDate(startOfWeek1.getDate() + (ywWeek-1)*7);
-      // Thursday = Monday + 3 days — determines the month
       const thursday = new Date(weekMonday);
       thursday.setDate(weekMonday.getDate() + 3);
-      const m = thursday.getMonth()+1;
-      const y = thursday.getFullYear();
-      // Always return YYYY-MM format for monthly
-      return y + '-' + String(m).padStart(2,'0');
+      return thursday.getFullYear() + '-' + String(thursday.getMonth()+1).padStart(2,'0');
     }
-    // Fallback: use actual date if YearWeek missing
     return pd.y + '-' + String(pd.m).padStart(2,'0');
   }
   return null;
@@ -840,8 +831,9 @@ function renderOperations(){
     if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
     if(!sum){
       DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});
-      buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     }
+    // Sum Pallets counted from ALL rows incl. Sunday (Sunday is summary only for Costs2)
+    buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     if(sum){
 
       buckets[key].costs2+=toNum(r[COL.costs2]);
