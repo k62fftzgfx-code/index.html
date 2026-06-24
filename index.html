@@ -1681,24 +1681,55 @@ function renderProductivity(){
   const{gran,years,locs,isDaily,dateFrom,dateTo}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
-  const hasRoles=rawData.some(r=>r[COL.role]);
+  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!=='');
 
-  // Build buckets: per key → {pallets, allHours, prodHours}
-  const buckets={};
+  // Build buckets from rawData (pallets) + timeData (hours with role weights)
+  // rawData → pallets per bucket per location
+  // timeData → allHours + prodHours per bucket per location
+  const pltBuckets={};
   rawData.forEach(r=>{
     if(!locs.includes(r._location))return;
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const key=getBucketKey(r,gran);if(!key)return;
-    if(!buckets[key])buckets[key]={pallets:0,allHours:0,prodHours:0};
-    const hrs=toNum(r[COL.hours]);
-    buckets[key].pallets+=toNum(r[COL.sumPallets]);
-    buckets[key].allHours+=hrs;
-    if(hasRoles){
-      const w=getRoleWeight(r[COL.role]);
-      buckets[key].prodHours+=hrs*w;
-    }
+    if(!pltBuckets[key])pltBuckets[key]={pallets:0,allHours:0,prodHours:0};
+    pltBuckets[key].pallets+=toNum(r[COL.sumPallets]);
+    pltBuckets[key].allHours+=toNum(r[COL.hours]);
   });
+
+  // timeData → prodHours (role-weighted)
+  if(hasRoles){
+    timeData.forEach(r=>{
+      // map timeData location to our location keys
+      const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+      if(!loc||!locs.includes(loc))return;
+      const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+      if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
+      // find matching bucket key — use same gran logic via a synthetic rawData-like obj
+      const synth={[COL.yearWeek]:r.yearWeek,YearMonthSort:r.yearMonthSort,Year:r.year,[COL.date]:r.date,_location:loc};
+      // fallback: find key from pltBuckets by date match
+      const hrs=toNum(r.totalHours);
+      const w=getRoleWeight(r.role||'');
+      // find bucket key by date
+      let matchKey=null;
+      Object.keys(pltBuckets).forEach(k=>{
+        // k is like "2025-CW01" or "2025-01" or "2025-Q1"
+        // match by checking if this date falls in bucket
+      });
+      // Simpler: re-derive key from timeData row using rawData rows with same date
+      const dateStr=pd.str;
+      // find any rawData row with same location and date to get its bucket key
+      const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===dateStr);
+      if(refRow){
+        matchKey=getBucketKey(refRow,gran);
+        if(matchKey&&pltBuckets[matchKey]!==undefined){
+          pltBuckets[matchKey].prodHours+=hrs*w;
+        }
+      }
+    });
+  }
+
+  const buckets=pltBuckets;
 
   const keys=Object.keys(buckets).sort();
   if(!keys.length){if(prodInst){prodInst.destroy();prodInst=null;}return;}
