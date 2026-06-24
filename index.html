@@ -435,7 +435,7 @@ const TODAY = new Date(); // current date
 const INACTIVE_DAYS = 21; // 3 weeks
 
 const COL = {
-  date:'Data', day:'Day', yearWeek:'YearWeek', yearMonthSort:'YearMonthSort', year:'Year', hours:'Time',
+  date:'Data', day:'Day', yearWeek:'YearWeek', yearMonthSort:'YearMonthSort', year:'Year', hours:'Time', role:'Role',
   highway:'HIGHWAY', intermodal:'INTERMODAL', eastCoast:'East coast',
   localDelivery:'Local Delivery', crossDock:'Cross Dock',
   sumPallets:'Sum Pallets', costs:'Costs', costs2:'Costs2',
@@ -1651,7 +1651,22 @@ const PROD_THR_MAP = {
   'Markham, IL':'pthr-markham','Reno, NV':'pthr-reno','Stockton, CA':'pthr-stockton',
   'San Bernardino, CA':'pthr-sanb','Denver, CO':'pthr-denver','Columbus, OH':'pthr-columbus'
 };
-const PROD_LOC_COLORS = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a'];
+
+// Role → productive coefficient (0 = not productive)
+const ROLE_WEIGHT = {
+  'Forklift Operator': 1.0,
+  'Supervisor / Forklift Operator': 0.75,
+  'Local Manager / Forklift Operator': 0.75,
+};
+function getRoleWeight(role){
+  if(!role)return 0;
+  const trimmed=role.trim();
+  // exact match
+  if(ROLE_WEIGHT[trimmed]!==undefined)return ROLE_WEIGHT[trimmed];
+  // fallback: normalize slashes (handle "Supervisor/ Forklift Operator" etc.)
+  const norm=trimmed.replace(/\s*\/\s*/g,' / ');
+  return ROLE_WEIGHT[norm]!==undefined?ROLE_WEIGHT[norm]:0;
+}
 
 function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
@@ -1666,57 +1681,63 @@ function renderProductivity(){
   const{gran,years,locs,isDaily,dateFrom,dateTo}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
+  const hasRoles=rawData.some(r=>r[COL.role]);
 
-  // Build per-bucket per-location data: sumPallets and hours (Time column from ALL rows)
-  // Structure: buckets[key][loc] = {pallets, hours}
+  // Build buckets: per key → {pallets, allHours, prodHours}
   const buckets={};
   rawData.forEach(r=>{
     if(!locs.includes(r._location))return;
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const key=getBucketKey(r,gran);if(!key)return;
-    const loc=r._location;
-    if(!buckets[key])buckets[key]={};
-    if(!buckets[key][loc])buckets[key][loc]={pallets:0,hours:0};
-    buckets[key][loc].pallets+=toNum(r[COL.sumPallets]);
-    buckets[key][loc].hours+=toNum(r[COL.hours]);
+    if(!buckets[key])buckets[key]={pallets:0,allHours:0,prodHours:0};
+    const hrs=toNum(r[COL.hours]);
+    buckets[key].pallets+=toNum(r[COL.sumPallets]);
+    buckets[key].allHours+=hrs;
+    if(hasRoles){
+      const w=getRoleWeight(r[COL.role]);
+      buckets[key].prodHours+=hrs*w;
+    }
   });
 
   const keys=Object.keys(buckets).sort();
   if(!keys.length){if(prodInst){prodInst.destroy();prodInst=null;}return;}
   const dispLabels=keys.map(k=>getDisplayLabel(k,gran));
 
-  // Determine mode: single loc → 1 bar dataset; multiple → grouped bars per loc
-  const singleLoc=locs.length===1;
+  // KPI badges
+  let totPallets=0,totAll=0,totProd=0;
+  keys.forEach(k=>{totPallets+=buckets[k].pallets;totAll+=buckets[k].allHours;totProd+=buckets[k].prodHours;});
+  const kpiAll=totAll>0?parseFloat((totPallets/totAll).toFixed(2)):null;
+  const kpiProd=hasRoles&&totProd>0?parseFloat((totPallets/totProd).toFixed(2)):null;
+  const kpiEl=document.getElementById('prod-kpi');
+  if(kpiEl){
+    kpiEl.innerHTML=
+      (kpiAll!==null?`<span style="color:#8a9dba;margin-right:8px;">All: <b style="color:#7dd4f0">${kpiAll.toFixed(2)}</b></span>`:'')
+      +(kpiProd!==null?`<span>Prod: <b style="color:#6aab90">${kpiProd.toFixed(2)}</b></span> <span style="color:#6a7d9a;font-size:11px;">plt/hr</span>`:'plt/hr');
+  }
 
-  // Overall KPI (all selected locs combined)
-  let totPallets=0,totHours=0;
-  keys.forEach(k=>locs.forEach(l=>{if(buckets[k][l]){totPallets+=buckets[k][l].pallets;totHours+=buckets[k][l].hours;}}));
-  const overallPPH=totHours>0?parseFloat((totPallets/totHours).toFixed(2)):null;
-  document.getElementById('prod-kpi').textContent=overallPPH!==null?overallPPH.toFixed(2)+' plt/hr':'';
-
-  // Threshold line (weighted avg of selected locs)
+  // Threshold line
   const activeProdThr=getActiveProdThreshold(locs);
 
-  // Build datasets
+  // Datasets
+  const allVals=keys.map(k=>{const d=buckets[k];return d.allHours>0?parseFloat((d.pallets/d.allHours).toFixed(2)):null;});
+  const prodVals=hasRoles?keys.map(k=>{const d=buckets[k];return d.prodHours>0?parseFloat((d.pallets/d.prodHours).toFixed(2)):null;}):null;
+
   let datasets=[];
-  if(singleLoc){
-    const loc=locs[0];
-    const vals=keys.map(k=>{const d=buckets[k][loc];return d&&d.hours>0?parseFloat((d.pallets/d.hours).toFixed(2)):null;});
+
+  // Bar 1 — All Hours (приглушений)
+  datasets.push({
+    type:'bar',label:'All Hours',data:allVals,
+    backgroundColor:'#4a7fa055',borderColor:'#4a7fa0',borderWidth:1,borderRadius:4,
+    yAxisID:'yP',order:3,maxBarThickness:56
+  });
+
+  // Bar 2 — Productive Hours (яскравий) — тільки якщо є Role дані
+  if(prodVals){
     datasets.push({
-      type:'bar',label:loc,data:vals,
+      type:'bar',label:'Productive Hours',data:prodVals,
       backgroundColor:'#6aab90cc',borderColor:'#6aab90',borderWidth:0,borderRadius:4,
-      yAxisID:'yP',order:2,maxBarThickness:60
-    });
-  } else {
-    locs.forEach((loc,i)=>{
-      const color=PROD_LOC_COLORS[i%PROD_LOC_COLORS.length];
-      const vals=keys.map(k=>{const d=buckets[k][loc];return d&&d.hours>0?parseFloat((d.pallets/d.hours).toFixed(2)):null;});
-      datasets.push({
-        type:'bar',label:LOC_ABBR[loc]||loc,data:vals,
-        backgroundColor:color+'cc',borderColor:color,borderWidth:0,borderRadius:4,
-        yAxisID:'yP',order:2,maxBarThickness:48
-      });
+      yAxisID:'yP',order:2,maxBarThickness:56
     });
   }
 
@@ -1732,11 +1753,11 @@ function renderProductivity(){
   // Legend
   const legendEl=document.getElementById('prod-legend');
   if(legendEl){
-    legendEl.innerHTML=(singleLoc?'':locs.map((l,i)=>{
-      const c=PROD_LOC_COLORS[i%PROD_LOC_COLORS.length];
-      return`<span class="leg-item"><span class="leg-box" style="background:${c}"></span>${LOC_ABBR[l]||l}</span>`;
-    }).join(''))+
-    (activeProdThr?`<span class="leg-item"><span class="leg-line" style="background:#E24B4A"></span>Target ${activeProdThr.toFixed(1)} plt/hr</span>`:'');
+    legendEl.innerHTML=
+      `<span class="leg-item"><span class="leg-box" style="background:#4a7fa0;opacity:0.6"></span>All hrs plt/hr</span>`+
+      (prodVals?`<span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive hrs plt/hr</span>`:
+        `<span style="font-size:10px;color:#6a7d9a;margin-left:8px;">* додайте колонку Role для продуктивних годин</span>`)+
+      (activeProdThr?`<span class="leg-item"><span class="leg-line" style="background:#E24B4A"></span>Target ${activeProdThr.toFixed(1)} plt/hr</span>`:'');
   }
 
   const c=document.getElementById('prodChart'),sw=document.getElementById('scroll-prod');
@@ -1749,7 +1770,12 @@ function renderProductivity(){
       layout:{padding:{top:28,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
-          callbacks:{label:ctx=>{if(ctx.dataset.label==='Target')return` Target: ${Number(ctx.raw).toFixed(2)} plt/hr`;return` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} plt/hr`;}}}},
+          callbacks:{label:ctx=>{
+            if(ctx.dataset.label==='Target')return` Target: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            if(ctx.dataset.label==='All Hours')return` All hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            if(ctx.dataset.label==='Productive Hours')return` Prod hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            return` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+          }}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yP:{type:'linear',position:'left',
@@ -1759,19 +1785,25 @@ function renderProductivity(){
       }},
     plugins:[{id:'prodLabels',afterDatasetsDraw(chart){
       const{ctx}=chart;
-      // Label bars (single or last dataset in group per bar)
       const barDS=chart.data.datasets.filter(d=>d.type==='bar');
       if(!barDS.length)return;
-      barDS.forEach(ds=>{
-        const mi=chart.data.datasets.indexOf(ds);
-        const meta=chart.getDatasetMeta(mi);
-        ctx.save();ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
-        meta.data.forEach((bar,i)=>{
-          const v=ds.data[i];if(v===null||v===undefined||v===0)return;
-          ctx.fillText(v.toFixed(1),bar.x,bar.y-3);
+      // Show label only on the tallest bar per index (avoid overlap)
+      const idxCount=chart.data.labels.length;
+      for(let i=0;i<idxCount;i++){
+        let topBar=null,topY=Infinity;
+        barDS.forEach(ds=>{
+          const mi=chart.data.datasets.indexOf(ds);
+          const meta=chart.getDatasetMeta(mi);
+          if(meta.data[i]&&meta.data[i].y<topY){topY=meta.data[i].y;topBar={bar:meta.data[i],val:ds.data[i],label:ds.label};}
         });
+        if(!topBar||topBar.val===null||topBar.val===0)continue;
+        ctx.save();
+        ctx.font='bold 9px -apple-system,sans-serif';
+        ctx.fillStyle=topBar.label==='Productive Hours'?'#6aab90':'#7dd4f0';
+        ctx.textAlign='center';ctx.textBaseline='bottom';
+        ctx.fillText(topBar.val.toFixed(1),topBar.bar.x,topBar.bar.y-3);
         ctx.restore();
-      });
+      }
     }}]
   });
 }
