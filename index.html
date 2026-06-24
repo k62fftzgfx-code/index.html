@@ -1681,11 +1681,9 @@ function renderProductivity(){
   const{gran,years,locs,isDaily,dateFrom,dateTo}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
-  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!=='');
+  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
 
-  // Build buckets from rawData (pallets) + timeData (hours with role weights)
-  // rawData → pallets per bucket per location
-  // timeData → allHours + prodHours per bucket per location
+  // Build buckets: pallets from rawData, hours from timeData (Fleet excluded from both)
   const pltBuckets={};
   rawData.forEach(r=>{
     if(!locs.includes(r._location))return;
@@ -1694,40 +1692,24 @@ function renderProductivity(){
     const key=getBucketKey(r,gran);if(!key)return;
     if(!pltBuckets[key])pltBuckets[key]={pallets:0,allHours:0,prodHours:0};
     pltBuckets[key].pallets+=toNum(r[COL.sumPallets]);
-    pltBuckets[key].allHours+=toNum(r[COL.hours]);
   });
 
-  // timeData → prodHours (role-weighted)
-  if(hasRoles){
-    timeData.forEach(r=>{
-      // map timeData location to our location keys
-      const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-      if(!loc||!locs.includes(loc))return;
-      const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-      if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
-      // find matching bucket key — use same gran logic via a synthetic rawData-like obj
-      const synth={[COL.yearWeek]:r.yearWeek,YearMonthSort:r.yearMonthSort,Year:r.year,[COL.date]:r.date,_location:loc};
-      // fallback: find key from pltBuckets by date match
-      const hrs=toNum(r.totalHours);
-      const w=getRoleWeight(r.role||'');
-      // find bucket key by date
-      let matchKey=null;
-      Object.keys(pltBuckets).forEach(k=>{
-        // k is like "2025-CW01" or "2025-01" or "2025-Q1"
-        // match by checking if this date falls in bucket
-      });
-      // Simpler: re-derive key from timeData row using rawData rows with same date
-      const dateStr=pd.str;
-      // find any rawData row with same location and date to get its bucket key
-      const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===dateStr);
-      if(refRow){
-        matchKey=getBucketKey(refRow,gran);
-        if(matchKey&&pltBuckets[matchKey]!==undefined){
-          pltBuckets[matchKey].prodHours+=hrs*w;
-        }
-      }
-    });
-  }
+  // allHours + prodHours both from timeData so Fleet is excluded from both
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
+    const hrs=toNum(r.totalHours);
+    const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===pd.str);
+    if(!refRow)return;
+    const key=getBucketKey(refRow,gran);
+    if(!key||pltBuckets[key]===undefined)return;
+    pltBuckets[key].allHours+=hrs;
+    pltBuckets[key].prodHours+=hrs*getRoleWeight(role);
+  });
 
   const buckets=pltBuckets;
 
@@ -1818,23 +1800,20 @@ function renderProductivity(){
       const{ctx}=chart;
       const barDS=chart.data.datasets.filter(d=>d.type==='bar');
       if(!barDS.length)return;
-      // Show label only on the tallest bar per index (avoid overlap)
-      const idxCount=chart.data.labels.length;
-      for(let i=0;i<idxCount;i++){
-        let topBar=null,topY=Infinity;
-        barDS.forEach(ds=>{
-          const mi=chart.data.datasets.indexOf(ds);
-          const meta=chart.getDatasetMeta(mi);
-          if(meta.data[i]&&meta.data[i].y<topY){topY=meta.data[i].y;topBar={bar:meta.data[i],val:ds.data[i],label:ds.label};}
-        });
-        if(!topBar||topBar.val===null||topBar.val===0)continue;
+      barDS.forEach(ds=>{
+        const color=ds.label==='Productive Hours'?'#6aab90':'#7dd4f0';
+        const mi=chart.data.datasets.indexOf(ds);
+        const meta=chart.getDatasetMeta(mi);
         ctx.save();
         ctx.font='bold 9px -apple-system,sans-serif';
-        ctx.fillStyle=topBar.label==='Productive Hours'?'#6aab90':'#7dd4f0';
+        ctx.fillStyle=color;
         ctx.textAlign='center';ctx.textBaseline='bottom';
-        ctx.fillText(topBar.val.toFixed(1),topBar.bar.x,topBar.bar.y-3);
+        meta.data.forEach((bar,i)=>{
+          const v=ds.data[i];if(v===null||v===undefined||v===0)return;
+          ctx.fillText(v.toFixed(1),bar.x,bar.y-3);
+        });
         ctx.restore();
-      }
+      });
     }}]
   });
 }
