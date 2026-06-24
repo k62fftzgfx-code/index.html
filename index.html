@@ -1695,6 +1695,7 @@ function renderProductivity(){
   });
 
   // allHours + prodHours both from timeData so Fleet is excluded from both
+  // Uses yearWeek from timeData (col S) for accurate bucket matching
   timeData.forEach(r=>{
     const role=String(r.role||'').trim();
     if(role==='Fleet')return;
@@ -1703,9 +1704,24 @@ function renderProductivity(){
     const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const hrs=toNum(r.totalHours);
-    const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===pd.str);
-    if(!refRow)return;
-    const key=getBucketKey(refRow,gran);
+
+    // Build bucket key directly from timeData's yearWeek column
+    let key=null;
+    const yw=String(r.yearWeek||'').trim(); // e.g. "2026-01"
+    if(gran==='weekly'&&yw){
+      // convert "2026-01" → "2026-CW01"
+      const parts=yw.split('-');
+      if(parts.length===2) key=parts[0]+'-CW'+String(parts[1]).padStart(2,'0');
+    } else if(gran==='monthly'||gran==='quarterly'){
+      // find refRow by yearWeek match in rawData
+      const refRow=rawData.find(rr=>rr._location===loc&&String(rr[COL.yearWeek]||'').trim()===yw);
+      if(refRow) key=getBucketKey(refRow,gran);
+    } else {
+      // daily or other — fallback to date match
+      const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===pd.str);
+      if(refRow) key=getBucketKey(refRow,gran);
+    }
+
     if(!key||pltBuckets[key]===undefined)return;
     pltBuckets[key].allHours+=hrs;
     pltBuckets[key].prodHours+=hrs*getRoleWeight(role);
