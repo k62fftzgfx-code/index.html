@@ -325,10 +325,20 @@
     <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Labor Productivity (pallets / hr)</div>
-        <div id="prod-kpi" style="font-size:13px;font-weight:500;color:#6aab90;"></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="prod-kpi" style="font-size:13px;font-weight:500;color:#6aab90;"></div>
+          <button id="prod-table-toggle" onclick="toggleProdTable()" style="font-size:11px;padding:3px 10px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Details</button>
+        </div>
       </div>
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
       <div class="legend" id="prod-legend"></div>
+      <!-- Collapsible productivity details table -->
+      <div id="prod-table-wrap" style="display:none;margin-top:12px;overflow-x:auto;border-top:1px solid #2e3d5c;padding-top:10px;">
+        <table id="prod-detail-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px;">
+          <thead id="prod-table-head"></thead>
+          <tbody id="prod-table-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
   <div class="charts-row">
@@ -343,18 +353,6 @@
       </div>
       <div id="ops-map-wrap" style="position:relative;width:100%;height:260px;border-radius:8px;overflow:hidden;"></div>
       <div id="ops-map-legend" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:8px;"></div>
-      <!-- Collapsible productivity details table -->
-      <div style="margin-top:12px;">
-        <button id="prod-table-toggle" onclick="toggleProdTable()" style="font-size:11px;padding:4px 12px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#8a9dba;cursor:pointer;display:flex;align-items:center;gap:6px;">
-          <span id="prod-table-arrow">▶</span> Show productivity details
-        </button>
-        <div id="prod-table-wrap" style="display:none;margin-top:10px;overflow-x:auto;">
-          <table id="prod-detail-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px;">
-            <thead id="prod-table-head"></thead>
-            <tbody id="prod-table-body"></tbody>
-          </table>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -960,14 +958,9 @@ let prodTableOpen = false;
 function toggleProdTable(){
   prodTableOpen = !prodTableOpen;
   const wrap = document.getElementById('prod-table-wrap');
-  const arrow = document.getElementById('prod-table-arrow');
   const btn = document.getElementById('prod-table-toggle');
   if(wrap) wrap.style.display = prodTableOpen ? 'block' : 'none';
-  if(arrow) arrow.textContent = prodTableOpen ? '▼' : '▶';
-  if(btn){
-    const span = btn.querySelector('span:last-child') || btn;
-    btn.innerHTML = `<span id="prod-table-arrow">${prodTableOpen?'▼':'▶'}</span> ${prodTableOpen?'Hide':'Show'} productivity details`;
-  }
+  if(btn) btn.textContent = prodTableOpen ? '▼ Details' : '▶ Details';
   if(prodTableOpen) renderProdTable();
 }
 
@@ -1071,7 +1064,28 @@ function renderProdTable(){
         if(row.isLost&&v!==null){cls=v>0?'val-red':'val-green';}
         return`<td class="${cls}" style="${!row.isLost&&row.color?'color:'+row.color:''}">${row.fmt(v)}</td>`;
       }).join('')}
-    </tr>`).join('');
+    </tr>`).join('')
+  // Coefficients info row
+  + `<tr><td colspan="${keys.length+1}" style="padding:10px 0 4px;border-top:1px solid #2e3d5c;"></td></tr>
+  <tr><td colspan="${keys.length+1}" style="color:#6a7d9a;font-size:10px;line-height:1.8;padding-bottom:4px;">
+    <b style="color:#8a9dba">How Prod hrs are calculated:</b><br>
+    Forklift Operator (experienced) → <span style="color:#6aab90">100%</span> &nbsp;|&nbsp;
+    Supervisor / Forklift Operator → <span style="color:#6aab90">75%</span> &nbsp;|&nbsp;
+    Local Manager / Forklift Operator → <span style="color:#6aab90">75%</span><br>
+    New Forklift Operator (hired after ${document.getElementById('wf-hire-date')?.value||'2026-03-01'}):
+    Wk1 <span style="color:#f0a050">${document.getElementById('wf-w1')?.value||40}%</span> →
+    Wk2 <span style="color:#f0a050">${document.getElementById('wf-w2')?.value||50}%</span> →
+    Wk3 <span style="color:#f0a050">${document.getElementById('wf-w3')?.value||58}%</span> →
+    Wk4 <span style="color:#f0a050">${document.getElementById('wf-w4')?.value||64}%</span> →
+    Wk5-6 <span style="color:#f0a050">${document.getElementById('wf-w56')?.value||68}%</span> →
+    Wk7-8 <span style="color:#f0a050">${document.getElementById('wf-w78')?.value||74}%</span> →
+    Wk9-10 <span style="color:#f0a050">${document.getElementById('wf-w910')?.value||82}%</span> →
+    Wk11-12 <span style="color:#f0a050">${document.getElementById('wf-w1112')?.value||90}%</span> →
+    Wk13+ <span style="color:#6aab90">100%</span><br>
+    Supervisor, Spotter, Consolidator, Fleet → <span style="color:#e07070">0%</span> (excluded)<br>
+    <b style="color:#8a9dba">Lost pallets</b> = (Target plt/hr − Prod plt/hr) × Prod hrs &nbsp;|&nbsp;
+    Target: ${activeThr?activeThr.toFixed(1)+' plt/hr (avg of selected locations)':'not set'}
+  </td></tr>`;
 }
 
 function renderOpsMap() {
