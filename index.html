@@ -191,9 +191,11 @@
   </div>
   <div class="ctrl-group" id="period-group">
     <label class="ctrl-label" id="period-label">Week</label>
-    <div class="custom-dropdown">
-      <div class="dropdown-trigger" id="period-trigger" onclick="toggleDropdown('period')">All weeks</div>
-      <div class="dropdown-menu" id="period-menu" style="max-height:260px;overflow-y:auto;">
+    <div class="week-dropdown">
+      <div class="dropdown-trigger" id="period-trigger" onclick="togglePeriodDropdown()">All weeks</div>
+      <div class="week-dropdown-menu" id="period-menu">
+        <div class="week-search"><input type="text" id="period-search-input" placeholder="Search..." oninput="filterPeriodSearch()"></div>
+        <div class="week-groups" id="period-groups"></div>
       </div>
     </div>
   </div>
@@ -203,13 +205,14 @@
       <div class="dropdown-trigger" id="loc-trigger" onclick="toggleDropdown('loc')">All locations</div>
       <div class="dropdown-menu" id="loc-menu">
         <label class="dropdown-item all-item"><input type="checkbox" id="loc-all" checked onchange="toggleAll('loc')"> All locations</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL" data-loc-name="Freight Box, Markham" checked onchange="onCbChange('loc')"> Markham, IL</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Reno, NV" data-loc-name="Freight Box, Sparks" checked onchange="onCbChange('loc')"> Reno, NV</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Stockton, CA" data-loc-name="Freight Box, Stockton" checked onchange="onCbChange('loc')"> Stockton, CA</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="San Bernardino, CA" data-loc-name="Freight Box, San Bernardino" checked onchange="onCbChange('loc')"> San Bernardino, CA</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Denver, CO" data-loc-name="Freight Box, Colorado" checked onchange="onCbChange('loc')"> Denver, CO</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Columbus, OH" data-loc-name="Freight Box, Columbus" checked onchange="onCbChange('loc')"> Columbus, OH</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Greenville, SC" data-loc-name="FreightBox, Greenville" checked onchange="onCbChange('loc')"> Greenville, SC</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL" checked onchange="onCbChange('loc')"> Markham, IL</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL East" checked onchange="onCbChange('loc')"> Markham, IL East</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Reno, NV" checked onchange="onCbChange('loc')"> Reno, NV</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Stockton, CA" checked onchange="onCbChange('loc')"> Stockton, CA</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="San Bernardino, CA" checked onchange="onCbChange('loc')"> San Bernardino, CA</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Denver, CO" checked onchange="onCbChange('loc')"> Denver, CO</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Columbus, OH" checked onchange="onCbChange('loc')"> Columbus, OH</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Greenville, SC" checked onchange="onCbChange('loc')"> Greenville, SC</label>
       </div>
     </div>
   </div>
@@ -234,20 +237,24 @@
   <div class="threshold-panel-title">Labor cost per pallet — threshold by location</div>
   <div class="threshold-grid">
     <div class="threshold-item"><label>Markham, IL</label><input type="number" id="thr-markham" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="thr-markham-east" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Reno, NV</label><input type="number" id="thr-reno" value="4.25" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="thr-stockton" value="3.60" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="thr-sanb" value="5.00" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Denver, CO</label><input type="number" id="thr-denver" value="9.00" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="thr-columbus" value="25.00" step="0.05" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="thr-greenville" value="5.00" step="0.05" min="0" onchange="renderOperations()"></div>
   </div>
   <div class="threshold-panel-title" style="margin-top:14px;">Labor Productivity — pallets/hr target by location</div>
   <div class="threshold-grid">
     <div class="threshold-item"><label>Markham, IL</label><input type="number" id="pthr-markham" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="pthr-sanb" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Denver, CO</label><input type="number" id="pthr-denver" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
   </div>
 </div>
 
@@ -388,21 +395,6 @@
 <!-- ===== TAB 2: TIME & STAFF ===== -->
 <div class="tab-content" id="tab-staff">
 
-  <!-- Week filter for Time & Staff -->
-  <div style="display:flex; align-items:flex-end; gap:12px; margin-bottom:14px; background:#222d45; padding:10px 16px; border-radius:12px; border:0.5px solid #2e3d5c;">
-    <div style="display:flex;flex-direction:column;gap:4px;">
-      <label style="font-size:10px;color:#7a8daa;text-transform:uppercase;letter-spacing:0.6px;">Week</label>
-      <div class="week-dropdown">
-        <div class="dropdown-trigger" id="week-trigger" onclick="toggleWeekDropdown()">All weeks</div>
-        <div class="week-dropdown-menu" id="week-menu">
-          <div class="week-search"><input type="text" id="week-search-input" placeholder="Search CW..." oninput="filterWeekSearch()"></div>
-          <div class="week-groups" id="week-groups"></div>
-        </div>
-      </div>
-    </div>
-    <button class="btn-refresh" style="align-self:flex-end" onclick="selectAllWeeks()">All weeks</button>
-  </div>
-
   <!-- Staff KPI -->
   <div class="kpi-row">
     <div class="kpi-card">
@@ -475,12 +467,14 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const THRESHOLD_MAP = {
-  'Markham, IL':'thr-markham','Reno, NV':'thr-reno','Stockton, CA':'thr-stockton',
-  'San Bernardino, CA':'thr-sanb','Denver, CO':'thr-denver','Columbus, OH':'thr-columbus'
+  'Markham, IL':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno','Stockton, CA':'thr-stockton',
+  'San Bernardino, CA':'thr-sanb','Denver, CO':'thr-denver','Columbus, OH':'thr-columbus','Greenville, SC':'thr-greenville'
 };
 
 // Location name mapping (Time sheet → our location keys)
 const LOC_NAME_MAP = {
+  'freight box, markham east':       'Markham, IL East',
+  'freightbox, markham east':        'Markham, IL East',
   'freight box, markham':           'Markham, IL',
   'freightbox, markham':            'Markham, IL',
   'greenline logistics, markham':   'Markham, IL',
@@ -695,58 +689,147 @@ function mapLocName(locName){
 }
 
 // ===================== PERIOD FILTER =====================
-let periodOptions=[]; // [{key, label}] — all available periods derived from rawData
+let periodOptions=[]; // [{key, label}]
+let selectedPeriods_set=null; // null=all, Set=filtered
+const openPeriodYears=new Set();
+const openPeriodMonths=new Set();
 
 function buildPeriodOptions(){
   const gran=document.getElementById('granularity').value;
   if(!rawData.length)return;
-
-  const seen=new Set();
-  const opts=[];
-
+  const seen=new Set();const opts=[];
   if(gran==='yearly'){
-    rawData.forEach(r=>{
-      const pd=parseDate(r[COL.date]);if(!pd)return;
-      const k=String(pd.y);
-      if(!seen.has(k)){seen.add(k);opts.push({key:k,label:k});}
-    });
-    opts.sort((a,b)=>a.key.localeCompare(b.key));
+    rawData.forEach(r=>{const pd=parseDate(r[COL.date]);if(!pd)return;const k=String(pd.y);if(!seen.has(k)){seen.add(k);opts.push({key:k,label:k});}});
   } else {
-    rawData.forEach(r=>{
-      const key=getBucketKey(r,gran);if(!key)return;
-      if(!seen.has(key)){seen.add(key);opts.push({key,label:getDisplayLabel(key,gran)});}
-    });
-    opts.sort((a,b)=>a.key.localeCompare(b.key));
+    rawData.forEach(r=>{const key=getBucketKey(r,gran);if(!key)return;if(!seen.has(key)){seen.add(key);opts.push({key,label:getDisplayLabel(key,gran)});}});
   }
-
+  opts.sort((a,b)=>a.key.localeCompare(b.key));
   periodOptions=opts;
-
-  // Rebuild dropdown HTML
-  const menu=document.getElementById('period-menu');
+  selectedPeriods_set=null;
   const labelMap={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'};
-  const allLabel={weekly:'All weeks',monthly:'All months',quarterly:'All quarters',yearly:'All years'};
   document.getElementById('period-label').textContent=labelMap[gran]||'Period';
-
-  menu.innerHTML=`<label class="dropdown-item all-item"><input type="checkbox" id="period-all" checked onchange="toggleAll('period')"> ${allLabel[gran]||'All'}</label>`
-    +opts.map(o=>`<label class="dropdown-item"><input type="checkbox" class="period-cb" value="${o.key}" checked onchange="onCbChange('period')"> ${o.label}</label>`).join('');
-
-  updateDropdownLabel('period');
+  renderPeriodGroups();
+  updatePeriodTrigger();
 }
 
-function getSelectedPeriods(){
-  const cbs=document.querySelectorAll('.period-cb');
-  if(!cbs.length)return null; // null = all
-  const checked=Array.from(cbs).filter(c=>c.checked).map(c=>c.value);
-  if(checked.length===cbs.length)return null; // all selected = no filter
-  return new Set(checked);
+function renderPeriodGroups(filter=''){
+  const gran=document.getElementById('granularity').value;
+  const container=document.getElementById('period-groups');
+  if(!container)return;
+  if(gran==='weekly'){
+    const tree={};
+    periodOptions.forEach(o=>{
+      const yr=o.key.slice(0,4);
+      const refRow=rawData.find(r=>getBucketKey(r,'weekly')===o.key);
+      const mon=refRow?parseDate(refRow[COL.date])?.m||1:1;
+      if(!tree[yr])tree[yr]={};
+      if(!tree[yr][mon])tree[yr][mon]=[];
+      tree[yr][mon].push(o);
+    });
+    const html=Object.keys(tree).sort().map(yr=>{
+      const isYrOpen=openPeriodYears.has(yr)||!!filter;
+      const yrOpts=periodOptions.filter(o=>o.key.startsWith(yr));
+      const yrSel=yrOpts.filter(o=>selectedPeriods_set===null||selectedPeriods_set.has(o.key)).length;
+      const months=Object.keys(tree[yr]).sort((a,b)=>parseInt(a)-parseInt(b));
+      const monthsHtml=months.map(mon=>{
+        const monKey=yr+'-'+mon;
+        const isMonOpen=openPeriodMonths.has(monKey)||!!filter;
+        const weeks=tree[yr][mon];
+        const weeksHtml=weeks.map(o=>{
+          const hidden=filter&&!o.label.toLowerCase().includes(filter.toLowerCase())?'hidden':'';
+          const checked=selectedPeriods_set===null||selectedPeriods_set.has(o.key)?'checked':'';
+          return`<label class="wf-week ${hidden}"><input type="checkbox" ${checked} onchange="togglePeriod('${o.key}',this.checked)"> ${o.label}</label>`;
+        }).join('');
+        const monName=MONTH_SHORT[parseInt(mon)-1]||mon;
+        const selCount=weeks.filter(o=>selectedPeriods_set===null||selectedPeriods_set.has(o.key)).length;
+        const cc=selCount===0?'#e07070':selCount===weeks.length?'#5bbf8a':'#f0a050';
+        return`<div class="wf-month"><div class="wf-month-header" onclick="togglePeriodMonthOpen('${monKey}')"><span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span><span class="wf-month-label">${monName} <span style="color:${cc};font-size:10px;font-weight:500">${selCount}/${weeks.length}</span></span><span class="wf-month-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',false)">None</span></span></div><div class="wf-month-body ${isMonOpen?'open':''}" id="pmon-${monKey}">${weeksHtml}</div></div>`;
+      }).join('');
+      return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${yrSel}/${yrOpts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${monthsHtml}</div></div>`;
+    }).join('');
+    container.innerHTML=html;
+  } else {
+    const tree={};
+    periodOptions.forEach(o=>{const yr=o.key.slice(0,4);if(!tree[yr])tree[yr]=[];tree[yr].push(o);});
+    const html=Object.keys(tree).sort().map(yr=>{
+      const isYrOpen=openPeriodYears.has(yr)||!!filter;
+      const opts=tree[yr];
+      const selCount=opts.filter(o=>selectedPeriods_set===null||selectedPeriods_set.has(o.key)).length;
+      const itemsHtml=opts.map(o=>{
+        const hidden=filter&&!o.label.toLowerCase().includes(filter.toLowerCase())?'hidden':'';
+        const checked=selectedPeriods_set===null||selectedPeriods_set.has(o.key)?'checked':'';
+        return`<label class="wf-week ${hidden}"><input type="checkbox" ${checked} onchange="togglePeriod('${o.key}',this.checked)"> ${o.label}</label>`;
+      }).join('');
+      return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${selCount}/${opts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${itemsHtml}</div></div>`;
+    }).join('');
+    container.innerHTML=html;
+  }
 }
 
+function togglePeriod(key,checked){
+  if(selectedPeriods_set===null) selectedPeriods_set=new Set(periodOptions.map(o=>o.key));
+  if(checked) selectedPeriods_set.add(key); else selectedPeriods_set.delete(key);
+  if(selectedPeriods_set.size===periodOptions.length) selectedPeriods_set=null;
+  updatePeriodTrigger();renderAll();
+}
+function togglePeriodYearOpen(yr){
+  if(openPeriodYears.has(yr)) openPeriodYears.delete(yr); else openPeriodYears.add(yr);
+  const body=document.getElementById('pyr-'+yr);
+  const arrow=body?.previousElementSibling?.querySelector('.wf-year-arrow');
+  if(body) body.classList.toggle('open',openPeriodYears.has(yr));
+  if(arrow) arrow.classList.toggle('open',openPeriodYears.has(yr));
+}
+function togglePeriodMonthOpen(monKey){
+  if(openPeriodMonths.has(monKey)) openPeriodMonths.delete(monKey); else openPeriodMonths.add(monKey);
+  const body=document.getElementById('pmon-'+monKey);
+  const arrow=body?.previousElementSibling?.querySelector('.wf-month-arrow');
+  if(body) body.classList.toggle('open',openPeriodMonths.has(monKey));
+  if(arrow) arrow.classList.toggle('open',openPeriodMonths.has(monKey));
+}
+function selectPeriodYear(yr,select){
+  if(selectedPeriods_set===null) selectedPeriods_set=new Set(periodOptions.map(o=>o.key));
+  periodOptions.filter(o=>o.key.startsWith(yr)).forEach(o=>{if(select) selectedPeriods_set.add(o.key); else selectedPeriods_set.delete(o.key);});
+  if(selectedPeriods_set.size===periodOptions.length) selectedPeriods_set=null;
+  renderPeriodGroups();updatePeriodTrigger();renderAll();
+}
+function selectPeriodMonth(yr,mon,select){
+  if(selectedPeriods_set===null) selectedPeriods_set=new Set(periodOptions.map(o=>o.key));
+  periodOptions.filter(o=>{
+    const refRow=rawData.find(r=>getBucketKey(r,'weekly')===o.key);
+    const m=refRow?parseDate(refRow[COL.date])?.m:null;
+    return o.key.startsWith(yr)&&String(m)===String(mon);
+  }).forEach(o=>{if(select) selectedPeriods_set.add(o.key); else selectedPeriods_set.delete(o.key);});
+  if(selectedPeriods_set.size===periodOptions.length) selectedPeriods_set=null;
+  renderPeriodGroups();updatePeriodTrigger();renderAll();
+}
+function filterPeriodSearch(){
+  const q=document.getElementById('period-search-input').value;
+  renderPeriodGroups(q);
+}
+function updatePeriodTrigger(){
+  const t=document.getElementById('period-trigger');if(!t)return;
+  const gran=document.getElementById('granularity').value;
+  const allLabels={weekly:'All weeks',monthly:'All months',quarterly:'All quarters',yearly:'All years'};
+  if(selectedPeriods_set===null) t.textContent=allLabels[gran]||'All';
+  else if(selectedPeriods_set.size===0) t.textContent='None';
+  else if(selectedPeriods_set.size<=2) t.textContent=periodOptions.filter(o=>selectedPeriods_set.has(o.key)).map(o=>o.label).join(', ');
+  else t.textContent=selectedPeriods_set.size+' periods';
+}
+function togglePeriodDropdown(){
+  const menu=document.getElementById('period-menu');
+  const trigger=document.getElementById('period-trigger');
+  const isOpen=menu.classList.contains('open');
+  document.querySelectorAll('.week-dropdown-menu').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
+  if(!isOpen){menu.classList.add('open');trigger.classList.add('open');}
+}
+function getSelectedPeriods(){ return selectedPeriods_set; }
 function onGranChange(){
   buildPeriodOptions();
-  // also toggle daily row for staff tab
   document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily');
   renderAll();
 }
+
 
 function getFilters(){
   const gran=document.getElementById('granularity').value;
@@ -913,9 +996,9 @@ function renderOpsMap() {
   // Check threshold
   const getThresholdForLoc = (loc) => {
     const map = {
-      'Markham, IL':'thr-markham','Reno, NV':'thr-reno',
+      'Markham, IL':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno',
       'Stockton, CA':'thr-stockton','San Bernardino, CA':'thr-sanb',
-      'Denver, CO':'thr-denver','Columbus, OH':'thr-columbus'
+      'Denver, CO':'thr-denver','Columbus, OH':'thr-columbus','Greenville, SC':'thr-greenville'
     };
     const id = map[loc]; return id ? parseFloat(document.getElementById(id)?.value||0) : 0;
   };
@@ -1205,6 +1288,7 @@ let leafletMarkers = [];
 
 const LOC_COORDS = {
   'Markham, IL':        [41.59, -87.67],
+  'Markham, IL East':   [41.60, -87.65],
   'Reno, NV':          [39.53, -119.81],
   'Stockton, CA':      [37.96, -121.29],
   'San Bernardino, CA':[34.10, -117.29],
@@ -1213,7 +1297,7 @@ const LOC_COORDS = {
   'Greenville, SC':    [34.85, -82.39]
 };
 
-const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a'];
+const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a','#f08080'];
 const locKeys = Object.keys(LOC_COORDS);
 
 window.setMapMode = function setMapMode(mode) {
@@ -1601,6 +1685,7 @@ function getInvDisplayLabel(key, gran) {
 // Location abbreviations for staff cards
 const LOC_ABBR = {
   'Markham, IL':        'MRK',
+  'Markham, IL East':   'MRK-E',
   'Reno, NV':          'RNO',
   'Stockton, CA':      'STK',
   'San Bernardino, CA':'SBD',
@@ -1820,8 +1905,8 @@ document.addEventListener('click', e => {
 
 // ===================== PRODUCTIVITY CHART =====================
 const PROD_THR_MAP = {
-  'Markham, IL':'pthr-markham','Reno, NV':'pthr-reno','Stockton, CA':'pthr-stockton',
-  'San Bernardino, CA':'pthr-sanb','Denver, CO':'pthr-denver','Columbus, OH':'pthr-columbus'
+  'Markham, IL':'pthr-markham','Markham, IL East':'pthr-markham-east','Reno, NV':'pthr-reno','Stockton, CA':'pthr-stockton',
+  'San Bernardino, CA':'pthr-sanb','Denver, CO':'pthr-denver','Columbus, OH':'pthr-columbus','Greenville, SC':'pthr-greenville'
 };
 
 // Role → productive coefficient (0 = not productive)
