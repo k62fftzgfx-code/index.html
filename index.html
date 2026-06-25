@@ -330,6 +330,10 @@
     <div class="chart-card main">
       <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
       <div class="chart-scroll-wrap" id="scroll1"><canvas id="comboChart" role="img" aria-label="Combo chart"></canvas></div>
+      <!-- Saturday workers strip -->
+      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:3px;">
+        <div id="sat-strip" style="display:flex;gap:0;min-width:max-content;padding:2px 0;"></div>
+      </div>
       <div class="legend" id="combo-legend"></div>
     </div>
     <div class="chart-card donut">
@@ -362,10 +366,9 @@
       </div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
-        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>🟢 Productive</span>
-        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>🟡 Partial</span>
-        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>🔵 Non-prod</span>
-        <span class="leg-item"><span class="leg-box" style="background:#e07070"></span>🔴 Saturday</span>
+        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Partial</span>
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Non-prod</span>
       </div>
       <!-- Collapsible productivity details table -->
       <div id="prod-table-wrap" style="display:none;margin-top:12px;overflow-x:auto;border-top:1px solid #2e3d5c;padding-top:10px;">
@@ -1479,6 +1482,7 @@ function renderOperations(){
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
+  renderSatStrip(keys);
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -2489,6 +2493,57 @@ function getCorrData(){
   return bkts;
 }
 
+// ===================== SAT WORKERS STRIP =====================
+function renderSatStrip(keys){
+  const strip=document.getElementById('sat-strip');
+  if(!strip)return;
+  const{gran,years,locs,selectedPeriods}=getFilters();
+
+  const satCounts={};
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    if(new Date(pd.dt).getDay()!==6)return; // Saturday only
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    if(!key||!keys.includes(key))return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    const name=String(r.employeeName||'').trim();
+    if(!satCounts[key])satCounts[key]=new Set();
+    satCounts[key].add(name);
+  });
+
+  const hasSat=Object.values(satCounts).some(s=>s.size>0);
+  if(!hasSat){strip.innerHTML='';return;}
+
+  const canvas=document.getElementById('comboChart');
+  const chartWidth=canvas?canvas.width:0;
+  const padLeft=6;const padRight=14;
+  const innerWidth=chartWidth-padLeft-padRight;
+  const cellW=Math.max(24,Math.floor(innerWidth/keys.length));
+
+  strip.innerHTML=`<div style="width:${padLeft}px;flex-shrink:0"></div>`
+    +keys.map(k=>{
+      const cnt=satCounts[k]?satCounts[k].size:0;
+      return`<div style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+        ${cnt?`<div class="wc-bar" style="background:#e07070;font-size:8px;padding:1px 4px;" title="Saturday workers: ${cnt}">Sat:${cnt}</div>`:''}
+      </div>`;
+    }).join('')
+    +`<div style="width:${padRight}px;flex-shrink:0"></div>`;
+
+  // Update combo legend to show Saturday info
+  const legEnd=document.getElementById('combo-legend');
+  if(legEnd&&hasSat&&!legEnd.innerHTML.includes('Saturday')){
+    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
+  }
+}
+
 // ===================== WORKER STRIP =====================
 function renderWorkerStrip(keys, bkts, gran){
   const strip=document.getElementById('worker-strip');
@@ -2545,25 +2600,27 @@ function renderWorkerStrip(keys, bkts, gran){
     if(new Date(pd.dt).getDay()===6) workerCounts[key].satWorkers.add(name);
   });
 
-  // Get bar width from chart to align
+  // Get chart bar positions for alignment
   const canvas=document.getElementById('prodChart');
   const chartWidth=canvas?canvas.width:0;
-  const barW=keys.length>0?Math.max(28,Math.floor(chartWidth/keys.length)):32;
+  const chartLeft=corrInst?0:0; // padding-left from chart options = 6px
+  const padLeft=6; const padRight=14;
+  const innerWidth=chartWidth-padLeft-padRight;
+  const barW=keys.length>0?Math.floor(innerWidth/keys.length):32;
+  const cellW=Math.max(24,barW);
 
-  strip.innerHTML=keys.map(k=>{
+  strip.innerHTML=`<div style="width:${padLeft}px;flex-shrink:0"></div>`+keys.map(k=>{
     const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
-    const sat=wc.satWorkers?wc.satWorkers.size:0;
-    return`<div class="worker-cell" style="min-width:${barW}px;">
+    return`<div class="worker-cell" style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;">
       <div class="wc-bars">
         ${g?`<div class="wc-bar wc-green" title="Productive: ${g}">${g}</div>`:''}
         ${y?`<div class="wc-bar wc-yellow" title="Partial: ${y}">${y}</div>`:''}
         ${b?`<div class="wc-bar wc-blue" title="Non-productive: ${b}">${b}</div>`:''}
-        ${sat?`<div class="wc-bar" style="background:#e07070" title="Saturday workers: ${sat}">Sat:${sat}</div>`:''}
         ${!g&&!y&&!b?`<div class="wc-bar" style="background:#2a3a50;color:#4a5a70">—</div>`:''}
       </div>
     </div>`;
-  }).join('');
+  }).join('')+`<div style="width:${padRight}px;flex-shrink:0"></div>`;
 }
 
 function renderCorrChart(){
@@ -2816,7 +2873,10 @@ Example format:
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:250,
