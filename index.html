@@ -312,6 +312,9 @@
     <div class="chart-card main">
       <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
       <div class="chart-scroll-wrap" id="scroll1"><canvas id="comboChart" role="img" aria-label="Combo chart"></canvas></div>
+      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:2px;">
+        <div id="sat-strip" style="min-width:max-content;"></div>
+      </div>
       <div class="legend" id="combo-legend"></div>
     </div>
     <div class="chart-card donut">
@@ -341,10 +344,6 @@
       <!-- Worker count strip -->
       <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;">
         <div id="worker-strip" style="display:flex;gap:0;min-width:max-content;padding:4px 0 2px;"></div>
-      </div>
-      <!-- Saturday strip -->
-      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:2px;">
-        <div id="sat-strip" style="min-width:max-content;"></div>
       </div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
@@ -1058,7 +1057,7 @@ function renderProdTable(){
     Supervisor/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
     LM/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
     Supervisor / Spotter / Consolidator / Fleet <span style="color:#e07070">0%</span><br>
-    New FO (after ${hireDateStr}):
+    New FO (after ${document.getElementById('wf-hire-date')?.value||'2026-03-01'}):
     Wk1 <span style="color:#f0a050">${document.getElementById('wf-w1')?.value||40}%</span>
     Wk2 <span style="color:#f0a050">${document.getElementById('wf-w2')?.value||50}%</span>
     Wk3 <span style="color:#f0a050">${document.getElementById('wf-w3')?.value||58}%</span>
@@ -1068,10 +1067,10 @@ function renderProdTable(){
     Wk9-10 <span style="color:#f0a050">${document.getElementById('wf-w910')?.value||82}%</span>
     Wk11-12 <span style="color:#f0a050">${document.getElementById('wf-w1112')?.value||90}%</span>
     Wk13+ <span style="color:#6aab90">100%</span><br>
-    <b style="color:#8a9dba">Adapt. coef</b> = weighted prod hrs ÷ raw prod hrs per period &nbsp;·&nbsp;
+    <b style="color:#8a9dba">Adapt. coef</b> = weighted prod hrs ÷ raw prod hrs &nbsp;·&nbsp;
     <b style="color:#8a9dba">Target pallets</b> = Target plt/hr × Prod hrs &nbsp;·&nbsp;
     <b style="color:#8a9dba">Lost pallets</b> = (Target − Prod plt/hr) × Prod hrs
-    ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#E24B4A">${activeThr.toFixed(1)} plt/hr</span> (avg selected locs)`:''}
+    ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#E24B4A">${activeThr.toFixed(1)} plt/hr</span>`:''}
   </td></tr>`;
 }
 
@@ -1356,6 +1355,7 @@ function renderOperations(){
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
+  renderSatStrip(keys, buckets);
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -2226,6 +2226,16 @@ function renderProductivity(){
             if(ctx.dataset.label==='All Hours')return` All hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
             if(ctx.dataset.label==='Productive Hours')return` Prod hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
             return` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+          },
+          afterBody:ctx=>{
+            if(!ctx.length)return[];
+            const idx=ctx[0].dataIndex;
+            const k=keys[idx];if(!k||!buckets[k])return[];
+            const wc=buckets[k].workers||{};
+            const g=wc.green?.size||0, y=wc.yellow?.size||0, b=wc.blue?.size||0;
+            const total=g+y+b;
+            if(!total)return[];
+            return[` 👥 Total: ${total}  🟢${g} 🟡${y} 🔵${b}`];
           }}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -2273,7 +2283,6 @@ function renderProductivity(){
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
   renderWorkerStrip(keys, buckets, gran);
-  renderSatStrip(keys, buckets);
 }
 
 // ===================== INSIGHT TOOLTIP (deterministic) =====================
@@ -2416,10 +2425,9 @@ function renderSatStrip(keys, bkts){
   const hasSat=keys.some(k=>bkts&&bkts[k]?.satWorkers?.size>0);
   if(!hasSat){strip.innerHTML='';strip.style.height='0';return;}
 
-  // Align with prodInst bars
-  const canvas=document.getElementById('prodChart');
-  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
-  const meta=prodInst.getDatasetMeta(0);
+  const canvas=document.getElementById('comboChart');
+  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
+  const meta=comboInst.getDatasetMeta(0);
   if(!meta||!meta.data.length){strip.innerHTML='';return;}
   const dpr=window.devicePixelRatio||1;
 
@@ -2437,6 +2445,11 @@ function renderSatStrip(keys, bkts){
   strip.style.position='relative';
   strip.style.height='14px';
   strip.style.minWidth=canvas.offsetWidth+'px';
+
+  const legEnd=document.getElementById('combo-legend');
+  if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
+    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
+  }
 }
 
 // ===================== WORKER STRIP =====================
