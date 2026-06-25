@@ -1858,7 +1858,8 @@ function selectMonthWeeks(yr, mon, select){
 }
 
 function filterWeekSearch(){
-  const q = document.getElementById('week-search-input').value;
+  const el = document.getElementById('week-search-input');
+  const q = el ? el.value : '';
   renderWeekGroups(q);
 }
 
@@ -1867,7 +1868,6 @@ function toggleWeek(yw, checked){
   else selectedWeeks.delete(yw);
   updateWeekTrigger();
   renderStaff();
-  // keep dropdown open - do NOT re-render groups (would reset DOM)
 }
 
 function selectYearWeeks(yr, select){
@@ -1887,13 +1887,15 @@ function selectAllWeeks(){
     const cb = document.querySelector(`input[onchange="toggleWeek('${yw}', this.checked)"]`);
     if(cb) cb.checked = true;
   });
-  document.getElementById('week-search-input').value = '';
+  const searchEl = document.getElementById('week-search-input');
+  if(searchEl) searchEl.value = '';
   updateWeekTrigger();
   renderStaff();
 }
 
 function updateWeekTrigger(){
   const t = document.getElementById('week-trigger');
+  if(!t) return;
   if(selectedWeeks.size === allWeeks.length) t.textContent = 'All weeks';
   else if(selectedWeeks.size === 0) t.textContent = 'None';
   else if(selectedWeeks.size === 1) t.textContent = 'CW' + [...selectedWeeks][0].slice(5);
@@ -1903,8 +1905,8 @@ function updateWeekTrigger(){
 function toggleWeekDropdown(){
   const menu = document.getElementById('week-menu');
   const trigger = document.getElementById('week-trigger');
+  if(!menu||!trigger) return;
   const isOpen = menu.classList.contains('open');
-  // close other dropdowns
   document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
   document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
   if(!isOpen){ menu.classList.add('open'); trigger.classList.add('open'); }
