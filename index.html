@@ -49,18 +49,7 @@
   .btn-threshold:hover { background: #2e3d60; }
   .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   /* AI Insight Tooltip */
-  #ai-insight-tooltip {
-    position:fixed; z-index:9999; max-width:320px; padding:12px 14px;
-    background:#1a2540; border:1px solid #4a7ab0; border-radius:10px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.5); pointer-events:none;
-    display:none; font-size:11px; line-height:1.6; color:#c8d8f0;
-  }
-  #ai-insight-tooltip .ai-label { font-size:10px; color:#6a7d9a; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-  #ai-insight-tooltip .ai-label span { color:#7dd4f0; font-weight:600; }
-  #ai-insight-tooltip .ai-text { color:#c8d8f0; }
-  #ai-insight-tooltip .ai-loading { color:#6a7d9a; font-style:italic; }
-  .ai-dot { width:6px; height:6px; border-radius:50%; background:#7dd4f0; animation:ai-pulse 1s infinite; }
-  @keyframes ai-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
   .chart-scroll-wrap canvas { cursor: pointer; }
   /* Worker count strip */
   .worker-cell { display:flex; flex-direction:column; align-items:center; gap:1px; }
@@ -204,11 +193,6 @@
   <button class="tab-btn" onclick="switchTab('inventory')">Procurement</button>
 </div>
 
-<div id="ai-insight-tooltip">
-  <div class="ai-label"><div class="ai-dot" id="ai-dot" style="display:none"></div>🤖 AI Insight — <span id="ai-period-label"></span></div>
-  <div class="ai-text" id="ai-text"></div>
-</div>
-
 <!-- SHARED CONTROLS -->
 <div class="controls">
   <div class="ctrl-group">
@@ -260,7 +244,6 @@
   </div>
   <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
   <button class="btn-workforce" onclick="toggleWorkforcePanel()">👥 Workforce</button>
-  <button id="btn-apikey" onclick="toggleApiKeyPanel()" style="font-size:12px;padding:5px 14px;border:1px solid #3a5080;border-radius:8px;background:#253050;color:#7dd4f0;cursor:pointer;transition:background 0.15s;align-self:flex-end;">🤖 AI Key</button>
   <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
 </div>
 
@@ -308,16 +291,6 @@
     <div class="threshold-item"><label>Weeks 11–12</label><input type="number" id="wf-w1112" value="90" step="1" min="0" max="100" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="renderOperations()"></div>
   </div>
-</div>
-
-<!-- API Key Panel -->
-<div id="apikey-panel" style="display:none;background:#222d45;border-radius:12px;border:0.5px solid #7dd4f060;padding:14px 18px;margin-bottom:14px;">
-  <div style="font-size:11px;color:#7dd4f0;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">🤖 Anthropic API Key — для AI Insight</div>
-  <div style="display:flex;gap:10px;align-items:center;">
-    <input type="password" id="api-key-input" placeholder="sk-ant-..." style="flex:1;font-size:12px;padding:6px 10px;border:1px solid #2e3d5c;border-radius:8px;background:#1a2035;color:#c8d8f0;outline:none;" oninput="saveApiKey()">
-    <button onclick="clearApiKey()" style="font-size:11px;padding:5px 10px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#e07070;cursor:pointer;">Clear</button>
-  </div>
-  <div style="font-size:10px;color:#4a5a70;margin-top:6px;">Ключ зберігається локально в браузері / Key stored locally in browser only</div>
 </div>
 
 <div class="date-range" id="date-range-row" style="display:none;">
@@ -589,27 +562,6 @@ function switchTab(tab) {
   if (tab==='inventory') renderInventory();
 }
 
-let apiKeyPanelOpen=false;
-function toggleApiKeyPanel(){
-  apiKeyPanelOpen=!apiKeyPanelOpen;
-  document.getElementById('apikey-panel').style.display=apiKeyPanelOpen?'block':'none';
-  const saved=localStorage.getItem('anthropic_api_key')||'';
-  if(saved) document.getElementById('api-key-input').value=saved;
-}
-function saveApiKey(){
-  const key=document.getElementById('api-key-input').value.trim();
-  if(key) localStorage.setItem('anthropic_api_key',key);
-  else localStorage.removeItem('anthropic_api_key');
-  aiInsightCache={};
-}
-function clearApiKey(){
-  localStorage.removeItem('anthropic_api_key');
-  document.getElementById('api-key-input').value='';
-  aiInsightCache={};
-}
-function getApiKey(){
-  return localStorage.getItem('anthropic_api_key')||'';
-}
 
 function toggleThresholdPanel() {
   thresholdPanelOpen=!thresholdPanelOpen;
@@ -707,8 +659,7 @@ function updateDropdownLabel(name){
   } else if(name==='loc'){
     t.textContent=checked.length===0?'None':checked.length===all.length?'All locations':checked.length===1?checked[0].value:checked.length+' locations';
   }
-}
-function updateTrigger(name){updateDropdownLabel(name);}// legacy alias
+}// legacy alias
 
 function toNum(v){if(!v&&v!==0)return 0;const n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?0:n;}
 function fmtTop(v){return v>=1000?(v/1000).toFixed(1)+'K':Math.round(v).toString();}
@@ -774,10 +725,6 @@ function getDisplayLabel(key,gran){
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
   if(gran==='quarterly'){const p=key.split('-');return p[1]+" '"+p[0].slice(2);}
   const p=key.split('-');return p[1]+'/'+p[2];
-}
-function median(arr){
-  const a=arr.filter(v=>v>0).sort((a,b)=>a-b);if(!a.length)return null;
-  const mid=Math.floor(a.length/2);return a.length%2===0?(a[mid-1]+a[mid])/2:a[mid];
 }
 function resizeCanvas(el,wrap,count,scroll,h){
   const BAR_W=42;
@@ -1052,68 +999,7 @@ function renderProdTable(){
   if(!thead||!tbody)return;
 
   const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
-
-  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
-  const empFirstDate={};
-  if(hasRoles){
-    timeData.forEach(r=>{
-      const role=String(r.role||'').trim();
-      if(role!=='Forklift Operator')return; // тільки FO для визначення дати найму
-      const name=String(r.employeeName||'').trim();if(!name)return;
-      const pd=parseDate(r.date);if(!pd)return;
-      if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
-    });
-  }
-
-  const bkts={};
-  rawData.forEach(r=>{
-    if(!locs.includes(r._location))return;
-    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
-    const key=getBucketKey(r,gran);if(!key)return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0,rawProdHours:0,weightedSum:0,satWorkers:new Set()};
-    bkts[key].pallets+=toNum(r[COL.sumPallets]);
-  });
-
-  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-  const hireThr=new Date(hireDateStr+'T00:00:00');
-
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    const hrs=toNum(r.totalHours);
-    const yw=String(r.yearWeek||'').trim();
-    let key=null;
-    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
-    else if(gran==='yearly'){key=String(pd.y);}
-    else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
-    if(!key||bkts[key]===undefined)return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    bkts[key].allHours+=hrs;
-    // Saturday workers
-    if(new Date(pd.dt).getDay()===6){
-      const name=String(r.employeeName||'').trim();
-      if(name) bkts[key].satWorkers.add(name);
-    }
-    let w=getRoleWeight(role);
-    if(w>0&&role==='Forklift Operator'){
-      const name=String(r.employeeName||'').trim();
-      const firstDt=empFirstDate[name];
-      if(firstDt&&firstDt>hireThr){
-        const wks=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
-        w=getAdaptationWeight(wks);
-      }
-    }
-    if(w>0){
-      bkts[key].rawProdHours+=hrs; // hours before weight (for coef calc)
-      bkts[key].weightedSum+=hrs*w; // weighted hours
-    }
-    bkts[key].prodHours+=hrs*w;
-  });
+  const{bkts}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
 
   const keys=Object.keys(bkts).sort();
   if(!keys.length){thead.innerHTML='';tbody.innerHTML='<tr><td colspan="2" style="color:#6a7d9a;padding:8px">No data</td></tr>';return;}
@@ -1123,24 +1009,13 @@ function renderProdTable(){
   // Rows
   const allHrsRow   =keys.map(k=>bkts[k].allHours>0?Math.round(bkts[k].allHours):null);
   const prodHrsRow  =keys.map(k=>bkts[k].prodHours>0?Math.round(bkts[k].prodHours):null);
-  const adaptRow    =keys.map(k=>{
-    const d=bkts[k];
-    if(!d.rawProdHours)return null;
-    return((d.weightedSum/d.rawProdHours)*100).toFixed(1)+'%';
-  });
+  const adaptRow    =keys.map(k=>{const d=bkts[k];return d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(1)+'%':null;});
   const actualPltRow=keys.map(k=>bkts[k].pallets>0?Math.round(bkts[k].pallets):null);
-  const targetPltRow=activeThr?keys.map(k=>{
-    const d=bkts[k];
-    return d.prodHours>0?Math.round(activeThr*d.prodHours):null;
-  }):null;
+  const targetPltRow=activeThr?keys.map(k=>bkts[k].prodHours>0?Math.round(activeThr*bkts[k].prodHours):null):null;
   const allPphRow   =keys.map(k=>bkts[k].allHours>0?(bkts[k].pallets/bkts[k].allHours).toFixed(1):null);
   const prodPphRow  =keys.map(k=>bkts[k].prodHours>0?(bkts[k].pallets/bkts[k].prodHours).toFixed(1):null);
   const targetPphRow=activeThr?keys.map(()=>activeThr.toFixed(1)):null;
-  const lostRow     =activeThr?keys.map(k=>{
-    const d=bkts[k];
-    if(!d.prodHours)return null;
-    return Math.round((activeThr-(d.pallets/d.prodHours))*d.prodHours);
-  }):null;
+  const lostRow     =activeThr?keys.map(k=>{const d=bkts[k];return d.prodHours?Math.round((activeThr-(d.pallets/d.prodHours))*d.prodHours):null;}):null;
 
   thead.innerHTML=`<tr><th></th>${labels.map(l=>`<th>${l}</th>`).join('')}</tr>`;
 
@@ -1161,44 +1036,12 @@ function renderProdTable(){
     fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
   // Saturday workers
   const satRow=keys.map(k=>bkts[k].satWorkers?bkts[k].satWorkers.size:null);
-  if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#a07dd4',
-    fmt:v=>v===null||v===0?'—':v});
+  if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#e07070', fmt:v=>v===null||v===0?'—':v});
 
-  // Worker type counts per bucket
-  const hireDateStr2=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-  const hireThr2=new Date(hireDateStr2+'T00:00:00');
-  const empFD={};
-  timeData.forEach(r=>{
-    if(String(r.role||'').trim()!=='Forklift Operator')return;
-    const name=String(r.employeeName||'').trim();if(!name)return;
-    const pd=parseDate(r.date);if(!pd)return;
-    if(!empFD[name]||pd.dt<empFD[name])empFD[name]=pd.dt;
-  });
-  const wcGreen={},wcYellow={},wcBlue={};
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    const yw=String(r.yearWeek||'').trim();
-    let key=null;
-    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
-    else if(gran==='yearly'){key=String(pd.y);}
-    if(!key||!bkts[key])return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    const name=String(r.employeeName||'').trim();
-    const w=getRoleWeight(role);
-    if(w===0){if(!wcBlue[key])wcBlue[key]=new Set();wcBlue[key].add(name);}
-    else if(role==='Forklift Operator'){
-      const fd=empFD[name];
-      if(fd&&fd>hireThr2){if(!wcYellow[key])wcYellow[key]=new Set();wcYellow[key].add(name);}
-      else{if(!wcGreen[key])wcGreen[key]=new Set();wcGreen[key].add(name);}
-    } else {if(!wcYellow[key])wcYellow[key]=new Set();wcYellow[key].add(name);}
-  });
-  rows.push({label:'🟢 Productive', data:keys.map(k=>wcGreen[k]?wcGreen[k].size:0), color:'#6aab90', fmt:v=>v||'—'});
-  rows.push({label:'🟡 Partial', data:keys.map(k=>wcYellow[k]?wcYellow[k].size:0), color:'#f0a050', fmt:v=>v||'—'});
-  rows.push({label:'🔵 Non-prod', data:keys.map(k=>wcBlue[k]?wcBlue[k].size:0), color:'#4a7fa0', fmt:v=>v||'—'});
+  // Worker type counts — already computed in buildProdBuckets
+  rows.push({label:'🟢 Productive', data:keys.map(k=>bkts[k].workers.green.size||0), color:'#6aab90', fmt:v=>v||'—'});
+  rows.push({label:'🟡 Partial',    data:keys.map(k=>bkts[k].workers.yellow.size||0), color:'#f0a050', fmt:v=>v||'—'});
+  rows.push({label:'🔵 Non-prod',   data:keys.map(k=>bkts[k].workers.blue.size||0),  color:'#4a7fa0', fmt:v=>v||'—'});
 
   tbody.innerHTML=rows.map(row=>`
     <tr>
@@ -1513,7 +1356,7 @@ function renderOperations(){
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  renderSatStrip(keys);
+  renderSatStrip(keys, buckets);
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -2155,11 +1998,6 @@ function selectMonthWeeks(yr, mon, select){
   renderStaff();
 }
 
-function filterWeekSearch(){
-  const el = document.getElementById('week-search-input');
-  const q = el ? el.value : '';
-  renderWeekGroups(q);
-}
 
 function toggleWeek(yw, checked){
   if(checked) selectedWeeks.add(yw);
@@ -2179,17 +2017,6 @@ function selectYearWeeks(yr, select){
   renderStaff();
 }
 
-function selectAllWeeks(){
-  selectedWeeks = new Set(allWeeks);
-  allWeeks.forEach(yw => {
-    const cb = document.querySelector(`input[onchange="toggleWeek('${yw}', this.checked)"]`);
-    if(cb) cb.checked = true;
-  });
-  const searchEl = document.getElementById('week-search-input');
-  if(searchEl) searchEl.value = '';
-  updateWeekTrigger();
-  renderStaff();
-}
 
 function updateWeekTrigger(){
   const t = document.getElementById('week-trigger');
@@ -2200,14 +2027,89 @@ function updateWeekTrigger(){
   else t.textContent = selectedWeeks.size + ' weeks';
 }
 
-function toggleWeekDropdown(){
-  const menu = document.getElementById('week-menu');
-  const trigger = document.getElementById('week-trigger');
-  if(!menu||!trigger) return;
-  const isOpen = menu.classList.contains('open');
-  document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
-  document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
-  if(!isOpen){ menu.classList.add('open'); trigger.classList.add('open'); }
+
+// ===================== SHARED: BUILD PRODUCTIVITY BUCKETS =====================
+// Used by renderProductivity, renderProdTable, renderWorkerStrip, getCorrData
+function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom, dateTo){
+  // empFirstDate — first date as Forklift Operator per employee
+  const empFirstDate={};
+  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
+  if(hasRoles){
+    timeData.forEach(r=>{
+      if(String(r.role||'').trim()!=='Forklift Operator')return;
+      const name=String(r.employeeName||'').trim();if(!name)return;
+      const pd=parseDate(r.date);if(!pd)return;
+      if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
+    });
+  }
+
+  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+  const hireThr=new Date(hireDateStr+'T00:00:00');
+
+  // pallets from rawData
+  const bkts={};
+  rawData.forEach(r=>{
+    if(!locs.includes(r._location))return;
+    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
+    const key=getBucketKey(r,gran);if(!key)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    if(!bkts[key])bkts[key]={
+      pallets:0, allHours:0, prodHours:0,
+      rawProdHours:0, weightedSum:0, costs2:0,
+      satWorkers:new Set(),
+      workers:{green:new Set(),yellow:new Set(),blue:new Set()}
+    };
+    bkts[key].pallets+=toNum(r[COL.sumPallets]);
+    bkts[key].costs2+=toNum(r[COL.costs2]);
+  });
+
+  // hours from timeData
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
+    if(!key||!bkts[key])return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+
+    const hrs=toNum(r.totalHours);
+    const name=String(r.employeeName||'').trim();
+    bkts[key].allHours+=hrs;
+
+    // Saturday tracking
+    if(new Date(pd.dt).getDay()===6&&name) bkts[key].satWorkers.add(name);
+
+    // Role weight + adaptation
+    let w=getRoleWeight(role);
+    let isNewFO=false;
+    if(w>0&&role==='Forklift Operator'){
+      const fd=empFirstDate[name];
+      if(fd&&fd>hireThr){
+        const wks=Math.floor((pd.dt-fd)/(7*24*3600*1000));
+        w=getAdaptationWeight(wks);
+        isNewFO=true;
+      }
+    }
+
+    // Worker type classification
+    if(w===0){bkts[key].workers.blue.add(name);}
+    else if(role==='Forklift Operator'&&!isNewFO){bkts[key].workers.green.add(name);}
+    else{bkts[key].workers.yellow.add(name);}
+
+    bkts[key].prodHours+=hrs*w;
+    if(w>0){bkts[key].rawProdHours+=hrs;bkts[key].weightedSum+=hrs*w;}
+  });
+
+  return{bkts, hasRoles, empFirstDate, hireThr};
 }
 
 // ===================== PRODUCTIVITY CHART =====================
@@ -2245,82 +2147,9 @@ function renderProductivity(){
   const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
-  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
 
-  // Build first-shift date per employee (for adaptation coefficient)
-  const empFirstDate={};
-  if(hasRoles){
-    timeData.forEach(r=>{
-      const role=String(r.role||'').trim();
-      if(role!=='Forklift Operator')return; // тільки FO для визначення дати найму
-      const name=String(r.employeeName||'').trim();
-      if(!name)return;
-      const pd=parseDate(r.date);if(!pd)return;
-      if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
-    });
-  }
-
-  // Build buckets: pallets from rawData, hours from timeData (Fleet excluded from both)
-  const pltBuckets={};
-  rawData.forEach(r=>{
-    if(!locs.includes(r._location))return;
-    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
-    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
-    const key=getBucketKey(r,gran);if(!key)return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    if(!pltBuckets[key])pltBuckets[key]={pallets:0,allHours:0,prodHours:0};
-    pltBuckets[key].pallets+=toNum(r[COL.sumPallets]);
-  });
-
-  // allHours + prodHours from timeData (Fleet excluded, adaptation coefficient applied)
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
-    const hrs=toNum(r.totalHours);
-
-    let key=null;
-    const yw=String(r.yearWeek||'').trim();
-    if(gran==='weekly'&&yw){
-      const parts=yw.split('-');
-      if(parts.length===2) key=parts[0]+String(parts[1]).padStart(2,'0');
-    } else if(gran==='monthly'||gran==='quarterly'){
-      const refRow=rawData.find(rr=>rr._location===loc&&String(rr[COL.yearWeek]||'').trim()===yw);
-      if(refRow) key=getBucketKey(refRow,gran);
-    } else if(gran==='yearly'){
-      key=String(pd.y);
-    } else {
-      const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===pd.str);
-      if(refRow) key=getBucketKey(refRow,gran);
-    }
-
-    if(!key||pltBuckets[key]===undefined)return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    pltBuckets[key].allHours+=hrs;
-
-    // Apply role weight + adaptation coefficient for Forklift Operators
-    let weight=getRoleWeight(role);
-    if(weight>0 && role==='Forklift Operator'){
-      const name=String(r.employeeName||'').trim();
-      const firstDt=empFirstDate[name];
-      if(firstDt){
-        // Only apply adaptation if hired after the threshold date
-        const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-        const hireThreshold=new Date(hireDateStr+'T00:00:00');
-        if(firstDt>hireThreshold){
-          const weeksSinceStart=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
-          weight=getAdaptationWeight(weeksSinceStart);
-        }
-        // else: employee started before threshold → experienced → weight stays 1.0
-      }
-    }
-    pltBuckets[key].prodHours+=hrs*weight;
-  });
-
-  const buckets=pltBuckets;
+  // Use shared bucket builder
+  const{bkts:buckets,hasRoles}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
 
   const keys=Object.keys(buckets).sort();
   if(!keys.length){if(prodInst){prodInst.destroy();prodInst=null;}return;}
@@ -2444,7 +2273,113 @@ function renderProductivity(){
   });
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  renderWorkerStrip(keys, pltBuckets, gran);
+  renderWorkerStrip(keys, buckets, gran);
+}
+
+// ===================== INSIGHT TOOLTIP (deterministic) =====================
+let insightTooltip=null;
+let insightHideTimer=null;
+
+function getOrCreateTooltip(){
+  if(!insightTooltip){
+    insightTooltip=document.createElement('div');
+    insightTooltip.id='insight-tooltip';
+    insightTooltip.style.cssText='position:fixed;z-index:9999;max-width:300px;padding:10px 14px;background:#1a2540;border:1px solid #4a7ab0;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;font-size:11px;line-height:1.6;color:#c8d8f0;pointer-events:none;';
+    document.body.appendChild(insightTooltip);
+  }
+  return insightTooltip;
+}
+
+function showInsightTooltip(e, key, gran, d, prev){
+  const tt=getOrCreateTooltip();
+  if(insightHideTimer){clearTimeout(insightHideTimer);insightHideTimer=null;}
+
+  const label=getDisplayLabel(key,gran);
+  const pph=d.prodHours>0?d.pallets/d.prodHours:null;
+  const lcp=d.pallets>0?d.costs2/d.pallets:null;
+  const hr=d.hours>0?d.costs2/d.hours:null;
+  const prevPph=prev&&prev.prodHours>0?prev.pallets/prev.prodHours:null;
+  const prevLcp=prev&&prev.pallets>0?prev.costs2/prev.pallets:null;
+  const prevHr=prev&&prev.hours>0?prev.costs2/prev.hours:null;
+  const pphD=pph&&prevPph?(pph-prevPph)/prevPph*100:null;
+  const lcpD=lcp&&prevLcp?(lcp-prevLcp)/prevLcp*100:null;
+  const hrD=hr&&prevHr?(hr-prevHr)/prevHr*100:null;
+  const satW=d.satWorkers?d.satWorkers.size:0;
+  const adapt=d.rawProdHours?d.weightedSum/d.rawProdHours*100:null;
+
+  const insight=getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,d.pallets,prev?prev.pallets:null);
+
+  tt.innerHTML=`<div style="font-size:10px;color:#6a7d9a;margin-bottom:6px;">📊 <span style="color:#7dd4f0;font-weight:600">${label}</span></div>`
+    +`<div style="margin-bottom:6px;display:flex;gap:12px;font-size:10px;">`
+    +(pph?`<span style="color:#6aab90">plt/hr: <b>${pph.toFixed(1)}</b>${pphD?` <span style="color:${pphD>0?'#6aab90':'#e07070'}">${pphD>0?'▲':'▼'}${Math.abs(pphD).toFixed(0)}%</span>`:''}</span>`:'')
+    +(lcp?`<span style="color:#7dd4f0">LCP: <b>$${lcp.toFixed(2)}</b>${lcpD?` <span style="color:${lcpD>0?'#e07070':'#6aab90'}">${lcpD>0?'▲':'▼'}${Math.abs(lcpD).toFixed(0)}%</span>`:''}</span>`:'')
+    +(satW?`<span style="color:#e07070">Sat: <b>${satW}</b></span>`:'')
+    +'</div>'
+    +`<div style="color:#c8d8f0">${insight.uk}</div>`
+    +`<div style="color:#6a7d9a;font-size:10px;margin-top:4px;font-style:italic">${insight.en}</div>`;
+
+  const x=e.clientX, y=e.clientY;
+  const w=window.innerWidth;
+  tt.style.left=(x+16+300>w?x-316:x+16)+'px';
+  tt.style.top=Math.max(10,y-20)+'px';
+  tt.style.display='block';
+}
+
+function hideInsightTooltip(){
+  insightHideTimer=setTimeout(()=>{
+    if(insightTooltip) insightTooltip.style.display='none';
+  },200);
+}
+
+function getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,pallets,prevPallets){
+  const volD=pallets&&prevPallets?(pallets-prevPallets)/prevPallets*100:null;
+  const pphDown=pphD!==null&&pphD<-5;
+  const pphUp=pphD!==null&&pphD>5;
+  const lcpUp=lcpD!==null&&lcpD>5;
+  const lcpDown=lcpD!==null&&lcpD<-5;
+  const hrUp=hrD!==null&&hrD>3;
+  const volDown=volD!==null&&volD<-5;
+  const volUp=volD!==null&&volD>5;
+  const lowAdapt=adapt!==null&&adapt<85;
+  const hasSat=satW>0;
+
+  // Pattern matching — most specific first
+  if(pphDown&&lcpUp&&hasSat)
+    return{uk:`Продуктивність впала${pphD?` на ${Math.abs(pphD).toFixed(0)}%`:''}. Субота (${satW} прац.) підняла LCP через преміальні витрати.`,
+           en:`Productivity dropped. Saturday (${satW} workers) pushed LCP up via premium pay.`};
+  if(pphDown&&lcpUp&&volDown)
+    return{uk:`Об'єм скоротився${volD?` на ${Math.abs(volD).toFixed(0)}%`:''} але команда залишилась повною — звідси зростання LCP і падіння plt/hr.`,
+           en:`Volume dropped${volD?` ${Math.abs(volD).toFixed(0)}%`:''} but team stayed full — LCP rose, plt/hr fell.`};
+  if(pphDown&&lcpUp&&lowAdapt)
+    return{uk:`Нові працівники (адаптація ${adapt?.toFixed(0)}%) знижують продуктивність і збільшують витрати на палету.`,
+           en:`New employees (adapt. ${adapt?.toFixed(0)}%) are reducing productivity and raising cost per pallet.`};
+  if(pphDown&&lcpUp)
+    return{uk:`Продуктивність впала${pphD?` на ${Math.abs(pphD).toFixed(0)}%`:''} при зростанні LCP${lcpD?` на ${lcpD.toFixed(0)}%`:''}. Можливі причини: менший об'єм, нові працівники або понаднормові.`,
+           en:`Productivity down${pphD?` ${Math.abs(pphD).toFixed(0)}%`:''}, LCP up${lcpD?` ${lcpD.toFixed(0)}%`:''}. Possible: volume drop, new hires, or overtime.`};
+  if(pphUp&&lcpDown)
+    return{uk:`Відмінний результат: продуктивність виросла${pphD?` на ${pphD.toFixed(0)}%`:''}, LCP знизився${lcpD?` на ${Math.abs(lcpD).toFixed(0)}%`:''}. Команда працювала ефективно.`,
+           en:`Excellent: productivity up${pphD?` ${pphD.toFixed(0)}%`:''}, LCP down${lcpD?` ${Math.abs(lcpD).toFixed(0)}%`:''}. Team performed efficiently.`};
+  if(pphUp&&lcpUp&&hasSat)
+    return{uk:`Об'єм виріс — продуктивність покращилась. Субота (${satW} прац.) підтягнула LCP вгору попри ефективність.`,
+           en:`Volume grew, productivity improved. Saturday (${satW} workers) pushed LCP up despite efficiency gains.`};
+  if(pphUp&&lcpUp)
+    return{uk:`Продуктивність виросла${pphD?` на ${pphD.toFixed(0)}%`:''} але LCP теж зріс${lcpD?` на ${lcpD.toFixed(0)}%`:''}. Можливо: збільшилась погодинна ставка або понаднормові.`,
+           en:`Productivity up${pphD?` ${pphD.toFixed(0)}%`:''} but LCP also rose${lcpD?` ${lcpD.toFixed(0)}%`:''}. Possible: higher hourly rate or overtime.`};
+  if(hrUp&&!pphDown)
+    return{uk:`Погодинна ставка зросла${hrD?` на ${hrD.toFixed(0)}%`:''}. Можливі причини: бонуси, понаднормові${hasSat?` або субота (${satW} прац.)`:''}.`,
+           en:`Hourly rate up${hrD?` ${hrD.toFixed(0)}%`:''}. Possible: bonuses, overtime${hasSat?` or Saturday (${satW} workers)`:''}.`};
+  if(pphDown&&!lcpUp&&lowAdapt)
+    return{uk:`Продуктивність знизилась через нових працівників (адаптація ${adapt?.toFixed(0)}%). LCP поки стабільний.`,
+           en:`Productivity dipped due to new employees (adapt. ${adapt?.toFixed(0)}%). LCP remains stable.`};
+  if(hasSat&&!pphDown&&!lcpUp)
+    return{uk:`Субота (${satW} прац.) — додаткові витрати, але продуктивність і LCP залишаються в нормі.`,
+           en:`Saturday (${satW} workers) adds extra cost, but productivity and LCP remain normal.`};
+  if(lowAdapt)
+    return{uk:`Коефіцієнт адаптації ${adapt?.toFixed(0)}% — значна частка нових працівників на цей період.`,
+           en:`Adaptation coef ${adapt?.toFixed(0)}% — significant share of new employees this period.`};
+  // Default — stable
+  return{uk:`Стабільний тиждень: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Суттєвих відхилень немає.`,
+         en:`Stable period: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. No significant anomalies.`};
 }
 
 // ===================== CORRELATION CHART =====================
@@ -2467,101 +2402,34 @@ function pearsonCorr(x,y){
 }
 
 function getCorrData(){
-  const{gran,years,locs,selectedPeriods}=getFilters();
-  const bkts={};
-
-  rawData.forEach(r=>{
-    if(!locs.includes(r._location))return;
-    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
-    const key=getBucketKey(r,gran);if(!key)return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    if(!bkts[key])bkts[key]={pallets:0,costs2:0,hours:0,prodHours:0,satWorkers:new Set()};
-    bkts[key].pallets+=toNum(r[COL.sumPallets]);
-    bkts[key].costs2+=toNum(r[COL.costs2]);
-    bkts[key].hours+=toNum(r[COL.hours]);
-    // Saturday workers
-    const pd2=parseDate(r[COL.date]);
-    if(pd2&&new Date(pd2.dt).getDay()===6) bkts[key].satWorkers.add(r[COL.date]);
-  });
-
-  // prod hours from timeData
-  const empFirstDate={};
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role!=='Forklift Operator')return;
-    const name=String(r.employeeName||'').trim();if(!name)return;
-    const pd=parseDate(r.date);if(!pd)return;
-    if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
-  });
-  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-  const hireThr=new Date(hireDateStr+'T00:00:00');
-
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    const yw=String(r.yearWeek||'').trim();
-    let key=null;
-    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
-    else if(gran==='yearly'){key=String(pd.y);}
-    if(!key||!bkts[key])return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    const hrs=toNum(r.totalHours);
-    let w=getRoleWeight(role);
-    if(w>0&&role==='Forklift Operator'){
-      const name=String(r.employeeName||'').trim();
-      const fd=empFirstDate[name];
-      if(fd&&fd>hireThr){const wks=Math.floor((pd.dt-fd)/(7*24*3600*1000));w=getAdaptationWeight(wks);}
-    }
-    bkts[key].prodHours+=hrs*w;
-    // Saturday workers count
-    if(new Date(pd.dt).getDay()===6) bkts[key].satWorkers.add(r.employeeName);
-  });
-
+  const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
+  const{bkts}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
+  // Add allHours alias (getCorrData uses .hours)
+  Object.values(bkts).forEach(b=>{b.hours=b.allHours;});
   return bkts;
 }
 
 // ===================== SAT WORKERS STRIP =====================
-function renderSatStrip(keys){
+function renderSatStrip(keys, bkts){
   const strip=document.getElementById('sat-strip');
   if(!strip)return;
-  const{gran,years,locs,selectedPeriods}=getFilters();
+  if(!bkts){
+    const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
+    const r=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
+    bkts=r.bkts;
+  }
 
-  const satCounts={};
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    if(new Date(pd.dt).getDay()!==6)return; // Saturday only
-    const yw=String(r.yearWeek||'').trim();
-    let key=null;
-    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
-    else if(gran==='yearly'){key=String(pd.y);}
-    if(!key||!keys.includes(key))return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-    const name=String(r.employeeName||'').trim();
-    if(!satCounts[key])satCounts[key]=new Set();
-    satCounts[key].add(name);
-  });
-
-  const hasSat=Object.values(satCounts).some(s=>s.size>0);
+  const hasSat=Object.values(bkts).some(b=>b.satWorkers&&b.satWorkers.size>0);
   if(!hasSat){strip.innerHTML='';return;}
 
   const canvas=document.getElementById('comboChart');
   if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
-
   const meta=comboInst.getDatasetMeta(0);
   if(!meta||!meta.data.length){strip.innerHTML='';return;}
 
   strip.innerHTML=meta.data.map((bar,i)=>{
     const k=keys[i];if(!k)return'';
-    const cnt=satCounts[k]?satCounts[k].size:0;
+    const cnt=bkts[k]?.satWorkers?.size||0;
     const dpr=window.devicePixelRatio||1;
     const barW=bar.width||20;
     const leftPx=(bar.x-barW/2)/dpr;
@@ -2575,9 +2443,8 @@ function renderSatStrip(keys){
   strip.style.height='16px';
   strip.style.minWidth=canvas.offsetWidth+'px';
 
-  // Update combo legend to show Saturday info
   const legEnd=document.getElementById('combo-legend');
-  if(legEnd&&hasSat&&!legEnd.innerHTML.includes('Saturday')){
+  if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
     legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
   }
 }
@@ -2587,96 +2454,35 @@ function renderWorkerStrip(keys, bkts, gran){
   const strip=document.getElementById('worker-strip');
   if(!strip)return;
 
-  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-  const hireThr=new Date(hireDateStr+'T00:00:00');
+  const hasSat=Object.values(bkts).some(b=>b.satWorkers&&b.satWorkers.size>0);
+  if(!hasSat){strip.innerHTML='';return;}
 
-  // Build empFirstDate (FO only)
-  const empFirstDate={};
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role!=='Forklift Operator')return;
-    const name=String(r.employeeName||'').trim();if(!name)return;
-    const pd=parseDate(r.date);if(!pd)return;
-    if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
-  });
-
-  // Per bucket: count green/yellow/blue workers
-  const workerCounts={};
-  const{locs,years,selectedPeriods}=getFilters();
-
-  timeData.forEach(r=>{
-    const role=String(r.role||'').trim();
-    if(role==='Fleet')return;
-    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
-    if(!loc||!locs.includes(loc))return;
-    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
-    const yw=String(r.yearWeek||'').trim();
-    let key=null;
-    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
-    else if(gran==='yearly'){key=String(pd.y);}
-    if(!key||!keys.includes(key))return;
-    if(selectedPeriods&&!selectedPeriods.has(key))return;
-
-    const name=String(r.employeeName||'').trim();
-    if(!workerCounts[key])workerCounts[key]={green:new Set(),yellow:new Set(),blue:new Set(),satWorkers:new Set()};
-
-    const w=getRoleWeight(role);
-    if(w===0){
-      workerCounts[key].blue.add(name);
-    } else if(role==='Forklift Operator'){
-      const fd=empFirstDate[name];
-      if(fd&&fd>hireThr){
-        workerCounts[key].yellow.add(name);
-      } else {
-        workerCounts[key].green.add(name);
-      }
-    } else {
-      workerCounts[key].yellow.add(name);
-    }
-    // Saturday
-    if(new Date(pd.dt).getDay()===6) workerCounts[key].satWorkers.add(name);
-  });
-
-  // Use actual chart bar positions for perfect alignment
-  const canvas=document.getElementById('prodChart');
-  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
-
-  // Get X positions from chart instance
-  const meta=prodInst.getDatasetMeta(0);
+  const canvas=document.getElementById('comboChart');
+  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
+  const meta=comboInst.getDatasetMeta(0);
   if(!meta||!meta.data.length){strip.innerHTML='';return;}
-
-  // Build positioned cells using absolute left offsets
-  const canvasRect=canvas.getBoundingClientRect();
-  const scaleWidth=canvas.width; // device pixels
-
-  // Get first and last bar x positions (in canvas pixels)
-  const firstBar=meta.data[0];
-  const lastBar=meta.data[meta.data.length-1];
-  if(!firstBar||!lastBar){strip.innerHTML='';return;}
-
-  // bar width
+  const firstBar=meta.data[0];if(!firstBar){strip.innerHTML='';return;}
   const barW=firstBar.width||20;
-  // spacing between bars
-  const totalBars=meta.data.length;
+  const dpr=window.devicePixelRatio||1;
 
   strip.innerHTML=meta.data.map((bar,i)=>{
     const k=keys[i];if(!k)return'';
-    const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
-    const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
-    // position in CSS pixels (canvas uses devicePixelRatio)
-    const dpr=window.devicePixelRatio||1;
+    const cnt=bkts[k]?.satWorkers?.size||0;
     const leftPx=(bar.x-barW/2)/dpr;
     const widthPx=barW/dpr;
-    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;flex-direction:column;align-items:center;gap:1px;">
-      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#2a3a50'};line-height:1.2">${g||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#2a3a50'};line-height:1.2">${y||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#2a3a50'};line-height:1.2">${b||'·'}</span>
+    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;align-items:center;justify-content:center;">
+      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday: ${cnt}">Sat:${cnt}</span>`
+           :`<span style="font-size:9px;color:#2a3a50">·</span>`}
     </div>`;
   }).join('');
   strip.style.position='relative';
-  strip.style.height='42px';
+  strip.style.height='16px';
   strip.style.minWidth=canvas.offsetWidth+'px';
+
+  const legEnd=document.getElementById('combo-legend');
+  if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
+    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
+  }
 }
 
 function renderCorrChart(){
@@ -2723,42 +2529,18 @@ function renderCorrChart(){
   corrInst._bkts=bkts;
   corrInst._keys=keys;
 
-  // Add hover listener for AI insights
+  // Hover → deterministic insight tooltip
   c.onmousemove=function(e){
     if(!corrInst)return;
     const pts=corrInst.getElementsAtEventForMode(e,'index',{intersect:false},true);
-    if(!pts.length){hideAIInsight();return;}
+    if(!pts.length){hideInsightTooltip();return;}
     const idx=pts[0].index;
     const key=keys[idx];
     const prevKey=idx>0?keys[idx-1]:null;
-    const bkt=bkts[key];
-    const prevBkt=prevKey?bkts[prevKey]:null;
-    // Add allHours/costs2 from rawData buckets
-    const gran2=document.getElementById('granularity').value;
-    showAIInsight(e,key,gran2,{...bkt,allHours:bkt.hours||bkt.allHours,costs2:bkt.costs2},prevBkt?{...prevBkt,allHours:prevBkt.hours||prevBkt.allHours,costs2:prevBkt.costs2}:null);
+    showInsightTooltip(e, key, gran, bkts[key], prevKey?bkts[prevKey]:null);
   };
-  c.onmouseleave=function(){hideAIInsight();};
+  c.onmouseleave=function(){hideInsightTooltip();};
 
-  // Also add hover to combo, chart2, prod charts
-  [
-    {inst:comboInst,bktsGetter:()=>null},
-  ].forEach(({inst})=>{
-    if(!inst||!inst.canvas)return;
-    inst.canvas.onmousemove=function(e){
-      if(!inst||!inst._bucketKeys)return;
-      const pts=inst.getElementsAtEventForMode(e,'index',{intersect:false},true);
-      if(!pts.length){hideAIInsight();return;}
-      const idx=pts[0].index;
-      const key=inst._bucketKeys[idx];
-      if(!key)return;
-      const gran2=document.getElementById('granularity').value;
-      const bkt=bkts[key];
-      if(!bkt)return;
-      const prevKey=idx>0?inst._bucketKeys[idx-1]:null;
-      showAIInsight(e,key,gran2,{...bkt,allHours:bkt.hours||bkt.allHours},prevKey&&bkts[prevKey]?{...bkts[prevKey],allHours:bkts[prevKey].hours||bkts[prevKey].allHours}:null);
-    };
-    inst.canvas.onmouseleave=function(){hideAIInsight();};
-  });
   const leg=document.getElementById('corr-legend');
   if(leg) leg.innerHTML=`
     <span class="leg-item"><span class="leg-line" style="background:#6aab90"></span>Prod plt/hr</span>
@@ -2820,140 +2602,6 @@ function renderCorrMatrix(){
     <tr><td colspan="${metrics.length+1}" style="padding:8px 0 0;font-size:10px;color:#6a7d9a;">
       Strong correlation ≥0.70 &nbsp;·&nbsp; Moderate 0.40–0.69 &nbsp;·&nbsp; Weak &lt;0.40 &nbsp;·&nbsp; 🟢 positive &nbsp;·&nbsp; 🔴 negative
     </td></tr>`;
-}
-
-// ===================== AI INSIGHT TOOLTIP =====================
-let aiInsightCache={};
-let aiHideTimer=null;
-
-function showAIInsight(e, bucketKey, gran, bktData, prevBktData){
-  const tooltip=document.getElementById('ai-insight-tooltip');
-  const label=getDisplayLabel(bucketKey,gran);
-  document.getElementById('ai-period-label').textContent=label;
-
-  // Position tooltip near cursor
-  const x=e.clientX, y=e.clientY;
-  tooltip.style.left=(x+16)+'px';
-  tooltip.style.top=(y-20)+'px';
-  tooltip.style.display='block';
-
-  // Check cache
-  const cacheKey=bucketKey+'|'+JSON.stringify(bktData);
-  if(aiInsightCache[cacheKey]){
-    document.getElementById('ai-text').innerHTML=aiInsightCache[cacheKey];
-    document.getElementById('ai-dot').style.display='none';
-    return;
-  }
-
-  // Show loading
-  document.getElementById('ai-text').innerHTML='<span class="ai-loading">Analyzing...</span>';
-  document.getElementById('ai-dot').style.display='block';
-
-  getAIInsight(bucketKey, gran, bktData, prevBktData).then(text=>{
-    aiInsightCache[cacheKey]=text;
-    // Only update if tooltip still showing same period
-    if(document.getElementById('ai-period-label').textContent===label){
-      document.getElementById('ai-text').innerHTML=text;
-      document.getElementById('ai-dot').style.display='none';
-    }
-  });
-}
-
-function hideAIInsight(){
-  aiHideTimer=setTimeout(()=>{
-    document.getElementById('ai-insight-tooltip').style.display='none';
-  }, 300);
-}
-
-function keepAIInsight(){
-  if(aiHideTimer) clearTimeout(aiHideTimer);
-}
-
-async function getAIInsight(bucketKey, gran, d, prev){
-  const pph=d.prodHours>0?(d.pallets/d.prodHours).toFixed(2):null;
-  const lcp=d.pallets>0?(d.costs2/d.pallets).toFixed(2):null;
-  const hr=d.hours>0?(d.costs2/d.hours).toFixed(2):null;
-  const prevPph=prev&&prev.prodHours>0?(prev.pallets/prev.prodHours).toFixed(2):null;
-  const prevLcp=prev&&prev.pallets>0?(prev.costs2/prev.pallets).toFixed(2):null;
-  const prevHr=prev&&prev.hours>0?(prev.costs2/prev.hours).toFixed(2):null;
-  const pphDelta=pph&&prevPph?((pph-prevPph)/prevPph*100).toFixed(1):null;
-  const lcpDelta=lcp&&prevLcp?((lcp-prevLcp)/prevLcp*100).toFixed(1):null;
-  const hrDelta=hr&&prevHr?((hr-prevHr)/prevHr*100).toFixed(1):null;
-  const satW=d.satWorkers?d.satWorkers.size:0;
-  const adaptCoef=d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(0):null;
-  const label=getDisplayLabel(bucketKey,gran);
-  const granLabel={weekly:'тиждень',monthly:'місяць',quarterly:'квартал',yearly:'рік'}[gran]||gran;
-
-  // Detect pattern for context
-  const pphDown=pphDelta&&Number(pphDelta)<-5;
-  const pphUp=pphDelta&&Number(pphDelta)>5;
-  const lcpUp=lcpDelta&&Number(lcpDelta)>5;
-  const lcpDown=lcpDelta&&Number(lcpDelta)<-5;
-  const hrUp=hrDelta&&Number(hrDelta)>3;
-  const hasSat=satW>0;
-  const lowAdapt=adaptCoef&&Number(adaptCoef)<85;
-
-  const prompt=`You are a senior warehouse operations analyst for a freight consolidation company (Freight Box LLC). Analyze the correlation between key metrics for this period and give a practical insight.
-
-Period: ${label} (${granLabel})
-
-CURRENT METRICS:
-- Pallets processed: ${d.pallets?.toLocaleString()||'N/A'}
-- Prod plt/hr: ${pph||'N/A'}${pphDelta?` (${Number(pphDelta)>0?'▲+':'▼'}${pphDelta}% vs prev)`:''}
-- LCP (Labor Cost/Pallet): $${lcp||'N/A'}${lcpDelta?` (${Number(lcpDelta)>0?'▲+':'▼'}${lcpDelta}% vs prev)`:''}
-- Avg hourly rate: $${hr||'N/A'}${hrDelta?` (${Number(hrDelta)>0?'▲+':'▼'}${hrDelta}% vs prev)`:''}
-- Saturday workers: ${satW} ${satW>0?'(extra cost ⚠️)':''}
-- Adaptation coefficient: ${adaptCoef?adaptCoef+'%':'N/A'}
-
-CORRELATION PATTERNS TO IDENTIFY (use whichever applies):
-1. plt/hr ↓ + LCP ↑ = volume dropped but team stayed full (underutilization)
-2. plt/hr ↑ + LCP ↓ = excellent week, high efficiency
-3. plt/hr ↓ + LCP stable = new employees adapting (adaptation coef explains gap)
-4. plt/hr stable + LCP ↑ = hourly rate increased (overtime, bonuses, Saturday pay)
-5. plt/hr ↑ + LCP ↑ = volume grew but so did costs (Saturday overtime likely)
-6. plt/hr ↓ + LCP ↑ + Saturday workers > 0 = Saturday premium dragging LCP up
-7. plt/hr stable + LCP stable = normal stable week, no anomalies
-8. Adaptation coef < 85% = significant new employee impact on productivity
-9. Hourly rate spike = possible bonuses, overtime, or rate changes
-
-INSTRUCTIONS:
-- Identify which pattern(s) apply
-- Give 2-3 sentences max
-- Be specific with numbers
-- Write FIRST in Ukrainian, THEN English translation in parentheses
-- Keep total under 90 words
-
-Example format:
-"Цього тижня продуктивність впала на 13% при зростанні LCP — ймовірна причина: об'єм скоротився але команда залишилась повною. Субота (${satW} працівників) додала преміальні витрати. (This week productivity dropped 13% while LCP rose — likely cause: volume shrank but the team stayed full. Saturday premium pay added extra costs.)"`;
-
-  try{
-    const apiKey=getApiKey();
-    if(!apiKey) return`⚠️ Введіть API ключ / Enter API key (кнопка 🤖 AI Key вгорі)`;
-
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:250,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    if(!resp.ok){
-      const err=await resp.text();
-      return`⚠️ API помилка ${resp.status} / API error ${resp.status}`;
-    }
-    const data=await resp.json();
-    const text=data.content?.[0]?.text||'Немає даних / No insight available.';
-    return text.replace(/\n/g,'<br>');
-  }catch(err){
-    return`⚠️ Не вдалося завантажити / Could not load: ${err.message}`;
-  }
 }
 
 function renderStaff(){
