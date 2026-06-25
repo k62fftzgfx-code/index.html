@@ -47,6 +47,12 @@
   .btn-refresh:hover { background: #2e3d60; }
   .btn-threshold { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #f0a050; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .btn-threshold:hover { background: #2e3d60; }
+  .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
+  .btn-workforce:hover { background: #2e3d60; }
+  /* Workforce panel */
+  .workforce-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; margin-bottom: 14px; }
+  .workforce-panel.visible { display: block; }
+  .workforce-panel-title { font-size: 11px; color: #6aab90; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
 
   .status { font-size: 11px; color: #7a8daa; margin-bottom: 12px; padding: 6px 12px; background: #222d45; border-radius: 8px; border: 0.5px solid #2e3d5c; }
   .status.ok  { color: #5bbf8a; border-color: #2a4a3a; }
@@ -219,6 +225,7 @@
     </select>
   </div>
   <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
+  <button class="btn-workforce" onclick="toggleWorkforcePanel()">👥 Workforce</button>
   <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
 </div>
 
@@ -244,7 +251,23 @@
   </div>
 </div>
 
-<div class="date-range" id="date-range-row">
+<!-- Workforce Panel -->
+<div class="workforce-panel" id="workforce-panel">
+  <div class="workforce-panel-title">New Employee Adaptation — Forklift Operator productivity coefficient by weeks since start</div>
+  <div class="threshold-grid">
+    <div class="threshold-item"><label>Week 1</label><input type="number" id="wf-w1" value="40" step="1" min="0" max="100" onchange="renderOperations()"> <span style="font-size:9px;color:#6a7d9a;">%</span></div>
+    <div class="threshold-item"><label>Week 2</label><input type="number" id="wf-w2" value="50" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Week 3</label><input type="number" id="wf-w3" value="58" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Week 4</label><input type="number" id="wf-w4" value="64" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 5–6</label><input type="number" id="wf-w56" value="68" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 7–8</label><input type="number" id="wf-w78" value="74" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 9–10</label><input type="number" id="wf-w910" value="82" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 11–12</label><input type="number" id="wf-w1112" value="90" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="renderOperations()"></div>
+  </div>
+</div>
+
+<div class="date-range" id="date-range-row" style="display:none;">
   <div><label class="dr-label">From</label><input type="date" id="date-from" onchange="renderAll()"></div>
   <div><label class="dr-label">To</label><input type="date" id="date-to" onchange="renderAll()"></div>
 </div>
@@ -492,6 +515,28 @@ function switchTab(tab) {
 function toggleThresholdPanel() {
   thresholdPanelOpen=!thresholdPanelOpen;
   document.getElementById('threshold-panel').classList.toggle('visible',thresholdPanelOpen);
+}
+
+let workforcePanelOpen=false;
+function toggleWorkforcePanel(){
+  workforcePanelOpen=!workforcePanelOpen;
+  document.getElementById('workforce-panel').classList.toggle('visible',workforcePanelOpen);
+}
+
+// Get adaptation coefficient (0-1) based on weeks since first shift
+function getAdaptationWeight(weeksSinceStart){
+  const w=weeksSinceStart+1; // 1-based week number
+  const pct=
+    w<=1 ?parseFloat(document.getElementById('wf-w1')?.value||40):
+    w<=2 ?parseFloat(document.getElementById('wf-w2')?.value||50):
+    w<=3 ?parseFloat(document.getElementById('wf-w3')?.value||58):
+    w<=4 ?parseFloat(document.getElementById('wf-w4')?.value||64):
+    w<=6 ?parseFloat(document.getElementById('wf-w56')?.value||68):
+    w<=8 ?parseFloat(document.getElementById('wf-w78')?.value||74):
+    w<=10?parseFloat(document.getElementById('wf-w910')?.value||82):
+    w<=12?parseFloat(document.getElementById('wf-w1112')?.value||90):
+          parseFloat(document.getElementById('wf-w13')?.value||100);
+  return pct/100;
 }
 
 function getThreshold(locName) {
@@ -1749,6 +1794,17 @@ function renderProductivity(){
   const H=getHeights();
   const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
 
+  // Build first-shift date per employee (for adaptation coefficient)
+  const empFirstDate={};
+  if(hasRoles){
+    timeData.forEach(r=>{
+      const name=String(r.employeeName||'').trim();
+      if(!name)return;
+      const pd=parseDate(r.date);if(!pd)return;
+      if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
+    });
+  }
+
   // Build buckets: pallets from rawData, hours from timeData (Fleet excluded from both)
   const pltBuckets={};
   rawData.forEach(r=>{
@@ -1761,8 +1817,7 @@ function renderProductivity(){
     pltBuckets[key].pallets+=toNum(r[COL.sumPallets]);
   });
 
-  // allHours + prodHours both from timeData so Fleet is excluded from both
-  // Uses yearWeek from timeData (col S) for accurate bucket matching
+  // allHours + prodHours from timeData (Fleet excluded, adaptation coefficient applied)
   timeData.forEach(r=>{
     const role=String(r.role||'').trim();
     if(role==='Fleet')return;
@@ -1790,7 +1845,18 @@ function renderProductivity(){
     if(!key||pltBuckets[key]===undefined)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
     pltBuckets[key].allHours+=hrs;
-    pltBuckets[key].prodHours+=hrs*getRoleWeight(role);
+
+    // Apply role weight + adaptation coefficient for Forklift Operators
+    let weight=getRoleWeight(role);
+    if(weight>0 && role==='Forklift Operator'){
+      const name=String(r.employeeName||'').trim();
+      const firstDt=empFirstDate[name];
+      if(firstDt){
+        const weeksSinceStart=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
+        weight=getAdaptationWeight(weeksSinceStart);
+      }
+    }
+    pltBuckets[key].prodHours+=hrs*weight;
   });
 
   const buckets=pltBuckets;
@@ -1883,7 +1949,8 @@ function renderProductivity(){
       const barDS=chart.data.datasets.filter(d=>d.type==='bar');
       if(!barDS.length)return;
       barDS.forEach(ds=>{
-        const color=ds.label==='Productive Hours'?'#6aab90':'#7dd4f0';
+        const isProd=ds.label==='Productive Hours';
+        const color=isProd?'#6aab90':'#7dd4f0';
         const mi=chart.data.datasets.indexOf(ds);
         const meta=chart.getDatasetMeta(mi);
         ctx.save();
@@ -1892,7 +1959,22 @@ function renderProductivity(){
         ctx.textAlign='center';ctx.textBaseline='bottom';
         meta.data.forEach((bar,i)=>{
           const v=ds.data[i];if(v===null||v===undefined||v===0)return;
+          // plt/hr value
           ctx.fillText(v.toFixed(1),bar.x,bar.y-3);
+          // Lost pallets above productive bar
+          if(isProd&&activeProdThr){
+            const bkt=buckets[keys[i]];
+            if(bkt&&bkt.prodHours>0){
+              const lost=Math.round((activeProdThr-v)*bkt.prodHours);
+              const lostStr=(lost>0?'+':'')+lost;
+              const lostColor=lost>0?'#e07070':'#6aab90';
+              ctx.save();
+              ctx.font='bold 8px -apple-system,sans-serif';
+              ctx.fillStyle=lostColor;
+              ctx.fillText(lostStr,bar.x,bar.y-14);
+              ctx.restore();
+            }
+          }
         });
         ctx.restore();
       });
