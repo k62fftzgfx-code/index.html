@@ -176,20 +176,18 @@
 <div class="controls">
   <div class="ctrl-group">
     <label class="ctrl-label">Granularity</label>
-    <select class="simple-select" id="granularity">
+    <select class="simple-select" id="granularity" onchange="onGranChange()">
       <option value="weekly" selected>Weekly</option>
       <option value="monthly">Monthly</option>
       <option value="quarterly">Quarterly</option>
+      <option value="yearly">Yearly</option>
     </select>
   </div>
-  <div class="ctrl-group">
-    <label class="ctrl-label">Year</label>
+  <div class="ctrl-group" id="period-group">
+    <label class="ctrl-label" id="period-label">Week</label>
     <div class="custom-dropdown">
-      <div class="dropdown-trigger" id="year-trigger" onclick="toggleDropdown('year')">All years</div>
-      <div class="dropdown-menu" id="year-menu">
-        <label class="dropdown-item all-item"><input type="checkbox" id="year-all" checked onchange="toggleAll('year')"> All years</label>
-        <label class="dropdown-item"><input type="checkbox" class="year-cb" value="2025" checked onchange="onCbChange('year')"> 2025</label>
-        <label class="dropdown-item"><input type="checkbox" class="year-cb" value="2026" checked onchange="onCbChange('year')"> 2026</label>
+      <div class="dropdown-trigger" id="period-trigger" onclick="toggleDropdown('period')">All weeks</div>
+      <div class="dropdown-menu" id="period-menu" style="max-height:260px;overflow-y:auto;">
       </div>
     </div>
   </div>
@@ -531,19 +529,33 @@ document.addEventListener('click',e=>{
 function toggleAll(name){
   const allCb=document.getElementById(name+'-all');
   document.querySelectorAll('.'+name+'-cb').forEach(c=>c.checked=allCb.checked);
-  updateTrigger(name);renderAll();
+  updateDropdownLabel(name);renderAll();
 }
 function onCbChange(name){
   const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked);
-  document.getElementById(name+'-all').checked=checked.length===all.length;
-  updateTrigger(name);renderAll();
+  const allCb=document.getElementById(name+'-all');
+  if(allCb) allCb.checked=checked.length===all.length;
+  updateDropdownLabel(name);renderAll();
 }
-function updateTrigger(name){
-  const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked).map(c=>c.value);
+function updateDropdownLabel(name){
+  const all=document.querySelectorAll('.'+name+'-cb');
+  const checked=Array.from(all).filter(c=>c.checked);
   const t=document.getElementById(name+'-trigger');
-  if(name==='year')t.textContent=checked.length===0?'None':checked.length===all.length?'All years':checked.join(', ');
-  else t.textContent=checked.length===0?'None':checked.length===all.length?'All locations':checked.length===1?checked[0]:checked.length+' locations';
+  if(!t)return;
+  const gran=document.getElementById('granularity')?.value||'weekly';
+  const allLabels={weekly:'All weeks',monthly:'All months',quarterly:'All quarters',yearly:'All years',loc:'All locations'};
+  if(name==='period'){
+    if(checked.length===0) t.textContent='None';
+    else if(checked.length===all.length) t.textContent=allLabels[gran]||'All periods';
+    else if(checked.length<=3) t.textContent=checked.map(c=>{
+      const opt=periodOptions.find(o=>o.key===c.value);return opt?opt.label:c.value;
+    }).join(', ');
+    else t.textContent=checked.length+' periods';
+  } else if(name==='loc'){
+    t.textContent=checked.length===0?'None':checked.length===all.length?'All locations':checked.length===1?checked[0].value:checked.length+' locations';
+  }
 }
+function updateTrigger(name){updateDropdownLabel(name);}// legacy alias
 
 function toNum(v){if(!v&&v!==0)return 0;const n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?0:n;}
 function fmtTop(v){return v>=1000?(v/1000).toFixed(1)+'K':Math.round(v).toString();}
@@ -567,9 +579,9 @@ function parseDate(s){
 }
 function getBucketKey(row,gran){
   const pd=parseDate(row[COL.date]);if(!pd)return null;
+  if(gran==='yearly') return String(pd.y);
   if(gran==='weekly'){
     const ywRaw=String(row[COL.yearWeek]||'').trim();
-    // Support both '202618' and '2026-18' formats
     if(ywRaw.includes('-') && ywRaw.length>=7){
       const parts=ywRaw.split('-');
       return parts[0]+parts[1].padStart(2,'0');
@@ -578,7 +590,6 @@ function getBucketKey(row,gran){
   }
   if(gran==='daily')return pd.str;
   if(gran==='monthly'||gran==='quarterly'){
-    // Determine the month via Thursday of the week (same rule as monthly)
     let mY, mM;
     const ywRaw = String(row[COL.yearWeek]||'').trim();
     const ywParts = ywRaw.includes('-') ? ywRaw.split('-') : [ywRaw.slice(0,4), ywRaw.slice(4)];
@@ -598,17 +609,15 @@ function getBucketKey(row,gran){
       mY = pd.y;
       mM = pd.m;
     }
-    if(gran==='monthly'){
-      return mY + '-' + String(mM).padStart(2,'0');
-    }
-    // quarterly: month -> quarter
+    if(gran==='monthly') return mY + '-' + String(mM).padStart(2,'0');
     const q = Math.floor((mM-1)/3)+1;
     return mY + '-Q' + q;
   }
   return null;
 }
 function getDisplayLabel(key,gran){
-  if(gran==='weekly')return'CW'+key.slice(4);
+  if(gran==='yearly') return key;
+  if(gran==='weekly') return 'CW'+key.slice(4);
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
   if(gran==='quarterly'){const p=key.split('-');return p[1]+" '"+p[0].slice(2);}
   const p=key.split('-');return p[1]+'/'+p[2];
@@ -635,15 +644,80 @@ function mapLocName(locName){
   return LOC_NAME_MAP[key]||null;
 }
 
+// ===================== PERIOD FILTER =====================
+let periodOptions=[]; // [{key, label}] — all available periods derived from rawData
+
+function buildPeriodOptions(){
+  const gran=document.getElementById('granularity').value;
+  if(!rawData.length)return;
+
+  const seen=new Set();
+  const opts=[];
+
+  if(gran==='yearly'){
+    rawData.forEach(r=>{
+      const pd=parseDate(r[COL.date]);if(!pd)return;
+      const k=String(pd.y);
+      if(!seen.has(k)){seen.add(k);opts.push({key:k,label:k});}
+    });
+    opts.sort((a,b)=>a.key.localeCompare(b.key));
+  } else {
+    rawData.forEach(r=>{
+      const key=getBucketKey(r,gran);if(!key)return;
+      if(!seen.has(key)){seen.add(key);opts.push({key,label:getDisplayLabel(key,gran)});}
+    });
+    opts.sort((a,b)=>a.key.localeCompare(b.key));
+  }
+
+  periodOptions=opts;
+
+  // Rebuild dropdown HTML
+  const menu=document.getElementById('period-menu');
+  const labelMap={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'};
+  const allLabel={weekly:'All weeks',monthly:'All months',quarterly:'All quarters',yearly:'All years'};
+  document.getElementById('period-label').textContent=labelMap[gran]||'Period';
+
+  menu.innerHTML=`<label class="dropdown-item all-item"><input type="checkbox" id="period-all" checked onchange="toggleAll('period')"> ${allLabel[gran]||'All'}</label>`
+    +opts.map(o=>`<label class="dropdown-item"><input type="checkbox" class="period-cb" value="${o.key}" checked onchange="onCbChange('period')"> ${o.label}</label>`).join('');
+
+  updateDropdownLabel('period');
+}
+
+function getSelectedPeriods(){
+  const cbs=document.querySelectorAll('.period-cb');
+  if(!cbs.length)return null; // null = all
+  const checked=Array.from(cbs).filter(c=>c.checked).map(c=>c.value);
+  if(checked.length===cbs.length)return null; // all selected = no filter
+  return new Set(checked);
+}
+
+function onGranChange(){
+  buildPeriodOptions();
+  // also toggle daily row for staff tab
+  document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily');
+  renderAll();
+}
+
 function getFilters(){
   const gran=document.getElementById('granularity').value;
   const dirF=document.getElementById('direction').value;
-  const years=Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
   const locs=Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
   const isDaily=gran==='daily';
   const dateFrom=isDaily?document.getElementById('date-from').value:null;
   const dateTo=isDaily?document.getElementById('date-to').value:null;
-  return{gran,dirF,years,locs,isDaily,dateFrom,dateTo};
+  const selectedPeriods=getSelectedPeriods(); // null=all, Set=filtered
+  // derive years from selected periods (or all years if no filter)
+  let years;
+  if(!selectedPeriods){
+    years=[...new Set(rawData.map(r=>{const pd=parseDate(r[COL.date]);return pd?.y;}).filter(Boolean))];
+  } else {
+    if(gran==='yearly'){
+      years=[...selectedPeriods].map(Number);
+    } else {
+      years=[...new Set([...selectedPeriods].map(k=>parseInt(k.slice(0,4))))];
+    }
+  }
+  return{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods};
 }
 
 function renderAll(){
@@ -670,12 +744,7 @@ function renderOpsMap() {
   if(!wrap) return;
 
   // Get same filters as renderOperations
-  const gran = document.getElementById('granularity').value;
-  const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
-  const locs  = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
-  const isDaily = gran === 'daily';
-  const dateFrom = isDaily ? document.getElementById('date-from').value : null;
-  const dateTo   = isDaily ? document.getElementById('date-to').value   : null;
+  const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
 
   // Build per-location KPIs from rawData — same filtering as renderOperations
   const locStats = {};
@@ -686,6 +755,7 @@ function renderOpsMap() {
     const pd = parseDate(r[COL.date]); if(!pd) return;
     if(!years.includes(pd.y)) return;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
+    if(selectedPeriods){const key=getBucketKey(r,gran);if(!key||!selectedPeriods.has(key))return;}
     const s = locStats[r._location];
     if(isSummaryRow(r)){
       s.costs2 += toNum(r[COL.costs2]);
@@ -840,7 +910,7 @@ function renderOpsMap() {
 
 // ===================== OPERATIONS TAB =====================
 function renderOperations(){
-  const{gran,dirF,years,locs,isDaily,dateFrom,dateTo}=getFilters();
+  const{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
 
@@ -858,6 +928,7 @@ function renderOperations(){
 
   filtered.forEach(r=>{
     const key=getBucketKey(r,gran);if(!key)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
     const sum=isSummaryRow(r);
     if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
     if(!sum){
@@ -1054,8 +1125,7 @@ function renderMap() {
   const locData = {};
   locKeys.forEach(loc => { locData[loc] = { amz: 0, hd: 0, hdShared: 0 }; });
 
-  const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
-  const locs = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
+  const{years,locs}=getFilters();
 
   invData.amazon.filter(r => {
     const pd = parseDate(r.date); if(!pd) return false;
@@ -1242,12 +1312,7 @@ const CAT_COLORS = [
 ];
 
 function renderInventory() {
-  const gran = document.getElementById('granularity').value;
-  const years = Array.from(document.querySelectorAll('.year-cb')).filter(c=>c.checked).map(c=>parseInt(c.value));
-  const locs = Array.from(document.querySelectorAll('.loc-cb')).filter(c=>c.checked).map(c=>c.value);
-  const isDaily = gran === 'daily';
-  const dateFrom = isDaily ? document.getElementById('date-from').value : null;
-  const dateTo   = isDaily ? document.getElementById('date-to').value   : null;
+  const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll = isDaily || gran === 'weekly';
   const H = getHeights();
   document.getElementById('date-range-row').classList.toggle('visible', isDaily);
@@ -1398,6 +1463,7 @@ function renderInventory() {
 function getInvBucketKey(dateStr, gran) {
   const pd = parseDate(dateStr); if(!pd) return null;
   if(gran==='daily') return pd.str;
+  if(gran==='yearly') return String(pd.y);
   if(gran==='monthly') return `${pd.y}-${String(pd.m).padStart(2,'0')}`;
   if(gran==='quarterly') return `${pd.y}-Q${Math.floor((pd.m-1)/3)+1}`;
   if(gran==='weekly') {
@@ -1416,10 +1482,10 @@ function getWeekNum(dt) {
 }
 
 function getInvDisplayLabel(key, gran) {
+  if(gran==='yearly') return key;
   if(gran==='weekly') return 'CW'+key.slice(4);
   if(gran==='monthly'){const p=key.split('-');return MONTH_NAMES[parseInt(p[1])-1]+" '"+p[0].slice(2);}
   if(gran==='quarterly'){const p=key.split('-');return p[1]+" '"+p[0].slice(2);}
-  // daily: key is YYYY-MM-DD
   const p=key.split('-');
   if(p.length===3) return p[1]+'/'+p[2];
   return key;
@@ -1678,7 +1744,7 @@ function getActiveProdThreshold(locs){
 }
 
 function renderProductivity(){
-  const{gran,years,locs,isDaily,dateFrom,dateTo}=getFilters();
+  const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
   const H=getHeights();
   const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
@@ -1690,6 +1756,7 @@ function renderProductivity(){
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const key=getBucketKey(r,gran);if(!key)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
     if(!pltBuckets[key])pltBuckets[key]={pallets:0,allHours:0,prodHours:0};
     pltBuckets[key].pallets+=toNum(r[COL.sumPallets]);
   });
@@ -1705,24 +1772,23 @@ function renderProductivity(){
     if(isDaily){if(dateFrom&&pd.str<dateFrom)return;if(dateTo&&pd.str>dateTo)return;}
     const hrs=toNum(r.totalHours);
 
-    // Build bucket key directly from timeData's yearWeek column
     let key=null;
-    const yw=String(r.yearWeek||'').trim(); // e.g. "2026-01"
+    const yw=String(r.yearWeek||'').trim();
     if(gran==='weekly'&&yw){
-      // convert "2026-01" → "202601" to match getBucketKey format
       const parts=yw.split('-');
       if(parts.length===2) key=parts[0]+String(parts[1]).padStart(2,'0');
     } else if(gran==='monthly'||gran==='quarterly'){
-      // find refRow by yearWeek match in rawData
       const refRow=rawData.find(rr=>rr._location===loc&&String(rr[COL.yearWeek]||'').trim()===yw);
       if(refRow) key=getBucketKey(refRow,gran);
+    } else if(gran==='yearly'){
+      key=String(pd.y);
     } else {
-      // daily or other — fallback to date match
       const refRow=rawData.find(rr=>rr._location===loc&&parseDate(rr[COL.date])?.str===pd.str);
       if(refRow) key=getBucketKey(refRow,gran);
     }
 
     if(!key||pltBuckets[key]===undefined)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
     pltBuckets[key].allHours+=hrs;
     pltBuckets[key].prodHours+=hrs*getRoleWeight(role);
   });
@@ -2009,6 +2075,7 @@ async function loadData(){
     const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
     if(dates.length){document.getElementById('date-from').value=dates[0];document.getElementById('date-to').value=dates[dates.length-1];}
     buildWeekFilter();
+    buildPeriodOptions();
     // Count error cells
     let errCount = 0;
     rawData.forEach(r=>Object.values(r).forEach(v=>{if(v==='#REF!'||v==='#VALUE!'||v==='#N/A'||v==='#DIV/0!')errCount++;}));
@@ -2020,7 +2087,6 @@ async function loadData(){
 }
 
 window.addEventListener('resize',()=>{if(rawData.length)renderAll();});
-document.getElementById('granularity').addEventListener('change',renderAll);
 document.getElementById('direction').addEventListener('change',renderAll);
 loadData();
 </script>
