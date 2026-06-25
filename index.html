@@ -77,10 +77,10 @@
   .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; margin-bottom: 14px; }
   .threshold-panel.visible { display: block; }
   .threshold-panel-title { font-size: 11px; color: #f0a050; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
-  .threshold-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
-  .threshold-item { display: flex; flex-direction: column; gap: 4px; }
-  .threshold-item label { font-size: 10px; color: #7a8daa; }
-  .threshold-item input[type=number] { font-size: 12px; padding: 5px 8px; border: 1px solid #2e3d5c; border-radius: 8px; background: #1a2035; color: #c8d8f0; outline: none; width: 100%; }
+  .threshold-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 12px; }
+  .threshold-item { display: flex; align-items: center; gap: 6px; }
+  .threshold-item label { font-size: 10px; color: #7a8daa; white-space: nowrap; min-width: 110px; }
+  .threshold-item input[type=number] { font-size: 11px; padding: 3px 6px; border: 1px solid #2e3d5c; border-radius: 6px; background: #1a2035; color: #c8d8f0; outline: none; width: 64px; }
   .threshold-item input[type=number]:focus { border-color: #f0a050; }
 
   /* KPI Cards */
@@ -262,13 +262,13 @@
   </div>
   <div class="threshold-panel-title" style="margin-top:14px;">Labor Productivity — pallets/hr target by location</div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="pthr-markham" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="pthr-sanb" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="pthr-denver" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="pthr-markham" value="17.50" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="17.50" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.50" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.50" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="pthr-sanb" value="7.50" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="pthr-denver" value="4.75" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="3.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
   </div>
 </div>
@@ -312,10 +312,6 @@
     <div class="chart-card main">
       <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
       <div class="chart-scroll-wrap" id="scroll1"><canvas id="comboChart" role="img" aria-label="Combo chart"></canvas></div>
-      <!-- Saturday workers strip -->
-      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:3px;">
-        <div id="sat-strip" style="display:flex;gap:0;min-width:max-content;padding:2px 0;"></div>
-      </div>
       <div class="legend" id="combo-legend"></div>
     </div>
     <div class="chart-card donut">
@@ -345,6 +341,10 @@
       <!-- Worker count strip -->
       <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;">
         <div id="worker-strip" style="display:flex;gap:0;min-width:max-content;padding:4px 0 2px;"></div>
+      </div>
+      <!-- Saturday strip -->
+      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:2px;">
+        <div id="sat-strip" style="min-width:max-content;"></div>
       </div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
@@ -1356,7 +1356,6 @@ function renderOperations(){
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  renderSatStrip(keys, buckets);
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -1443,14 +1442,14 @@ let leafletMap = null;
 let leafletMarkers = [];
 
 const LOC_COORDS = {
-  'Markham, IL West':        [41.59, -87.67],
-  'Markham, IL East':   [41.60, -87.65],
-  'Reno, NV':          [39.53, -119.81],
-  'Stockton, CA':      [37.96, -121.29],
-  'San Bernardino, CA':[34.10, -117.29],
-  'Denver, CO':        [39.74, -104.98],
-  'Columbus, OH':      [39.96, -82.99],
-  'Greenville, SC':    [34.85, -82.39]
+  'Markham, IL West':   [41.585, -87.685],
+  'Markham, IL East':   [41.615, -87.640],
+  'Reno, NV':           [39.53,  -119.81],
+  'Stockton, CA':       [37.96,  -121.29],
+  'San Bernardino, CA': [34.10,  -117.29],
+  'Denver, CO':         [39.74,  -104.98],
+  'Columbus, OH':       [39.96,   -82.99],
+  'Greenville, SC':     [34.85,   -82.39]
 };
 
 const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a','#f08080'];
@@ -2274,6 +2273,7 @@ function renderProductivity(){
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
   renderWorkerStrip(keys, buckets, gran);
+  renderSatStrip(keys, buckets);
 }
 
 // ===================== INSIGHT TOOLTIP (deterministic) =====================
@@ -2413,40 +2413,30 @@ function getCorrData(){
 function renderSatStrip(keys, bkts){
   const strip=document.getElementById('sat-strip');
   if(!strip)return;
-  if(!bkts){
-    const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
-    const r=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
-    bkts=r.bkts;
-  }
+  const hasSat=keys.some(k=>bkts&&bkts[k]?.satWorkers?.size>0);
+  if(!hasSat){strip.innerHTML='';strip.style.height='0';return;}
 
-  const hasSat=Object.values(bkts).some(b=>b.satWorkers&&b.satWorkers.size>0);
-  if(!hasSat){strip.innerHTML='';return;}
-
-  const canvas=document.getElementById('comboChart');
-  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
-  const meta=comboInst.getDatasetMeta(0);
+  // Align with prodInst bars
+  const canvas=document.getElementById('prodChart');
+  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
+  const meta=prodInst.getDatasetMeta(0);
   if(!meta||!meta.data.length){strip.innerHTML='';return;}
+  const dpr=window.devicePixelRatio||1;
 
   strip.innerHTML=meta.data.map((bar,i)=>{
     const k=keys[i];if(!k)return'';
     const cnt=bkts[k]?.satWorkers?.size||0;
-    const dpr=window.devicePixelRatio||1;
     const barW=bar.width||20;
     const leftPx=(bar.x-barW/2)/dpr;
     const widthPx=barW/dpr;
     return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;align-items:center;justify-content:center;">
-      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday: ${cnt}">Sat:${cnt}</span>`
+      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;">Sat:${cnt}</span>`
            :`<span style="font-size:9px;color:#2a3a50">·</span>`}
     </div>`;
   }).join('');
   strip.style.position='relative';
-  strip.style.height='16px';
+  strip.style.height='14px';
   strip.style.minWidth=canvas.offsetWidth+'px';
-
-  const legEnd=document.getElementById('combo-legend');
-  if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
-    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
-  }
 }
 
 // ===================== WORKER STRIP =====================
@@ -2454,12 +2444,9 @@ function renderWorkerStrip(keys, bkts, gran){
   const strip=document.getElementById('worker-strip');
   if(!strip)return;
 
-  const hasSat=Object.values(bkts).some(b=>b.satWorkers&&b.satWorkers.size>0);
-  if(!hasSat){strip.innerHTML='';return;}
-
-  const canvas=document.getElementById('comboChart');
-  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
-  const meta=comboInst.getDatasetMeta(0);
+  const canvas=document.getElementById('prodChart');
+  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
+  const meta=prodInst.getDatasetMeta(0);
   if(!meta||!meta.data.length){strip.innerHTML='';return;}
   const firstBar=meta.data[0];if(!firstBar){strip.innerHTML='';return;}
   const barW=firstBar.width||20;
@@ -2467,22 +2454,19 @@ function renderWorkerStrip(keys, bkts, gran){
 
   strip.innerHTML=meta.data.map((bar,i)=>{
     const k=keys[i];if(!k)return'';
-    const cnt=bkts[k]?.satWorkers?.size||0;
+    const wc=bkts[k]?.workers||{green:new Set(),yellow:new Set(),blue:new Set()};
+    const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
     const leftPx=(bar.x-barW/2)/dpr;
     const widthPx=barW/dpr;
-    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;align-items:center;justify-content:center;">
-      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday: ${cnt}">Sat:${cnt}</span>`
-           :`<span style="font-size:9px;color:#2a3a50">·</span>`}
+    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;flex-direction:column;align-items:center;gap:1px;">
+      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#2a3a50'};line-height:1.2">${g||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#2a3a50'};line-height:1.2">${y||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#2a3a50'};line-height:1.2">${b||'·'}</span>
     </div>`;
   }).join('');
   strip.style.position='relative';
-  strip.style.height='16px';
+  strip.style.height='42px';
   strip.style.minWidth=canvas.offsetWidth+'px';
-
-  const legEnd=document.getElementById('combo-legend');
-  if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
-    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
-  }
 }
 
 function renderCorrChart(){
