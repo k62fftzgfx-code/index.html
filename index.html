@@ -975,6 +975,8 @@ function renderProdTable(){
   const empFirstDate={};
   if(hasRoles){
     timeData.forEach(r=>{
+      const role=String(r.role||'').trim();
+      if(role!=='Forklift Operator')return; // тільки FO для визначення дати найму
       const name=String(r.employeeName||'').trim();if(!name)return;
       const pd=parseDate(r.date);if(!pd)return;
       if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
@@ -2122,6 +2124,8 @@ function renderProductivity(){
   const empFirstDate={};
   if(hasRoles){
     timeData.forEach(r=>{
+      const role=String(r.role||'').trim();
+      if(role!=='Forklift Operator')return; // тільки FO для визначення дати найму
       const name=String(r.employeeName||'').trim();
       if(!name)return;
       const pd=parseDate(r.date);if(!pd)return;
