@@ -965,20 +965,19 @@ function toggleProdTable(){
 }
 
 function renderProdTable(){
-  const thead = document.getElementById('prod-table-head');
-  const tbody = document.getElementById('prod-table-body');
-  if(!thead||!tbody) return;
+  const thead=document.getElementById('prod-table-head');
+  const tbody=document.getElementById('prod-table-body');
+  if(!thead||!tbody)return;
 
   const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
 
-  // Build same buckets as renderProductivity
   const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
   const empFirstDate={};
   if(hasRoles){
     timeData.forEach(r=>{
       const name=String(r.employeeName||'').trim();if(!name)return;
       const pd=parseDate(r.date);if(!pd)return;
-      if(!empFirstDate[name]||pd.dt<empFirstDate[name]) empFirstDate[name]=pd.dt;
+      if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
     });
   }
 
@@ -988,9 +987,12 @@ function renderProdTable(){
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     const key=getBucketKey(r,gran);if(!key)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
-    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0};
+    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0,rawProdHours:0,weightedSum:0};
     bkts[key].pallets+=toNum(r[COL.sumPallets]);
   });
+
+  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+  const hireThr=new Date(hireDateStr+'T00:00:00');
 
   timeData.forEach(r=>{
     const role=String(r.role||'').trim();
@@ -1012,14 +1014,14 @@ function renderProdTable(){
     if(w>0&&role==='Forklift Operator'){
       const name=String(r.employeeName||'').trim();
       const firstDt=empFirstDate[name];
-      if(firstDt){
-        const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
-        const hireThr=new Date(hireDateStr+'T00:00:00');
-        if(firstDt>hireThr){
-          const wks=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
-          w=getAdaptationWeight(wks);
-        }
+      if(firstDt&&firstDt>hireThr){
+        const wks=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
+        w=getAdaptationWeight(wks);
       }
+    }
+    if(w>0){
+      bkts[key].rawProdHours+=hrs; // hours before weight (for coef calc)
+      bkts[key].weightedSum+=hrs*w; // weighted hours
     }
     bkts[key].prodHours+=hrs*w;
   });
@@ -1027,64 +1029,77 @@ function renderProdTable(){
   const keys=Object.keys(bkts).sort();
   if(!keys.length){thead.innerHTML='';tbody.innerHTML='<tr><td colspan="2" style="color:#6a7d9a;padding:8px">No data</td></tr>';return;}
   const labels=keys.map(k=>getDisplayLabel(k,gran));
-
-  // Threshold for lost pallets
   const activeThr=getActiveProdThreshold(locs);
 
-  // Build rows data
-  const allHrsRow=keys.map(k=>bkts[k].allHours>0?Math.round(bkts[k].allHours):null);
-  const prodHrsRow=keys.map(k=>bkts[k].prodHours>0?Math.round(bkts[k].prodHours):null);
-  const allPphRow=keys.map(k=>bkts[k].allHours>0?(bkts[k].pallets/bkts[k].allHours).toFixed(1):null);
-  const prodPphRow=keys.map(k=>bkts[k].prodHours>0?(bkts[k].pallets/bkts[k].prodHours).toFixed(1):null);
-  const lostRow=activeThr?keys.map(k=>{
+  // Rows
+  const allHrsRow   =keys.map(k=>bkts[k].allHours>0?Math.round(bkts[k].allHours):null);
+  const prodHrsRow  =keys.map(k=>bkts[k].prodHours>0?Math.round(bkts[k].prodHours):null);
+  const adaptRow    =keys.map(k=>{
+    const d=bkts[k];
+    if(!d.rawProdHours)return null;
+    return((d.weightedSum/d.rawProdHours)*100).toFixed(1)+'%';
+  });
+  const actualPltRow=keys.map(k=>bkts[k].pallets>0?Math.round(bkts[k].pallets):null);
+  const targetPltRow=activeThr?keys.map(k=>{
+    const d=bkts[k];
+    return d.prodHours>0?Math.round(activeThr*d.prodHours):null;
+  }):null;
+  const allPphRow   =keys.map(k=>bkts[k].allHours>0?(bkts[k].pallets/bkts[k].allHours).toFixed(1):null);
+  const prodPphRow  =keys.map(k=>bkts[k].prodHours>0?(bkts[k].pallets/bkts[k].prodHours).toFixed(1):null);
+  const targetPphRow=activeThr?keys.map(()=>activeThr.toFixed(1)):null;
+  const lostRow     =activeThr?keys.map(k=>{
     const d=bkts[k];
     if(!d.prodHours)return null;
     return Math.round((activeThr-(d.pallets/d.prodHours))*d.prodHours);
   }):null;
 
-  // Header
   thead.innerHTML=`<tr><th></th>${labels.map(l=>`<th>${l}</th>`).join('')}</tr>`;
 
-  // Body rows
-  const fmt=(v,decimals=0)=>v===null?'—':(decimals?v:Number(v).toLocaleString());
+  const numFmt=v=>v===null?'—':Number(v).toLocaleString();
   const rows=[
-    {label:'All hrs', data:allHrsRow, color:'#7dd4f0', fmt:v=>v===null?'—':Number(v).toLocaleString()},
-    {label:'Prod hrs', data:prodHrsRow, color:'#6aab90', fmt:v=>v===null?'—':Number(v).toLocaleString()},
-    {label:'All plt/hr', data:allPphRow, color:'#7dd4f080', fmt:v=>v===null?'—':v},
-    {label:'Prod plt/hr', data:prodPphRow, color:'#6aab9080', fmt:v=>v===null?'—':v},
+    {label:'All hrs',       data:allHrsRow,    color:'#7dd4f0',   fmt:numFmt},
+    {label:'Prod hrs',      data:prodHrsRow,   color:'#6aab90',   fmt:numFmt},
+    {label:'Adapt. coef',   data:adaptRow,     color:'#f0a050',   fmt:v=>v===null?'—':v},
+    {label:'Actual pallets',data:actualPltRow, color:'#c8d8f0',   fmt:numFmt},
   ];
+  if(targetPltRow) rows.push({label:'Target pallets', data:targetPltRow, color:'#8a9dba', fmt:numFmt});
+  rows.push(
+    {label:'All plt/hr',   data:allPphRow,    color:'#7dd4f0',   fmt:v=>v===null?'—':v},
+    {label:'Prod plt/hr',  data:prodPphRow,   color:'#6aab90',   fmt:v=>v===null?'—':v},
+  );
+  if(targetPphRow) rows.push({label:'Target plt/hr', data:targetPphRow, color:'#E24B4A', fmt:v=>v===null?'—':v});
   if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
-    fmt:v=>{if(v===null)return'—';return(v>0?'+':'')+Number(v).toLocaleString();}});
+    fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
 
   tbody.innerHTML=rows.map(row=>`
     <tr>
       <td style="color:${row.color||'#6a7d9a'}">${row.label}</td>
       ${row.data.map(v=>{
-        let cls='';
-        if(row.isLost&&v!==null){cls=v>0?'val-red':'val-green';}
-        return`<td class="${cls}" style="${!row.isLost&&row.color?'color:'+row.color:''}">${row.fmt(v)}</td>`;
+        const cls=row.isLost&&v!==null?(v>0?'val-red':'val-green'):'';
+        const style=!row.isLost&&row.color?`color:${row.color}`:'';
+        return`<td class="${cls}" style="${style}">${row.fmt(v)}</td>`;
       }).join('')}
     </tr>`).join('')
-  // Coefficients info row
-  + `<tr><td colspan="${keys.length+1}" style="padding:10px 0 4px;border-top:1px solid #2e3d5c;"></td></tr>
-  <tr><td colspan="${keys.length+1}" style="color:#6a7d9a;font-size:10px;line-height:1.8;padding-bottom:4px;">
-    <b style="color:#8a9dba">How Prod hrs are calculated:</b><br>
-    Forklift Operator (experienced) → <span style="color:#6aab90">100%</span> &nbsp;|&nbsp;
-    Supervisor / Forklift Operator → <span style="color:#6aab90">75%</span> &nbsp;|&nbsp;
-    Local Manager / Forklift Operator → <span style="color:#6aab90">75%</span><br>
-    New Forklift Operator (hired after ${document.getElementById('wf-hire-date')?.value||'2026-03-01'}):
-    Wk1 <span style="color:#f0a050">${document.getElementById('wf-w1')?.value||40}%</span> →
-    Wk2 <span style="color:#f0a050">${document.getElementById('wf-w2')?.value||50}%</span> →
-    Wk3 <span style="color:#f0a050">${document.getElementById('wf-w3')?.value||58}%</span> →
-    Wk4 <span style="color:#f0a050">${document.getElementById('wf-w4')?.value||64}%</span> →
-    Wk5-6 <span style="color:#f0a050">${document.getElementById('wf-w56')?.value||68}%</span> →
-    Wk7-8 <span style="color:#f0a050">${document.getElementById('wf-w78')?.value||74}%</span> →
-    Wk9-10 <span style="color:#f0a050">${document.getElementById('wf-w910')?.value||82}%</span> →
-    Wk11-12 <span style="color:#f0a050">${document.getElementById('wf-w1112')?.value||90}%</span> →
+  +`<tr><td colspan="${keys.length+1}" style="padding:8px 0 4px;border-top:1px solid #2e3d5c;font-size:10px;color:#6a7d9a;line-height:1.8;">
+    <b style="color:#8a9dba">Prod hrs coefficients:</b>
+    FO experienced <span style="color:#6aab90">100%</span> &nbsp;·&nbsp;
+    Supervisor/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
+    LM/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
+    Supervisor / Spotter / Consolidator / Fleet <span style="color:#e07070">0%</span><br>
+    New FO (after ${hireDateStr}):
+    Wk1 <span style="color:#f0a050">${document.getElementById('wf-w1')?.value||40}%</span>
+    Wk2 <span style="color:#f0a050">${document.getElementById('wf-w2')?.value||50}%</span>
+    Wk3 <span style="color:#f0a050">${document.getElementById('wf-w3')?.value||58}%</span>
+    Wk4 <span style="color:#f0a050">${document.getElementById('wf-w4')?.value||64}%</span>
+    Wk5-6 <span style="color:#f0a050">${document.getElementById('wf-w56')?.value||68}%</span>
+    Wk7-8 <span style="color:#f0a050">${document.getElementById('wf-w78')?.value||74}%</span>
+    Wk9-10 <span style="color:#f0a050">${document.getElementById('wf-w910')?.value||82}%</span>
+    Wk11-12 <span style="color:#f0a050">${document.getElementById('wf-w1112')?.value||90}%</span>
     Wk13+ <span style="color:#6aab90">100%</span><br>
-    Supervisor, Spotter, Consolidator, Fleet → <span style="color:#e07070">0%</span> (excluded)<br>
-    <b style="color:#8a9dba">Lost pallets</b> = (Target plt/hr − Prod plt/hr) × Prod hrs &nbsp;|&nbsp;
-    Target: ${activeThr?activeThr.toFixed(1)+' plt/hr (avg of selected locations)':'not set'}
+    <b style="color:#8a9dba">Adapt. coef</b> = weighted prod hrs ÷ raw prod hrs per period &nbsp;·&nbsp;
+    <b style="color:#8a9dba">Target pallets</b> = Target plt/hr × Prod hrs &nbsp;·&nbsp;
+    <b style="color:#8a9dba">Lost pallets</b> = (Target − Prod plt/hr) × Prod hrs
+    ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#E24B4A">${activeThr.toFixed(1)} plt/hr</span> (avg selected locs)`:''}
   </td></tr>`;
 }
 
