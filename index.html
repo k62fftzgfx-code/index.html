@@ -260,6 +260,7 @@
   </div>
   <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
   <button class="btn-workforce" onclick="toggleWorkforcePanel()">👥 Workforce</button>
+  <button id="btn-apikey" onclick="toggleApiKeyPanel()" style="font-size:12px;padding:5px 14px;border:1px solid #3a5080;border-radius:8px;background:#253050;color:#7dd4f0;cursor:pointer;transition:background 0.15s;align-self:flex-end;">🤖 AI Key</button>
   <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
 </div>
 
@@ -307,6 +308,16 @@
     <div class="threshold-item"><label>Weeks 11–12</label><input type="number" id="wf-w1112" value="90" step="1" min="0" max="100" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="renderOperations()"></div>
   </div>
+</div>
+
+<!-- API Key Panel -->
+<div id="apikey-panel" style="display:none;background:#222d45;border-radius:12px;border:0.5px solid #7dd4f060;padding:14px 18px;margin-bottom:14px;">
+  <div style="font-size:11px;color:#7dd4f0;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">🤖 Anthropic API Key — для AI Insight</div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <input type="password" id="api-key-input" placeholder="sk-ant-..." style="flex:1;font-size:12px;padding:6px 10px;border:1px solid #2e3d5c;border-radius:8px;background:#1a2035;color:#c8d8f0;outline:none;" oninput="saveApiKey()">
+    <button onclick="clearApiKey()" style="font-size:11px;padding:5px 10px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#e07070;cursor:pointer;">Clear</button>
+  </div>
+  <div style="font-size:10px;color:#4a5a70;margin-top:6px;">Ключ зберігається локально в браузері / Key stored locally in browser only</div>
 </div>
 
 <div class="date-range" id="date-range-row" style="display:none;">
@@ -576,6 +587,28 @@ function switchTab(tab) {
   if (tab==='staff') { document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily'); renderStaff(); }
   if (tab==='operations') renderOperations();
   if (tab==='inventory') renderInventory();
+}
+
+let apiKeyPanelOpen=false;
+function toggleApiKeyPanel(){
+  apiKeyPanelOpen=!apiKeyPanelOpen;
+  document.getElementById('apikey-panel').style.display=apiKeyPanelOpen?'block':'none';
+  const saved=localStorage.getItem('anthropic_api_key')||'';
+  if(saved) document.getElementById('api-key-input').value=saved;
+}
+function saveApiKey(){
+  const key=document.getElementById('api-key-input').value.trim();
+  if(key) localStorage.setItem('anthropic_api_key',key);
+  else localStorage.removeItem('anthropic_api_key');
+  aiInsightCache={};
+}
+function clearApiKey(){
+  localStorage.removeItem('anthropic_api_key');
+  document.getElementById('api-key-input').value='';
+  aiInsightCache={};
+}
+function getApiKey(){
+  return localStorage.getItem('anthropic_api_key')||'';
 }
 
 function toggleThresholdPanel() {
@@ -2894,10 +2927,15 @@ Example format:
 "Цього тижня продуктивність впала на 13% при зростанні LCP — ймовірна причина: об'єм скоротився але команда залишилась повною. Субота (${satW} працівників) додала преміальні витрати. (This week productivity dropped 13% while LCP rose — likely cause: volume shrank but the team stayed full. Saturday premium pay added extra costs.)"`;
 
   try{
+    const apiKey=getApiKey();
+    if(!apiKey) return`⚠️ Введіть API ключ / Enter API key (кнопка 🤖 AI Key вгорі)`;
+
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
