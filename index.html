@@ -357,15 +357,16 @@
       </div>
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
       <!-- Worker count strip -->
-      <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;" class="chart-scroll-sync">
+      <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;">
         <div id="worker-strip" style="display:flex;gap:0;min-width:max-content;padding:4px 0 2px;"></div>
       </div>
-      <div class="legend" style="margin-top:6px;">
-        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive (FO exp.)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Partial (new FO / mixed)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Non-productive</span>
+      <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
+      <div class="legend" style="margin-top:2px;">
+        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>🟢 Productive</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>🟡 Partial</span>
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>🔵 Non-prod</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e07070"></span>🔴 Saturday</span>
       </div>
-      <div id="prod-legend"></div>
       <!-- Collapsible productivity details table -->
       <div id="prod-table-wrap" style="display:none;margin-top:12px;overflow-x:auto;border-top:1px solid #2e3d5c;padding-top:10px;">
         <table id="prod-detail-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px;">
@@ -2525,7 +2526,7 @@ function renderWorkerStrip(keys, bkts, gran){
     if(selectedPeriods&&!selectedPeriods.has(key))return;
 
     const name=String(r.employeeName||'').trim();
-    if(!workerCounts[key])workerCounts[key]={green:new Set(),yellow:new Set(),blue:new Set()};
+    if(!workerCounts[key])workerCounts[key]={green:new Set(),yellow:new Set(),blue:new Set(),satWorkers:new Set()};
 
     const w=getRoleWeight(role);
     if(w===0){
@@ -2533,13 +2534,15 @@ function renderWorkerStrip(keys, bkts, gran){
     } else if(role==='Forklift Operator'){
       const fd=empFirstDate[name];
       if(fd&&fd>hireThr){
-        workerCounts[key].yellow.add(name); // new FO
+        workerCounts[key].yellow.add(name);
       } else {
-        workerCounts[key].green.add(name); // experienced FO
+        workerCounts[key].green.add(name);
       }
     } else {
-      workerCounts[key].yellow.add(name); // Supervisor/FO, LM/FO
+      workerCounts[key].yellow.add(name);
     }
+    // Saturday
+    if(new Date(pd.dt).getDay()===6) workerCounts[key].satWorkers.add(name);
   });
 
   // Get bar width from chart to align
@@ -2550,11 +2553,13 @@ function renderWorkerStrip(keys, bkts, gran){
   strip.innerHTML=keys.map(k=>{
     const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
+    const sat=wc.satWorkers?wc.satWorkers.size:0;
     return`<div class="worker-cell" style="min-width:${barW}px;">
       <div class="wc-bars">
         ${g?`<div class="wc-bar wc-green" title="Productive: ${g}">${g}</div>`:''}
         ${y?`<div class="wc-bar wc-yellow" title="Partial: ${y}">${y}</div>`:''}
         ${b?`<div class="wc-bar wc-blue" title="Non-productive: ${b}">${b}</div>`:''}
+        ${sat?`<div class="wc-bar" style="background:#e07070" title="Saturday workers: ${sat}">Sat:${sat}</div>`:''}
         ${!g&&!y&&!b?`<div class="wc-bar" style="background:#2a3a50;color:#4a5a70">—</div>`:''}
       </div>
     </div>`;
@@ -2641,10 +2646,11 @@ function renderCorrChart(){
     };
     inst.canvas.onmouseleave=function(){hideAIInsight();};
   });
+  const leg=document.getElementById('corr-legend');
   if(leg) leg.innerHTML=`
     <span class="leg-item"><span class="leg-line" style="background:#6aab90"></span>Prod plt/hr</span>
     <span class="leg-item"><span class="leg-line" style="background:#E24B4A"></span>LCP $</span>
-    <span class="leg-item"><span class="leg-line" style="background:#f0a050;border-top:2px dashed #f0a050"></span>Avg hourly $</span>`;
+    <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly $</span>`;
 
   if(corrMatrixOpen) renderCorrMatrix();
 }
@@ -2756,26 +2762,56 @@ async function getAIInsight(bucketKey, gran, d, prev){
   const hr=d.hours>0?(d.costs2/d.hours).toFixed(2):null;
   const prevPph=prev&&prev.prodHours>0?(prev.pallets/prev.prodHours).toFixed(2):null;
   const prevLcp=prev&&prev.pallets>0?(prev.costs2/prev.pallets).toFixed(2):null;
+  const prevHr=prev&&prev.hours>0?(prev.costs2/prev.hours).toFixed(2):null;
   const pphDelta=pph&&prevPph?((pph-prevPph)/prevPph*100).toFixed(1):null;
   const lcpDelta=lcp&&prevLcp?((lcp-prevLcp)/prevLcp*100).toFixed(1):null;
+  const hrDelta=hr&&prevHr?((hr-prevHr)/prevHr*100).toFixed(1):null;
   const satW=d.satWorkers?d.satWorkers.size:0;
-
-  const granLabel={weekly:'week',monthly:'month',quarterly:'quarter',yearly:'year'}[gran]||gran;
+  const adaptCoef=d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(0):null;
   const label=getDisplayLabel(bucketKey,gran);
+  const granLabel={weekly:'тиждень',monthly:'місяць',quarterly:'квартал',yearly:'рік'}[gran]||gran;
 
-  const prompt=`You are a warehouse operations analyst. Analyze this ${granLabel} (${label}) data for a freight consolidation warehouse and provide a concise insight in 2-3 sentences. Focus on what's notable and possible causes. Be direct and practical. No bullet points.
+  // Detect pattern for context
+  const pphDown=pphDelta&&Number(pphDelta)<-5;
+  const pphUp=pphDelta&&Number(pphDelta)>5;
+  const lcpUp=lcpDelta&&Number(lcpDelta)>5;
+  const lcpDown=lcpDelta&&Number(lcpDelta)<-5;
+  const hrUp=hrDelta&&Number(hrDelta)>3;
+  const hasSat=satW>0;
+  const lowAdapt=adaptCoef&&Number(adaptCoef)<85;
 
-Data:
+  const prompt=`You are a senior warehouse operations analyst for a freight consolidation company (Freight Box LLC). Analyze the correlation between key metrics for this period and give a practical insight.
+
+Period: ${label} (${granLabel})
+
+CURRENT METRICS:
 - Pallets processed: ${d.pallets?.toLocaleString()||'N/A'}
-- All hours: ${d.allHours?Math.round(d.allHours):'N/A'}
-- Productive hours: ${d.prodHours?Math.round(d.prodHours):'N/A'}
-- Prod plt/hr: ${pph||'N/A'}${pphDelta?` (${pphDelta>0?'+':''}${pphDelta}% vs prev ${granLabel})`:''}
-- Labor cost per pallet: $${lcp||'N/A'}${lcpDelta?` (${lcpDelta>0?'+':''}${lcpDelta}% vs prev)`:''}
-- Avg hourly rate: $${hr||'N/A'}
-- Saturday workers: ${satW}
-- Adaptation coef: ${d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(0)+'%':'N/A (no role data)'}
+- Prod plt/hr: ${pph||'N/A'}${pphDelta?` (${Number(pphDelta)>0?'▲+':'▼'}${pphDelta}% vs prev)`:''}
+- LCP (Labor Cost/Pallet): $${lcp||'N/A'}${lcpDelta?` (${Number(lcpDelta)>0?'▲+':'▼'}${lcpDelta}% vs prev)`:''}
+- Avg hourly rate: $${hr||'N/A'}${hrDelta?` (${Number(hrDelta)>0?'▲+':'▼'}${hrDelta}% vs prev)`:''}
+- Saturday workers: ${satW} ${satW>0?'(extra cost ⚠️)':''}
+- Adaptation coefficient: ${adaptCoef?adaptCoef+'%':'N/A'}
 
-Reply in the same language as the UI (Ukrainian if detected, otherwise English). Keep it under 60 words.`;
+CORRELATION PATTERNS TO IDENTIFY (use whichever applies):
+1. plt/hr ↓ + LCP ↑ = volume dropped but team stayed full (underutilization)
+2. plt/hr ↑ + LCP ↓ = excellent week, high efficiency
+3. plt/hr ↓ + LCP stable = new employees adapting (adaptation coef explains gap)
+4. plt/hr stable + LCP ↑ = hourly rate increased (overtime, bonuses, Saturday pay)
+5. plt/hr ↑ + LCP ↑ = volume grew but so did costs (Saturday overtime likely)
+6. plt/hr ↓ + LCP ↑ + Saturday workers > 0 = Saturday premium dragging LCP up
+7. plt/hr stable + LCP stable = normal stable week, no anomalies
+8. Adaptation coef < 85% = significant new employee impact on productivity
+9. Hourly rate spike = possible bonuses, overtime, or rate changes
+
+INSTRUCTIONS:
+- Identify which pattern(s) apply
+- Give 2-3 sentences max
+- Be specific with numbers
+- Write FIRST in Ukrainian, THEN English translation in parentheses
+- Keep total under 90 words
+
+Example format:
+"Цього тижня продуктивність впала на 13% при зростанні LCP — ймовірна причина: об'єм скоротився але команда залишилась повною. Субота (${satW} працівників) додала преміальні витрати. (This week productivity dropped 13% while LCP rose — likely cause: volume shrank but the team stayed full. Saturday premium pay added extra costs.)"`;
 
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2783,15 +2819,19 @@ Reply in the same language as the UI (Ukrainian if detected, otherwise English).
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
-        max_tokens:150,
+        max_tokens:250,
         messages:[{role:'user',content:prompt}]
       })
     });
+    if(!resp.ok){
+      const err=await resp.text();
+      return`⚠️ API помилка ${resp.status} / API error ${resp.status}`;
+    }
     const data=await resp.json();
-    const text=data.content?.[0]?.text||'No insight available.';
+    const text=data.content?.[0]?.text||'Немає даних / No insight available.';
     return text.replace(/\n/g,'<br>');
   }catch(err){
-    return'Could not load insight.';
+    return`⚠️ Не вдалося завантажити / Could not load: ${err.message}`;
   }
 }
 
