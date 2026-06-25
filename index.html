@@ -2521,19 +2521,26 @@ function renderSatStrip(keys){
   if(!hasSat){strip.innerHTML='';return;}
 
   const canvas=document.getElementById('comboChart');
-  const chartWidth=canvas?canvas.width:0;
-  const padLeft=6;const padRight=14;
-  const innerWidth=chartWidth-padLeft-padRight;
-  const cellW=Math.max(24,Math.floor(innerWidth/keys.length));
+  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
 
-  strip.innerHTML=`<div style="width:${padLeft}px;flex-shrink:0"></div>`
-    +keys.map(k=>{
-      const cnt=satCounts[k]?satCounts[k].size:0;
-      return`<div style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-        ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday workers: ${cnt}">Sat:${cnt}</span>`:'<span style="font-size:9px;color:#2a3a50">·</span>'}
-      </div>`;
-    }).join('')
-    +`<div style="width:${padRight}px;flex-shrink:0"></div>`;
+  const meta=comboInst.getDatasetMeta(0);
+  if(!meta||!meta.data.length){strip.innerHTML='';return;}
+
+  strip.innerHTML=meta.data.map((bar,i)=>{
+    const k=keys[i];if(!k)return'';
+    const cnt=satCounts[k]?satCounts[k].size:0;
+    const dpr=window.devicePixelRatio||1;
+    const barW=bar.width||20;
+    const leftPx=(bar.x-barW/2)/dpr;
+    const widthPx=barW/dpr;
+    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;align-items:center;justify-content:center;">
+      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday: ${cnt}">Sat:${cnt}</span>`
+           :`<span style="font-size:9px;color:#2a3a50">·</span>`}
+    </div>`;
+  }).join('');
+  strip.style.position='relative';
+  strip.style.height='16px';
+  strip.style.minWidth=canvas.offsetWidth+'px';
 
   // Update combo legend to show Saturday info
   const legEnd=document.getElementById('combo-legend');
@@ -2598,24 +2605,45 @@ function renderWorkerStrip(keys, bkts, gran){
     if(new Date(pd.dt).getDay()===6) workerCounts[key].satWorkers.add(name);
   });
 
-  // Get chart bar positions for alignment
+  // Use actual chart bar positions for perfect alignment
   const canvas=document.getElementById('prodChart');
-  const chartWidth=canvas?canvas.width:0;
-  const chartLeft=corrInst?0:0; // padding-left from chart options = 6px
-  const padLeft=6; const padRight=14;
-  const innerWidth=chartWidth-padLeft-padRight;
-  const barW=keys.length>0?Math.floor(innerWidth/keys.length):32;
-  const cellW=Math.max(24,barW);
+  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
 
-  strip.innerHTML=`<div style="width:${padLeft}px;flex-shrink:0"></div>`+keys.map(k=>{
+  // Get X positions from chart instance
+  const meta=prodInst.getDatasetMeta(0);
+  if(!meta||!meta.data.length){strip.innerHTML='';return;}
+
+  // Build positioned cells using absolute left offsets
+  const canvasRect=canvas.getBoundingClientRect();
+  const scaleWidth=canvas.width; // device pixels
+
+  // Get first and last bar x positions (in canvas pixels)
+  const firstBar=meta.data[0];
+  const lastBar=meta.data[meta.data.length-1];
+  if(!firstBar||!lastBar){strip.innerHTML='';return;}
+
+  // bar width
+  const barW=firstBar.width||20;
+  // spacing between bars
+  const totalBars=meta.data.length;
+
+  strip.innerHTML=meta.data.map((bar,i)=>{
+    const k=keys[i];if(!k)return'';
     const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
-    return`<div class="worker-cell" style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;">
-      ${g?`<span class="wc-bar wc-green">${g}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
-      ${y?`<span class="wc-bar wc-yellow">${y}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
-      ${b?`<span class="wc-bar wc-blue">${b}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
+    // position in CSS pixels (canvas uses devicePixelRatio)
+    const dpr=window.devicePixelRatio||1;
+    const leftPx=(bar.x-barW/2)/dpr;
+    const widthPx=barW/dpr;
+    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;flex-direction:column;align-items:center;gap:1px;">
+      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#2a3a50'};line-height:1.2">${g||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#2a3a50'};line-height:1.2">${y||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#2a3a50'};line-height:1.2">${b||'·'}</span>
     </div>`;
-  }).join('')+`<div style="width:${padRight}px;flex-shrink:0"></div>`;
+  }).join('');
+  strip.style.position='relative';
+  strip.style.height='42px';
+  strip.style.minWidth=canvas.offsetWidth+'px';
 }
 
 function renderCorrChart(){
