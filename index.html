@@ -49,6 +49,14 @@
   .btn-threshold:hover { background: #2e3d60; }
   .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .chart-scroll-wrap canvas { cursor: pointer; }
+  /* Productivity details table */
+  #prod-detail-table th { background:#1a2540; color:#6a7d9a; font-weight:500; padding:5px 10px; text-align:center; border-bottom:1px solid #2e3d5c; white-space:nowrap; }
+  #prod-detail-table th:first-child { text-align:left; min-width:90px; }
+  #prod-detail-table td { padding:4px 10px; text-align:center; border-bottom:1px solid #1e2840; color:#c8d8f0; white-space:nowrap; }
+  #prod-detail-table td:first-child { text-align:left; color:#6a7d9a; font-weight:500; }
+  #prod-detail-table tr:hover td { background:rgba(255,255,255,0.03); }
+  #prod-detail-table .val-red { color:#e07070!important; font-weight:600; }
+  #prod-detail-table .val-green { color:#6aab90!important; font-weight:600; }
   /* Workforce panel */
   .workforce-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; margin-bottom: 14px; }
   .workforce-panel.visible { display: block; }
@@ -335,6 +343,18 @@
       </div>
       <div id="ops-map-wrap" style="position:relative;width:100%;height:260px;border-radius:8px;overflow:hidden;"></div>
       <div id="ops-map-legend" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:8px;"></div>
+      <!-- Collapsible productivity details table -->
+      <div style="margin-top:12px;">
+        <button id="prod-table-toggle" onclick="toggleProdTable()" style="font-size:11px;padding:4px 12px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#8a9dba;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          <span id="prod-table-arrow">▶</span> Show productivity details
+        </button>
+        <div id="prod-table-wrap" style="display:none;margin-top:10px;overflow-x:auto;">
+          <table id="prod-detail-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px;">
+            <thead id="prod-table-head"></thead>
+            <tbody id="prod-table-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -936,6 +956,124 @@ window.setOpsMapMode = function(mode) {
   renderOpsMap();
 };
 
+let prodTableOpen = false;
+function toggleProdTable(){
+  prodTableOpen = !prodTableOpen;
+  const wrap = document.getElementById('prod-table-wrap');
+  const arrow = document.getElementById('prod-table-arrow');
+  const btn = document.getElementById('prod-table-toggle');
+  if(wrap) wrap.style.display = prodTableOpen ? 'block' : 'none';
+  if(arrow) arrow.textContent = prodTableOpen ? '▼' : '▶';
+  if(btn){
+    const span = btn.querySelector('span:last-child') || btn;
+    btn.innerHTML = `<span id="prod-table-arrow">${prodTableOpen?'▼':'▶'}</span> ${prodTableOpen?'Hide':'Show'} productivity details`;
+  }
+  if(prodTableOpen) renderProdTable();
+}
+
+function renderProdTable(){
+  const thead = document.getElementById('prod-table-head');
+  const tbody = document.getElementById('prod-table-body');
+  if(!thead||!tbody) return;
+
+  const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
+
+  // Build same buckets as renderProductivity
+  const hasRoles=timeData.some(r=>r['role']&&r['role'].trim()!==''&&r['role'].trim()!=='undefined');
+  const empFirstDate={};
+  if(hasRoles){
+    timeData.forEach(r=>{
+      const name=String(r.employeeName||'').trim();if(!name)return;
+      const pd=parseDate(r.date);if(!pd)return;
+      if(!empFirstDate[name]||pd.dt<empFirstDate[name]) empFirstDate[name]=pd.dt;
+    });
+  }
+
+  const bkts={};
+  rawData.forEach(r=>{
+    if(!locs.includes(r._location))return;
+    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
+    const key=getBucketKey(r,gran);if(!key)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0};
+    bkts[key].pallets+=toNum(r[COL.sumPallets]);
+  });
+
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    const hrs=toNum(r.totalHours);
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
+    if(!key||bkts[key]===undefined)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    bkts[key].allHours+=hrs;
+    let w=getRoleWeight(role);
+    if(w>0&&role==='Forklift Operator'){
+      const name=String(r.employeeName||'').trim();
+      const firstDt=empFirstDate[name];
+      if(firstDt){
+        const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+        const hireThr=new Date(hireDateStr+'T00:00:00');
+        if(firstDt>hireThr){
+          const wks=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
+          w=getAdaptationWeight(wks);
+        }
+      }
+    }
+    bkts[key].prodHours+=hrs*w;
+  });
+
+  const keys=Object.keys(bkts).sort();
+  if(!keys.length){thead.innerHTML='';tbody.innerHTML='<tr><td colspan="2" style="color:#6a7d9a;padding:8px">No data</td></tr>';return;}
+  const labels=keys.map(k=>getDisplayLabel(k,gran));
+
+  // Threshold for lost pallets
+  const activeThr=getActiveProdThreshold(locs);
+
+  // Build rows data
+  const allHrsRow=keys.map(k=>bkts[k].allHours>0?Math.round(bkts[k].allHours):null);
+  const prodHrsRow=keys.map(k=>bkts[k].prodHours>0?Math.round(bkts[k].prodHours):null);
+  const allPphRow=keys.map(k=>bkts[k].allHours>0?(bkts[k].pallets/bkts[k].allHours).toFixed(1):null);
+  const prodPphRow=keys.map(k=>bkts[k].prodHours>0?(bkts[k].pallets/bkts[k].prodHours).toFixed(1):null);
+  const lostRow=activeThr?keys.map(k=>{
+    const d=bkts[k];
+    if(!d.prodHours)return null;
+    return Math.round((activeThr-(d.pallets/d.prodHours))*d.prodHours);
+  }):null;
+
+  // Header
+  thead.innerHTML=`<tr><th></th>${labels.map(l=>`<th>${l}</th>`).join('')}</tr>`;
+
+  // Body rows
+  const fmt=(v,decimals=0)=>v===null?'—':(decimals?v:Number(v).toLocaleString());
+  const rows=[
+    {label:'All hrs', data:allHrsRow, color:'#7dd4f0', fmt:v=>v===null?'—':Number(v).toLocaleString()},
+    {label:'Prod hrs', data:prodHrsRow, color:'#6aab90', fmt:v=>v===null?'—':Number(v).toLocaleString()},
+    {label:'All plt/hr', data:allPphRow, color:'#7dd4f080', fmt:v=>v===null?'—':v},
+    {label:'Prod plt/hr', data:prodPphRow, color:'#6aab9080', fmt:v=>v===null?'—':v},
+  ];
+  if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
+    fmt:v=>{if(v===null)return'—';return(v>0?'+':'')+Number(v).toLocaleString();}});
+
+  tbody.innerHTML=rows.map(row=>`
+    <tr>
+      <td style="color:${row.color||'#6a7d9a'}">${row.label}</td>
+      ${row.data.map(v=>{
+        let cls='';
+        if(row.isLost&&v!==null){cls=v>0?'val-red':'val-green';}
+        return`<td class="${cls}" style="${!row.isLost&&row.color?'color:'+row.color:''}">${row.fmt(v)}</td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
 function renderOpsMap() {
   const wrap = document.getElementById('ops-map-wrap');
   if(!wrap) return;
@@ -1292,6 +1430,8 @@ function renderOperations(){
   renderOpsMap();
   // Render productivity chart
   renderProductivity();
+  // Render prod details table if open
+  if(prodTableOpen) renderProdTable();
 }
 
 
