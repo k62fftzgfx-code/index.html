@@ -1752,6 +1752,7 @@ const openMonths = new Set(); // key: "yr-mon"
 
 function renderWeekGroups(filter=''){
   const container = document.getElementById('week-groups');
+  if(!container) return; // week filter removed from Time tab — skip
 
   // Build hierarchy: year -> month -> weeks
   const tree = {}; // {yr: {mon: [yw, ...]}}
