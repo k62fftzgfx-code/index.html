@@ -63,13 +63,11 @@
   @keyframes ai-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   .chart-scroll-wrap canvas { cursor: pointer; }
   /* Worker count strip */
-  .worker-cell { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:32px; padding:0 2px; }
-  .worker-cell .wc-label { font-size:9px; color:#4a5a70; white-space:nowrap; }
-  .worker-cell .wc-bars { display:flex; flex-direction:column; gap:1px; width:100%; }
-  .wc-bar { height:10px; border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:700; color:rgba(255,255,255,0.9); min-width:16px; }
-  .wc-green { background:#6aab90; }
-  .wc-yellow { background:#f0a050; }
-  .wc-blue { background:#4a7fa0; }
+  .worker-cell { display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .wc-bar { height:13px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; min-width:16px; background:transparent!important; border:none!important; }
+  .wc-green { color:#6aab90; }
+  .wc-yellow { color:#f0a050; }
+  .wc-blue { color:#4a7fa0; }
   #prod-detail-table th { background:#1a2540; color:#6a7d9a; font-weight:500; padding:5px 10px; text-align:center; border-bottom:1px solid #2e3d5c; white-space:nowrap; }
   #prod-detail-table th:first-child { text-align:left; min-width:90px; }
   #prod-detail-table td { padding:4px 10px; text-align:center; border-bottom:1px solid #1e2840; color:#c8d8f0; white-space:nowrap; }
@@ -238,7 +236,7 @@
       <div class="dropdown-trigger" id="loc-trigger" onclick="toggleDropdown('loc')">All locations</div>
       <div class="dropdown-menu" id="loc-menu">
         <label class="dropdown-item all-item"><input type="checkbox" id="loc-all" checked onchange="toggleAll('loc')"> All locations</label>
-        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL" checked onchange="onCbChange('loc')"> Markham, IL</label>
+        <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL West" checked onchange="onCbChange('loc')"> Markham, IL West</label>
         <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Markham, IL East" checked onchange="onCbChange('loc')"> Markham, IL East</label>
         <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Reno, NV" checked onchange="onCbChange('loc')"> Reno, NV</label>
         <label class="dropdown-item"><input type="checkbox" class="loc-cb" value="Stockton, CA" checked onchange="onCbChange('loc')"> Stockton, CA</label>
@@ -269,7 +267,7 @@
 <div class="threshold-panel" id="threshold-panel">
   <div class="threshold-panel-title">Labor cost per pallet — threshold by location</div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Markham, IL</label><input type="number" id="thr-markham" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="thr-markham" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="thr-markham-east" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Reno, NV</label><input type="number" id="thr-reno" value="4.25" step="0.05" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="thr-stockton" value="3.60" step="0.05" min="0" onchange="renderOperations()"></div>
@@ -280,7 +278,7 @@
   </div>
   <div class="threshold-panel-title" style="margin-top:14px;">Labor Productivity — pallets/hr target by location</div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Markham, IL</label><input type="number" id="pthr-markham" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="pthr-markham" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="12.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.00" step="0.5" min="0" onchange="renderOperations()"></div>
@@ -536,7 +534,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const THRESHOLD_MAP = {
-  'Markham, IL':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno','Stockton, CA':'thr-stockton',
+  'Markham, IL West':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno','Stockton, CA':'thr-stockton',
   'San Bernardino, CA':'thr-sanb','Denver, CO':'thr-denver','Columbus, OH':'thr-columbus','Greenville, SC':'thr-greenville'
 };
 
@@ -544,9 +542,9 @@ const THRESHOLD_MAP = {
 const LOC_NAME_MAP = {
   'freight box, markham east':       'Markham, IL East',
   'freightbox, markham east':        'Markham, IL East',
-  'freight box, markham':           'Markham, IL',
-  'freightbox, markham':            'Markham, IL',
-  'greenline logistics, markham':   'Markham, IL',
+  'freight box, markham':           'Markham, IL West',
+  'freightbox, markham':            'Markham, IL West',
+  'greenline logistics, markham':   'Markham, IL West',
   'freight box, sparks':            'Reno, NV',
   'freightbox, sparks':             'Reno, NV',
   'freight box, stockton':          'Stockton, CA',
@@ -616,7 +614,7 @@ function getActiveThreshold(locs) {
 
   // Weighted average by historical volumes
   const weights = {
-    'Markham, IL':25000,'Reno, NV':1500,'Stockton, CA':3000,
+    'Markham, IL West':25000,'Reno, NV':1500,'Stockton, CA':3000,
     'San Bernardino, CA':2500,'Denver, CO':800,'Columbus, OH':400
   };
   let sumW=0, sumTW=0;
@@ -1276,7 +1274,7 @@ function renderOpsMap() {
   // Check threshold
   const getThresholdForLoc = (loc) => {
     const map = {
-      'Markham, IL':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno',
+      'Markham, IL West':'thr-markham','Markham, IL East':'thr-markham-east','Reno, NV':'thr-reno',
       'Stockton, CA':'thr-stockton','San Bernardino, CA':'thr-sanb',
       'Denver, CO':'thr-denver','Columbus, OH':'thr-columbus','Greenville, SC':'thr-greenville'
     };
@@ -1569,7 +1567,7 @@ let leafletMap = null;
 let leafletMarkers = [];
 
 const LOC_COORDS = {
-  'Markham, IL':        [41.59, -87.67],
+  'Markham, IL West':        [41.59, -87.67],
   'Markham, IL East':   [41.60, -87.65],
   'Reno, NV':          [39.53, -119.81],
   'Stockton, CA':      [37.96, -121.29],
@@ -1740,7 +1738,7 @@ let invTimeInst = null, invCatDonutInst = null;
 
 // Amazon PO Number -> location key
 const AMZ_LOC_MAP = {
-  'wh markham':           'Markham, IL',
+  'wh markham':           'Markham, IL West',
   'wh colorado':          'Denver, CO',
   'wh stockton':          'Stockton, CA',
   'wh reno':              'Reno, NV',
@@ -1755,7 +1753,7 @@ const AMZ_LOC_MAP = {
 
 // Home Depot Job Name -> location key
 const HD_LOC_MAP = {
-  'wh markham':       'Markham, IL',
+  'wh markham':       'Markham, IL West',
   'wh stockton':      'Stockton, CA',
   'wh reno':          'Reno, NV',
   'wh san bernandino':'San Bernardino, CA',
@@ -1966,7 +1964,7 @@ function getInvDisplayLabel(key, gran) {
 
 // Location abbreviations for staff cards
 const LOC_ABBR = {
-  'Markham, IL':        'MRK',
+  'Markham, IL West':        'MRK',
   'Markham, IL East':   'MRK-E',
   'Reno, NV':          'RNO',
   'Stockton, CA':      'STK',
@@ -2181,7 +2179,7 @@ function toggleWeekDropdown(){
 
 // ===================== PRODUCTIVITY CHART =====================
 const PROD_THR_MAP = {
-  'Markham, IL':'pthr-markham','Markham, IL East':'pthr-markham-east','Reno, NV':'pthr-reno','Stockton, CA':'pthr-stockton',
+  'Markham, IL West':'pthr-markham','Markham, IL East':'pthr-markham-east','Reno, NV':'pthr-reno','Stockton, CA':'pthr-stockton',
   'San Bernardino, CA':'pthr-sanb','Denver, CO':'pthr-denver','Columbus, OH':'pthr-columbus','Greenville, SC':'pthr-greenville'
 };
 
@@ -2532,7 +2530,7 @@ function renderSatStrip(keys){
     +keys.map(k=>{
       const cnt=satCounts[k]?satCounts[k].size:0;
       return`<div style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-        ${cnt?`<div class="wc-bar" style="background:#e07070;font-size:8px;padding:1px 4px;" title="Saturday workers: ${cnt}">Sat:${cnt}</div>`:''}
+        ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;" title="Saturday workers: ${cnt}">Sat:${cnt}</span>`:'<span style="font-size:9px;color:#2a3a50">·</span>'}
       </div>`;
     }).join('')
     +`<div style="width:${padRight}px;flex-shrink:0"></div>`;
@@ -2613,12 +2611,9 @@ function renderWorkerStrip(keys, bkts, gran){
     const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
     return`<div class="worker-cell" style="width:${cellW}px;min-width:${cellW}px;flex-shrink:0;">
-      <div class="wc-bars">
-        ${g?`<div class="wc-bar wc-green" title="Productive: ${g}">${g}</div>`:''}
-        ${y?`<div class="wc-bar wc-yellow" title="Partial: ${y}">${y}</div>`:''}
-        ${b?`<div class="wc-bar wc-blue" title="Non-productive: ${b}">${b}</div>`:''}
-        ${!g&&!y&&!b?`<div class="wc-bar" style="background:#2a3a50;color:#4a5a70">—</div>`:''}
-      </div>
+      ${g?`<span class="wc-bar wc-green">${g}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
+      ${y?`<span class="wc-bar wc-yellow">${y}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
+      ${b?`<span class="wc-bar wc-blue">${b}</span>`:'<span class="wc-bar" style="color:#2a3a50">·</span>'}
     </div>`;
   }).join('')+`<div style="width:${padRight}px;flex-shrink:0"></div>`;
 }
