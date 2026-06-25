@@ -724,9 +724,10 @@ function buildPeriodOptions(){
 }
 
 function renderPeriodGroups(filter=''){
-  const gran=document.getElementById('granularity').value;
+  try{
+  const gran=document.getElementById('granularity')?.value||'weekly';
   const container=document.getElementById('period-groups');
-  if(!container) return;
+  if(!container||!periodOptions.length) return;
   if(gran==='weekly'){
     const tree={};
     periodOptions.forEach(o=>{
@@ -758,7 +759,8 @@ function renderPeriodGroups(filter=''){
       }).join('');
       return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${yrSel}/${yrOpts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${monthsHtml}</div></div>`;
     }).join('');
-    container.innerHTML=html;
+    const el=document.getElementById('period-groups');
+    if(el) el.innerHTML=html;
   } else {
     const tree={};
     periodOptions.forEach(o=>{const yr=o.key.slice(0,4);if(!tree[yr])tree[yr]=[];tree[yr].push(o);});
@@ -773,8 +775,10 @@ function renderPeriodGroups(filter=''){
       }).join('');
       return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${selCount}/${opts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${itemsHtml}</div></div>`;
     }).join('');
-    container.innerHTML=html;
+    const el2=document.getElementById('period-groups');
+    if(el2) el2.innerHTML=html;
   }
+  }catch(e){console.warn('renderPeriodGroups error:',e);}
 }
 
 function togglePeriod(key,checked){
