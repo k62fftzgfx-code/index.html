@@ -48,8 +48,28 @@
   .btn-threshold { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #f0a050; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .btn-threshold:hover { background: #2e3d60; }
   .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
+  /* AI Insight Tooltip */
+  #ai-insight-tooltip {
+    position:fixed; z-index:9999; max-width:320px; padding:12px 14px;
+    background:#1a2540; border:1px solid #4a7ab0; border-radius:10px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5); pointer-events:none;
+    display:none; font-size:11px; line-height:1.6; color:#c8d8f0;
+  }
+  #ai-insight-tooltip .ai-label { font-size:10px; color:#6a7d9a; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  #ai-insight-tooltip .ai-label span { color:#7dd4f0; font-weight:600; }
+  #ai-insight-tooltip .ai-text { color:#c8d8f0; }
+  #ai-insight-tooltip .ai-loading { color:#6a7d9a; font-style:italic; }
+  .ai-dot { width:6px; height:6px; border-radius:50%; background:#7dd4f0; animation:ai-pulse 1s infinite; }
+  @keyframes ai-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   .chart-scroll-wrap canvas { cursor: pointer; }
-  /* Productivity details table */
+  /* Worker count strip */
+  .worker-cell { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:32px; padding:0 2px; }
+  .worker-cell .wc-label { font-size:9px; color:#4a5a70; white-space:nowrap; }
+  .worker-cell .wc-bars { display:flex; flex-direction:column; gap:1px; width:100%; }
+  .wc-bar { height:10px; border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:700; color:rgba(255,255,255,0.9); min-width:16px; }
+  .wc-green { background:#6aab90; }
+  .wc-yellow { background:#f0a050; }
+  .wc-blue { background:#4a7fa0; }
   #prod-detail-table th { background:#1a2540; color:#6a7d9a; font-weight:500; padding:5px 10px; text-align:center; border-bottom:1px solid #2e3d5c; white-space:nowrap; }
   #prod-detail-table th:first-child { text-align:left; min-width:90px; }
   #prod-detail-table td { padding:4px 10px; text-align:center; border-bottom:1px solid #1e2840; color:#c8d8f0; white-space:nowrap; }
@@ -184,6 +204,11 @@
   <button class="tab-btn active" onclick="switchTab('operations')">Operations</button>
   <button class="tab-btn" onclick="switchTab('staff')">Time & Staff</button>
   <button class="tab-btn" onclick="switchTab('inventory')">Procurement</button>
+</div>
+
+<div id="ai-insight-tooltip">
+  <div class="ai-label"><div class="ai-dot" id="ai-dot" style="display:none"></div>🤖 AI Insight — <span id="ai-period-label"></span></div>
+  <div class="ai-text" id="ai-text"></div>
 </div>
 
 <!-- SHARED CONTROLS -->
@@ -331,7 +356,16 @@
         </div>
       </div>
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
-      <div class="legend" id="prod-legend"></div>
+      <!-- Worker count strip -->
+      <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;" class="chart-scroll-sync">
+        <div id="worker-strip" style="display:flex;gap:0;min-width:max-content;padding:4px 0 2px;"></div>
+      </div>
+      <div class="legend" style="margin-top:6px;">
+        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive (FO exp.)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Partial (new FO / mixed)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Non-productive</span>
+      </div>
+      <div id="prod-legend"></div>
       <!-- Collapsible productivity details table -->
       <div id="prod-table-wrap" style="display:none;margin-top:12px;overflow-x:auto;border-top:1px solid #2e3d5c;padding-top:10px;">
         <table id="prod-detail-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px;">
@@ -353,6 +387,19 @@
       </div>
       <div id="ops-map-wrap" style="position:relative;width:100%;height:260px;border-radius:8px;overflow:hidden;"></div>
       <div id="ops-map-legend" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:8px;"></div>
+    </div>
+    <!-- Correlation chart -->
+    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Correlation: plt/hr · LCP · Hourly rate</div>
+        <button id="corr-matrix-toggle" onclick="toggleCorrMatrix()" style="font-size:11px;padding:3px 10px;border:1px solid #3a5080;border-radius:6px;background:#1e2840;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Matrix</button>
+      </div>
+      <div class="chart-scroll-wrap" id="scroll-corr"><canvas id="corrChart" role="img" aria-label="Correlation chart"></canvas></div>
+      <div class="legend" id="corr-legend"></div>
+      <!-- Correlation matrix -->
+      <div id="corr-matrix-wrap" style="display:none;margin-top:12px;border-top:1px solid #2e3d5c;padding-top:10px;">
+        <table id="corr-matrix-table" style="width:100%;border-collapse:collapse;font-size:11px;"></table>
+      </div>
     </div>
   </div>
 </div>
@@ -513,7 +560,7 @@ const LOC_NAME_MAP = {
 
 let rawData = [], timeData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
-let topInst=null, dowInst=null, prodInst=null;
+let topInst=null, dowInst=null, prodInst=null, corrInst=null;
 let selectedBucket=null; // globally selected bucket key for cross-chart highlight
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
@@ -989,7 +1036,7 @@ function renderProdTable(){
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     const key=getBucketKey(r,gran);if(!key)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
-    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0,rawProdHours:0,weightedSum:0};
+    if(!bkts[key])bkts[key]={pallets:0,allHours:0,prodHours:0,rawProdHours:0,weightedSum:0,satWorkers:new Set()};
     bkts[key].pallets+=toNum(r[COL.sumPallets]);
   });
 
@@ -1012,6 +1059,11 @@ function renderProdTable(){
     if(!key||bkts[key]===undefined)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
     bkts[key].allHours+=hrs;
+    // Saturday workers
+    if(new Date(pd.dt).getDay()===6){
+      const name=String(r.employeeName||'').trim();
+      if(name) bkts[key].satWorkers.add(name);
+    }
     let w=getRoleWeight(role);
     if(w>0&&role==='Forklift Operator'){
       const name=String(r.employeeName||'').trim();
@@ -1072,6 +1124,46 @@ function renderProdTable(){
   if(targetPphRow) rows.push({label:'Target plt/hr', data:targetPphRow, color:'#E24B4A', fmt:v=>v===null?'—':v});
   if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
     fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
+  // Saturday workers
+  const satRow=keys.map(k=>bkts[k].satWorkers?bkts[k].satWorkers.size:null);
+  if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#a07dd4',
+    fmt:v=>v===null||v===0?'—':v});
+
+  // Worker type counts per bucket
+  const hireDateStr2=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+  const hireThr2=new Date(hireDateStr2+'T00:00:00');
+  const empFD={};
+  timeData.forEach(r=>{
+    if(String(r.role||'').trim()!=='Forklift Operator')return;
+    const name=String(r.employeeName||'').trim();if(!name)return;
+    const pd=parseDate(r.date);if(!pd)return;
+    if(!empFD[name]||pd.dt<empFD[name])empFD[name]=pd.dt;
+  });
+  const wcGreen={},wcYellow={},wcBlue={};
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    if(!key||!bkts[key])return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    const name=String(r.employeeName||'').trim();
+    const w=getRoleWeight(role);
+    if(w===0){if(!wcBlue[key])wcBlue[key]=new Set();wcBlue[key].add(name);}
+    else if(role==='Forklift Operator'){
+      const fd=empFD[name];
+      if(fd&&fd>hireThr2){if(!wcYellow[key])wcYellow[key]=new Set();wcYellow[key].add(name);}
+      else{if(!wcGreen[key])wcGreen[key]=new Set();wcGreen[key].add(name);}
+    } else {if(!wcYellow[key])wcYellow[key]=new Set();wcYellow[key].add(name);}
+  });
+  rows.push({label:'🟢 Productive', data:keys.map(k=>wcGreen[k]?wcGreen[k].size:0), color:'#6aab90', fmt:v=>v||'—'});
+  rows.push({label:'🟡 Partial', data:keys.map(k=>wcYellow[k]?wcYellow[k].size:0), color:'#f0a050', fmt:v=>v||'—'});
+  rows.push({label:'🔵 Non-prod', data:keys.map(k=>wcBlue[k]?wcBlue[k].size:0), color:'#4a7fa0', fmt:v=>v||'—'});
 
   tbody.innerHTML=rows.map(row=>`
     <tr>
@@ -1459,10 +1551,9 @@ function renderOperations(){
 
   // Render ops map
   renderOpsMap();
-  // Render productivity chart
   renderProductivity();
-  // Render prod details table if open
   if(prodTableOpen) renderProdTable();
+  renderCorrChart();
 }
 
 
@@ -2317,6 +2408,391 @@ function renderProductivity(){
   });
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
+  renderWorkerStrip(keys, pltBuckets, gran);
+}
+
+// ===================== CORRELATION CHART =====================
+let corrMatrixOpen=false;
+function toggleCorrMatrix(){
+  corrMatrixOpen=!corrMatrixOpen;
+  const wrap=document.getElementById('corr-matrix-wrap');
+  const btn=document.getElementById('corr-matrix-toggle');
+  if(wrap) wrap.style.display=corrMatrixOpen?'block':'none';
+  if(btn) btn.textContent=corrMatrixOpen?'▼ Matrix':'▶ Matrix';
+  if(corrMatrixOpen) renderCorrMatrix();
+}
+
+function pearsonCorr(x,y){
+  const n=x.length;if(n<2)return null;
+  const mx=x.reduce((a,b)=>a+b,0)/n, my=y.reduce((a,b)=>a+b,0)/n;
+  let num=0,dx=0,dy=0;
+  for(let i=0;i<n;i++){num+=(x[i]-mx)*(y[i]-my);dx+=(x[i]-mx)**2;dy+=(y[i]-my)**2;}
+  return dx&&dy?num/Math.sqrt(dx*dy):null;
+}
+
+function getCorrData(){
+  const{gran,years,locs,selectedPeriods}=getFilters();
+  const bkts={};
+
+  rawData.forEach(r=>{
+    if(!locs.includes(r._location))return;
+    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
+    const key=getBucketKey(r,gran);if(!key)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    if(!bkts[key])bkts[key]={pallets:0,costs2:0,hours:0,prodHours:0,satWorkers:new Set()};
+    bkts[key].pallets+=toNum(r[COL.sumPallets]);
+    bkts[key].costs2+=toNum(r[COL.costs2]);
+    bkts[key].hours+=toNum(r[COL.hours]);
+    // Saturday workers
+    const pd2=parseDate(r[COL.date]);
+    if(pd2&&new Date(pd2.dt).getDay()===6) bkts[key].satWorkers.add(r[COL.date]);
+  });
+
+  // prod hours from timeData
+  const empFirstDate={};
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role!=='Forklift Operator')return;
+    const name=String(r.employeeName||'').trim();if(!name)return;
+    const pd=parseDate(r.date);if(!pd)return;
+    if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
+  });
+  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+  const hireThr=new Date(hireDateStr+'T00:00:00');
+
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    if(!key||!bkts[key])return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+    const hrs=toNum(r.totalHours);
+    let w=getRoleWeight(role);
+    if(w>0&&role==='Forklift Operator'){
+      const name=String(r.employeeName||'').trim();
+      const fd=empFirstDate[name];
+      if(fd&&fd>hireThr){const wks=Math.floor((pd.dt-fd)/(7*24*3600*1000));w=getAdaptationWeight(wks);}
+    }
+    bkts[key].prodHours+=hrs*w;
+    // Saturday workers count
+    if(new Date(pd.dt).getDay()===6) bkts[key].satWorkers.add(r.employeeName);
+  });
+
+  return bkts;
+}
+
+// ===================== WORKER STRIP =====================
+function renderWorkerStrip(keys, bkts, gran){
+  const strip=document.getElementById('worker-strip');
+  if(!strip)return;
+
+  const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+  const hireThr=new Date(hireDateStr+'T00:00:00');
+
+  // Build empFirstDate (FO only)
+  const empFirstDate={};
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role!=='Forklift Operator')return;
+    const name=String(r.employeeName||'').trim();if(!name)return;
+    const pd=parseDate(r.date);if(!pd)return;
+    if(!empFirstDate[name]||pd.dt<empFirstDate[name])empFirstDate[name]=pd.dt;
+  });
+
+  // Per bucket: count green/yellow/blue workers
+  const workerCounts={};
+  const{locs,years,selectedPeriods}=getFilters();
+
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role==='Fleet')return;
+    const loc=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(!loc||!locs.includes(loc))return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    if(!key||!keys.includes(key))return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+
+    const name=String(r.employeeName||'').trim();
+    if(!workerCounts[key])workerCounts[key]={green:new Set(),yellow:new Set(),blue:new Set()};
+
+    const w=getRoleWeight(role);
+    if(w===0){
+      workerCounts[key].blue.add(name);
+    } else if(role==='Forklift Operator'){
+      const fd=empFirstDate[name];
+      if(fd&&fd>hireThr){
+        workerCounts[key].yellow.add(name); // new FO
+      } else {
+        workerCounts[key].green.add(name); // experienced FO
+      }
+    } else {
+      workerCounts[key].yellow.add(name); // Supervisor/FO, LM/FO
+    }
+  });
+
+  // Get bar width from chart to align
+  const canvas=document.getElementById('prodChart');
+  const chartWidth=canvas?canvas.width:0;
+  const barW=keys.length>0?Math.max(28,Math.floor(chartWidth/keys.length)):32;
+
+  strip.innerHTML=keys.map(k=>{
+    const wc=workerCounts[k]||{green:new Set(),yellow:new Set(),blue:new Set()};
+    const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
+    return`<div class="worker-cell" style="min-width:${barW}px;">
+      <div class="wc-bars">
+        ${g?`<div class="wc-bar wc-green" title="Productive: ${g}">${g}</div>`:''}
+        ${y?`<div class="wc-bar wc-yellow" title="Partial: ${y}">${y}</div>`:''}
+        ${b?`<div class="wc-bar wc-blue" title="Non-productive: ${b}">${b}</div>`:''}
+        ${!g&&!y&&!b?`<div class="wc-bar" style="background:#2a3a50;color:#4a5a70">—</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCorrChart(){
+  const{gran,selectedPeriods}=getFilters();
+  const bkts=getCorrData();
+  const keys=Object.keys(bkts).sort();
+  if(!keys.length){if(corrInst){corrInst.destroy();corrInst=null;}return;}
+
+  const labels=keys.map(k=>getDisplayLabel(k,gran));
+  const pphVals=keys.map(k=>{const d=bkts[k];return d.prodHours>0?parseFloat((d.pallets/d.prodHours).toFixed(2)):null;});
+  const lcpVals=keys.map(k=>{const d=bkts[k];return d.pallets>0?parseFloat((d.costs2/d.pallets).toFixed(2)):null;});
+  const hrVals=keys.map(k=>{const d=bkts[k];return d.hours>0?parseFloat((d.costs2/d.hours).toFixed(2)):null;});
+
+  const isScroll=gran==='weekly';
+  const H=getHeights();
+  const c=document.getElementById('corrChart'),sw=document.getElementById('scroll-corr');
+  resizeCanvas(c,sw,keys.length,isScroll,H.h2);
+  if(corrInst){corrInst.destroy();corrInst=null;}
+
+  corrInst=new Chart(c,{
+    data:{labels,datasets:[
+      {type:'line',label:'Prod plt/hr',data:pphVals,borderColor:'#6aab90',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#6aab90',tension:0.3,yAxisID:'yL',order:1},
+      {type:'line',label:'LCP $',data:lcpVals,borderColor:'#E24B4A',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#E24B4A',tension:0.3,yAxisID:'yR',order:2},
+      {type:'line',label:'Avg hourly rate $',data:hrVals,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f0a050',tension:0.3,yAxisID:'yR',order:3,borderDash:[4,3]},
+    ]},
+    options:{responsive:false,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:16,right:14,left:6,bottom:6}},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+          callbacks:{label:ctx=>{
+            if(ctx.dataset.label==='Prod plt/hr') return` plt/hr: ${Number(ctx.raw).toFixed(2)}`;
+            if(ctx.dataset.label==='LCP $') return` LCP: $${Number(ctx.raw).toFixed(2)}`;
+            return` Hourly: $${Number(ctx.raw).toFixed(2)}`;
+          }}}},
+      scales:{
+        x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
+        yL:{type:'linear',position:'left',ticks:{color:'#6aab90',font:{size:10},callback:v=>v.toFixed(1)},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'},title:{display:true,text:'plt/hr',color:'#6aab90',font:{size:9}}},
+        yR:{type:'linear',position:'right',ticks:{color:'#f0a050',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'},title:{display:true,text:'$',color:'#f0a050',font:{size:9}}}
+      }}
+  });
+
+  // Store bkts for hover access
+  corrInst._bkts=bkts;
+  corrInst._keys=keys;
+
+  // Add hover listener for AI insights
+  c.onmousemove=function(e){
+    if(!corrInst)return;
+    const pts=corrInst.getElementsAtEventForMode(e,'index',{intersect:false},true);
+    if(!pts.length){hideAIInsight();return;}
+    const idx=pts[0].index;
+    const key=keys[idx];
+    const prevKey=idx>0?keys[idx-1]:null;
+    const bkt=bkts[key];
+    const prevBkt=prevKey?bkts[prevKey]:null;
+    // Add allHours/costs2 from rawData buckets
+    const gran2=document.getElementById('granularity').value;
+    showAIInsight(e,key,gran2,{...bkt,allHours:bkt.hours||bkt.allHours,costs2:bkt.costs2},prevBkt?{...prevBkt,allHours:prevBkt.hours||prevBkt.allHours,costs2:prevBkt.costs2}:null);
+  };
+  c.onmouseleave=function(){hideAIInsight();};
+
+  // Also add hover to combo, chart2, prod charts
+  [
+    {inst:comboInst,bktsGetter:()=>null},
+  ].forEach(({inst})=>{
+    if(!inst||!inst.canvas)return;
+    inst.canvas.onmousemove=function(e){
+      if(!inst||!inst._bucketKeys)return;
+      const pts=inst.getElementsAtEventForMode(e,'index',{intersect:false},true);
+      if(!pts.length){hideAIInsight();return;}
+      const idx=pts[0].index;
+      const key=inst._bucketKeys[idx];
+      if(!key)return;
+      const gran2=document.getElementById('granularity').value;
+      const bkt=bkts[key];
+      if(!bkt)return;
+      const prevKey=idx>0?inst._bucketKeys[idx-1]:null;
+      showAIInsight(e,key,gran2,{...bkt,allHours:bkt.hours||bkt.allHours},prevKey&&bkts[prevKey]?{...bkts[prevKey],allHours:bkts[prevKey].hours||bkts[prevKey].allHours}:null);
+    };
+    inst.canvas.onmouseleave=function(){hideAIInsight();};
+  });
+  if(leg) leg.innerHTML=`
+    <span class="leg-item"><span class="leg-line" style="background:#6aab90"></span>Prod plt/hr</span>
+    <span class="leg-item"><span class="leg-line" style="background:#E24B4A"></span>LCP $</span>
+    <span class="leg-item"><span class="leg-line" style="background:#f0a050;border-top:2px dashed #f0a050"></span>Avg hourly $</span>`;
+
+  if(corrMatrixOpen) renderCorrMatrix();
+}
+
+function renderCorrMatrix(){
+  const bkts=getCorrData();
+  const keys=Object.keys(bkts).sort();
+  const tbl=document.getElementById('corr-matrix-table');
+  if(!tbl||!keys.length)return;
+
+  const pph=keys.map(k=>{const d=bkts[k];return d.prodHours>0?d.pallets/d.prodHours:null;}).filter(v=>v!==null);
+  const lcp=keys.map(k=>{const d=bkts[k];return d.pallets>0?d.costs2/d.pallets:null;}).filter(v=>v!==null);
+  const hr=keys.map(k=>{const d=bkts[k];return d.hours>0?d.costs2/d.hours:null;}).filter(v=>v!==null);
+  const pallets=keys.map(k=>bkts[k].pallets).filter(v=>v>0);
+
+  // Align arrays to same length
+  const minLen=Math.min(pph.length,lcp.length,hr.length,pallets.length);
+  const P=pph.slice(0,minLen),L=lcp.slice(0,minLen),H=hr.slice(0,minLen),PAL=pallets.slice(0,minLen);
+
+  const metrics=[
+    {label:'Prod plt/hr', vals:P},
+    {label:'LCP $', vals:L},
+    {label:'Avg hourly $', vals:H},
+    {label:'Pallets', vals:PAL},
+  ];
+
+  function corrColor(r){
+    if(r===null)return'#3a5080';
+    const abs=Math.abs(r);
+    if(abs>=0.7) return r>0?'#2a5a3a':'#5a2a2a';
+    if(abs>=0.4) return r>0?'#3a5a4a':'#5a3a3a';
+    return'#2a3a50';
+  }
+  function corrLabel(r){
+    if(r===null)return'—';
+    const abs=Math.abs(r);
+    const str=r.toFixed(2);
+    const strength=abs>=0.7?'strong':abs>=0.4?'moderate':'weak';
+    return`${str}`;
+  }
+
+  tbl.innerHTML=`
+    <tr><th style="padding:6px 8px;font-size:10px;color:#6a7d9a;"></th>${metrics.map(m=>`<th style="padding:6px 8px;font-size:10px;color:#8a9dba;text-align:center;white-space:nowrap;">${m.label}</th>`).join('')}</tr>
+    ${metrics.map((m1,i)=>`<tr>
+      <td style="padding:6px 8px;font-size:10px;color:#8a9dba;white-space:nowrap;">${m1.label}</td>
+      ${metrics.map((m2,j)=>{
+        if(i===j) return`<td style="padding:6px 8px;text-align:center;background:#1a2540;font-size:11px;color:#6a7d9a;">1.00</td>`;
+        const r=pearsonCorr(m1.vals,m2.vals);
+        const bg=corrColor(r);
+        const col=r===null?'#6a7d9a':Math.abs(r)>=0.7?'#fff':'#c8d8f0';
+        return`<td style="padding:6px 8px;text-align:center;background:${bg};font-size:11px;color:${col};border-radius:4px;">${corrLabel(r)}</td>`;
+      }).join('')}
+    </tr>`).join('')}
+    <tr><td colspan="${metrics.length+1}" style="padding:8px 0 0;font-size:10px;color:#6a7d9a;">
+      Strong correlation ≥0.70 &nbsp;·&nbsp; Moderate 0.40–0.69 &nbsp;·&nbsp; Weak &lt;0.40 &nbsp;·&nbsp; 🟢 positive &nbsp;·&nbsp; 🔴 negative
+    </td></tr>`;
+}
+
+// ===================== AI INSIGHT TOOLTIP =====================
+let aiInsightCache={};
+let aiHideTimer=null;
+
+function showAIInsight(e, bucketKey, gran, bktData, prevBktData){
+  const tooltip=document.getElementById('ai-insight-tooltip');
+  const label=getDisplayLabel(bucketKey,gran);
+  document.getElementById('ai-period-label').textContent=label;
+
+  // Position tooltip near cursor
+  const x=e.clientX, y=e.clientY;
+  tooltip.style.left=(x+16)+'px';
+  tooltip.style.top=(y-20)+'px';
+  tooltip.style.display='block';
+
+  // Check cache
+  const cacheKey=bucketKey+'|'+JSON.stringify(bktData);
+  if(aiInsightCache[cacheKey]){
+    document.getElementById('ai-text').innerHTML=aiInsightCache[cacheKey];
+    document.getElementById('ai-dot').style.display='none';
+    return;
+  }
+
+  // Show loading
+  document.getElementById('ai-text').innerHTML='<span class="ai-loading">Analyzing...</span>';
+  document.getElementById('ai-dot').style.display='block';
+
+  getAIInsight(bucketKey, gran, bktData, prevBktData).then(text=>{
+    aiInsightCache[cacheKey]=text;
+    // Only update if tooltip still showing same period
+    if(document.getElementById('ai-period-label').textContent===label){
+      document.getElementById('ai-text').innerHTML=text;
+      document.getElementById('ai-dot').style.display='none';
+    }
+  });
+}
+
+function hideAIInsight(){
+  aiHideTimer=setTimeout(()=>{
+    document.getElementById('ai-insight-tooltip').style.display='none';
+  }, 300);
+}
+
+function keepAIInsight(){
+  if(aiHideTimer) clearTimeout(aiHideTimer);
+}
+
+async function getAIInsight(bucketKey, gran, d, prev){
+  const pph=d.prodHours>0?(d.pallets/d.prodHours).toFixed(2):null;
+  const lcp=d.pallets>0?(d.costs2/d.pallets).toFixed(2):null;
+  const hr=d.hours>0?(d.costs2/d.hours).toFixed(2):null;
+  const prevPph=prev&&prev.prodHours>0?(prev.pallets/prev.prodHours).toFixed(2):null;
+  const prevLcp=prev&&prev.pallets>0?(prev.costs2/prev.pallets).toFixed(2):null;
+  const pphDelta=pph&&prevPph?((pph-prevPph)/prevPph*100).toFixed(1):null;
+  const lcpDelta=lcp&&prevLcp?((lcp-prevLcp)/prevLcp*100).toFixed(1):null;
+  const satW=d.satWorkers?d.satWorkers.size:0;
+
+  const granLabel={weekly:'week',monthly:'month',quarterly:'quarter',yearly:'year'}[gran]||gran;
+  const label=getDisplayLabel(bucketKey,gran);
+
+  const prompt=`You are a warehouse operations analyst. Analyze this ${granLabel} (${label}) data for a freight consolidation warehouse and provide a concise insight in 2-3 sentences. Focus on what's notable and possible causes. Be direct and practical. No bullet points.
+
+Data:
+- Pallets processed: ${d.pallets?.toLocaleString()||'N/A'}
+- All hours: ${d.allHours?Math.round(d.allHours):'N/A'}
+- Productive hours: ${d.prodHours?Math.round(d.prodHours):'N/A'}
+- Prod plt/hr: ${pph||'N/A'}${pphDelta?` (${pphDelta>0?'+':''}${pphDelta}% vs prev ${granLabel})`:''}
+- Labor cost per pallet: $${lcp||'N/A'}${lcpDelta?` (${lcpDelta>0?'+':''}${lcpDelta}% vs prev)`:''}
+- Avg hourly rate: $${hr||'N/A'}
+- Saturday workers: ${satW}
+- Adaptation coef: ${d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(0)+'%':'N/A (no role data)'}
+
+Reply in the same language as the UI (Ukrainian if detected, otherwise English). Keep it under 60 words.`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:150,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'No insight available.';
+    return text.replace(/\n/g,'<br>');
+  }catch(err){
+    return'Could not load insight.';
+  }
 }
 
 function renderStaff(){
