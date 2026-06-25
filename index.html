@@ -48,7 +48,7 @@
   .btn-threshold { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #f0a050; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .btn-threshold:hover { background: #2e3d60; }
   .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid #3a5080; border-radius: 8px; background: #253050; color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
-  .btn-workforce:hover { background: #2e3d60; }
+  .chart-scroll-wrap canvas { cursor: pointer; }
   /* Workforce panel */
   .workforce-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; margin-bottom: 14px; }
   .workforce-panel.visible { display: block; }
@@ -502,6 +502,7 @@ const LOC_NAME_MAP = {
 let rawData = [], timeData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
 let topInst=null, dowInst=null, prodInst=null;
+let selectedBucket=null; // globally selected bucket key for cross-chart highlight
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
 
@@ -767,6 +768,55 @@ function getFilters(){
     }
   }
   return{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods};
+}
+
+function onBucketClick(key){
+  selectedBucket = selectedBucket===key ? null : key; // toggle
+  applyBucketHighlight();
+}
+
+function applyBucketHighlight(){
+  [comboInst, chart2Inst, prodInst].forEach(inst=>{
+    if(!inst||!inst.data||!inst.data.labels)return;
+    const labels=inst.data.labels;
+    // Find index of selected label
+    const selIdx=selectedBucket===null?-1:labels.indexOf(
+      inst._bucketKeys?inst._bucketKeys.indexOf(selectedBucket)>=0?labels[inst._bucketKeys.indexOf(selectedBucket)]:null:null
+    );
+    // Use _bucketKeys array stored on chart instance
+    const keys=inst._bucketKeys||[];
+    const selKeyIdx=selectedBucket===null?-1:keys.indexOf(selectedBucket);
+
+    inst.data.datasets.forEach(ds=>{
+      if(ds.type==='line')return; // don't dim lines
+      if(selectedBucket===null){
+        // no selection — reset all
+        ds.backgroundColor=ds._origBg||ds.backgroundColor;
+        delete ds._dimmed;
+      } else {
+        // store original if not yet stored
+        if(!ds._origBg) ds._origBg=Array.isArray(ds.backgroundColor)?[...ds.backgroundColor]:ds.backgroundColor;
+        // dim all bars except selected
+        const origBg=ds._origBg;
+        if(Array.isArray(origBg)){
+          ds.backgroundColor=origBg.map((c,i)=>i===selKeyIdx?c:dimColor(c));
+        } else {
+          ds.backgroundColor=keys.map((_,i)=>i===selKeyIdx?origBg:dimColor(origBg));
+        }
+      }
+    });
+    inst.update('none');
+  });
+}
+
+function dimColor(c){
+  if(typeof c!=='string')return c;
+  // reduce opacity
+  if(c.length===9&&c.startsWith('#')) return c.slice(0,7)+'22';
+  if(c.length===7) return c+'33';
+  if(c.startsWith('rgba')) return c.replace(/[\d.]+\)$/,'0.15)');
+  if(c.startsWith('rgb')) return c.replace('rgb','rgba').replace(')',',0.15)');
+  return c;
 }
 
 function renderAll(){
@@ -1036,6 +1086,7 @@ function renderOperations(){
   comboInst=new Chart(c1,{
     data:{labels:dispLabels,datasets},
     options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+      onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
       layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if(ctx.dataset.label==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
       scales:{
@@ -1066,6 +1117,8 @@ function renderOperations(){
       ctx.fillText(val.toFixed(1),pt.x,by+bh/2);ctx.restore();
     });
   }}]});
+  comboInst._bucketKeys=[...keys];
+  if(selectedBucket!==null) applyBucketHighlight();
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -1106,7 +1159,9 @@ function renderOperations(){
       {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#5a8fd4cc',borderColor:'#5a8fd4',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
       {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#f0a050',pointBorderColor:'#1e2840',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
     ]},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},layout:{padding:{top:isDaily?6:28,right:14,left:6,bottom:6}},
+    options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+      onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys2[i]);}},
+      layout:{padding:{top:isDaily?6:28,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>ctx.dataset.yAxisID==='yH'?` Avg hourly rate: $${Number(ctx.raw).toFixed(2)}`:` Operating Cost: $${Number(ctx.raw).toLocaleString()}`}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -1132,6 +1187,8 @@ function renderOperations(){
       });
     }}]
   });
+  chart2Inst._bucketKeys=[...keys2];
+  if(selectedBucket!==null) applyBucketHighlight();
 
   // Render ops map
   renderOpsMap();
@@ -1938,6 +1995,7 @@ function renderProductivity(){
     data:{labels:dispLabels,datasets},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
+      onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
       layout:{padding:{top:28,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
@@ -1990,6 +2048,8 @@ function renderProductivity(){
       });
     }}]
   });
+  prodInst._bucketKeys=[...keys];
+  if(selectedBucket!==null) applyBucketHighlight();
 }
 
 function renderStaff(){
