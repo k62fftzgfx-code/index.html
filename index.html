@@ -564,10 +564,19 @@ function toggleDropdown(name){
   document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
   if(!isOpen){menu.classList.add('open');trigger.classList.add('open');}
 }
-document.addEventListener('click',e=>{
+// close all dropdowns on outside click
+document.addEventListener('click', e => {
+  // custom-dropdown menus
   if(!e.target.closest('.custom-dropdown')){
     document.querySelectorAll('.dropdown-menu').forEach(m=>m.classList.remove('open'));
     document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
+  }
+  // week-dropdown-menu (period filter + staff week filter)
+  if(!e.target.closest('.week-dropdown')){
+    document.querySelectorAll('.week-dropdown-menu').forEach(m=>m.classList.remove('open'));
+    document.querySelectorAll('.dropdown-trigger').forEach(t=>{
+      if(t.id==='period-trigger'||t.id==='week-trigger') t.classList.remove('open');
+    });
   }
 });
 function toggleAll(name){
@@ -688,6 +697,8 @@ function mapLocName(locName){
   return LOC_NAME_MAP[key]||null;
 }
 
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 // ===================== PERIOD FILTER =====================
 let periodOptions=[]; // [{key, label}]
 let selectedPeriods_set=null; // null=all, Set=filtered
@@ -715,7 +726,7 @@ function buildPeriodOptions(){
 function renderPeriodGroups(filter=''){
   const gran=document.getElementById('granularity').value;
   const container=document.getElementById('period-groups');
-  if(!container)return;
+  if(!container) return;
   if(gran==='weekly'){
     const tree={};
     periodOptions.forEach(o=>{
@@ -1731,7 +1742,6 @@ function getRowYW(r) {
   return String(pd.y) + 'W' + String(getISOWeek(pd.dt)).padStart(2,'0');
 }
 
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 // track open state
 const openYears = new Set();
 const openMonths = new Set(); // key: "yr-mon"
@@ -1894,14 +1904,6 @@ function toggleWeekDropdown(){
   document.querySelectorAll('.dropdown-trigger').forEach(t=>t.classList.remove('open'));
   if(!isOpen){ menu.classList.add('open'); trigger.classList.add('open'); }
 }
-
-// close week dropdown on outside click
-document.addEventListener('click', e => {
-  if(!e.target.closest('.week-dropdown')){
-    document.getElementById('week-menu')?.classList.remove('open');
-    document.getElementById('week-trigger')?.classList.remove('open');
-  }
-});
 
 // ===================== PRODUCTIVITY CHART =====================
 const PROD_THR_MAP = {
