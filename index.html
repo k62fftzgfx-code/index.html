@@ -254,6 +254,10 @@
 <!-- Workforce Panel -->
 <div class="workforce-panel" id="workforce-panel">
   <div class="workforce-panel-title">New Employee Adaptation — Forklift Operator productivity coefficient by weeks since start</div>
+  <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+    <label style="font-size:10px;color:#7a8daa;">Apply adaptation to employees hired after:</label>
+    <input type="date" id="wf-hire-date" value="2026-03-01" onchange="renderOperations()" style="font-size:12px;padding:4px 8px;border:1px solid #2e3d5c;border-radius:8px;background:#1a2035;color:#c8d8f0;outline:none;color-scheme:dark;">
+  </div>
   <div class="threshold-grid">
     <div class="threshold-item"><label>Week 1</label><input type="number" id="wf-w1" value="40" step="1" min="0" max="100" onchange="renderOperations()"> <span style="font-size:9px;color:#6a7d9a;">%</span></div>
     <div class="threshold-item"><label>Week 2</label><input type="number" id="wf-w2" value="50" step="1" min="0" max="100" onchange="renderOperations()"></div>
@@ -1852,8 +1856,14 @@ function renderProductivity(){
       const name=String(r.employeeName||'').trim();
       const firstDt=empFirstDate[name];
       if(firstDt){
-        const weeksSinceStart=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
-        weight=getAdaptationWeight(weeksSinceStart);
+        // Only apply adaptation if hired after the threshold date
+        const hireDateStr=document.getElementById('wf-hire-date')?.value||'2026-03-01';
+        const hireThreshold=new Date(hireDateStr+'T00:00:00');
+        if(firstDt>hireThreshold){
+          const weeksSinceStart=Math.floor((pd.dt-firstDt)/(7*24*3600*1000));
+          weight=getAdaptationWeight(weeksSinceStart);
+        }
+        // else: employee started before threshold → experienced → weight stays 1.0
       }
     }
     pltBuckets[key].prodHours+=hrs*weight;
