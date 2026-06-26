@@ -1294,6 +1294,11 @@ function renderOperations(){
       kpiCosts2+=toNum(r[COL.costs2]);
     } else {
       kpiHwyImd+=toNum(r[COL.hwyImd]); // HWY/IMD from non-summary rows only
+      // avgHourlyRate from non-summary rows
+      if(toNum(r[COL.avgHourlyRate])>0){
+        if(!b2[key])b2[key]={costs2:[],hourly:[]};
+        b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
+      }
     }
     kpiSumPallets+=toNum(r[COL.sumPallets]);kpiTotalTime+=toNum(r[COL.hours]);
   });
@@ -2485,7 +2490,8 @@ function renderWorkerStrip(keys, bkts, gran){
   const dpr=window.devicePixelRatio||1;
 
   strip.innerHTML=meta.data.map((bar,i)=>{
-    const k=keys[i];if(!k)return'';
+    // Use prodInst._bucketKeys for correct key-to-bar alignment
+    const k=(prodInst._bucketKeys||keys)[i];if(!k)return'';
     const wc=bkts[k]?.workers||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
     const leftPx=(bar.x-barW/2)/dpr;
