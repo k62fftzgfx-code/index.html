@@ -1286,13 +1286,7 @@ function renderOperations(){
       if(toNum(r[COL.costs2])>0)b2[key].costs2.push(toNum(r[COL.costs2]));
       if(toNum(r[COL.avgHourlyRate])>0)b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
       kpiCosts2+=toNum(r[COL.costs2]);
-    } else {
-      kpiHwyImd+=toNum(r[COL.hwyImd]); // HWY/IMD from non-summary rows only
-      // avgHourlyRate from non-summary rows
-      if(toNum(r[COL.avgHourlyRate])>0){
-        if(!b2[key])b2[key]={costs2:[],hourly:[]};
-        b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
-      }
+      kpiHwyImd+=toNum(r[COL.hwyImd]); // HWY/IMD is a weekly sum stored in Sunday rows
     }
     kpiSumPallets+=toNum(r[COL.sumPallets]);kpiTotalTime+=toNum(r[COL.hours]);
   });
@@ -2313,13 +2307,13 @@ function renderProductivity(){
       // Draw worker strip below X-axis directly on canvas
       const prodBarDS=chart.data.datasets.find(d=>d.label==='Productive Hours');
       if(!prodBarDS)return;
-      const mi=chart.data.datasets.indexOf(prodBarDS);
-      const meta=chart.getDatasetMeta(mi);
+      const mi2=chart.data.datasets.indexOf(prodBarDS);
+      const meta2=chart.getDatasetMeta(mi2);
       const bottom=chart.chartArea.bottom;
-      const rowH=12, gap=1;
-      const colors={green:'#6aab90',yellow:'#f0a050',blue:'#4a7fa0',dim:'#2a3a50'};
+      const xAxisH=chart.scales.x?.height||20; // height of X-axis labels
+      const rowH=11, startY=bottom+xAxisH+4;
 
-      meta.data.forEach((bar,i)=>{
+      meta2.data.forEach((bar,i)=>{
         const k=keys[i];if(!k)return;
         const wc=buckets[k]?.workers;
         if(!wc)return;
@@ -2328,15 +2322,9 @@ function renderProductivity(){
         ctx.save();
         ctx.font='bold 9px -apple-system,sans-serif';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        // row1: green
-        ctx.fillStyle=g?colors.green:colors.dim;
-        ctx.fillText(g||'·',x,bottom+rowH*1-gap);
-        // row2: yellow
-        ctx.fillStyle=y?colors.yellow:colors.dim;
-        ctx.fillText(y||'·',x,bottom+rowH*2-gap);
-        // row3: blue
-        ctx.fillStyle=b?colors.blue:colors.dim;
-        ctx.fillText(b||'·',x,bottom+rowH*3-gap);
+        ctx.fillStyle=g?'#6aab90':'#2a3a50'; ctx.fillText(g||'·',x,startY+rowH*0);
+        ctx.fillStyle=y?'#f0a050':'#2a3a50'; ctx.fillText(y||'·',x,startY+rowH*1);
+        ctx.fillStyle=b?'#4a7fa0':'#2a3a50'; ctx.fillText(b||'·',x,startY+rowH*2);
         ctx.restore();
       });
     }}]
