@@ -65,7 +65,8 @@
   #prod-detail-table .val-red { color:#e07070!important; font-weight:600; }
   #prod-detail-table .val-green { color:#6aab90!important; font-weight:600; }
   /* Workforce panel */
-  .workforce-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; margin-bottom: 14px; }
+  .workforce-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:460px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .workforce-panel.visible { display: block; }
   .workforce-panel.visible { display: block; }
   .workforce-panel-title { font-size: 11px; color: #6aab90; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
 
@@ -74,7 +75,8 @@
   .status.err { color: #e07070; border-color: #4a2a2a; }
 
   /* Threshold panel */
-  .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; margin-bottom: 14px; }
+  .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:460px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .threshold-panel.visible { display: block; }
   .threshold-panel.visible { display: block; }
   .threshold-panel-title { font-size: 11px; color: #f0a050; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
   .threshold-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 12px; }
@@ -242,12 +244,9 @@
       <option value="Cross Dock">Cross Dock</option>
     </select>
   </div>
-  <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
-  <button class="btn-workforce" onclick="toggleWorkforcePanel()">👥 Workforce</button>
-  <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
-</div>
-
-<!-- Threshold Panel -->
+  <div style="position:relative;display:inline-block;">
+    <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
+    <!-- Threshold Panel -->
 <div class="threshold-panel" id="threshold-panel">
   <div class="threshold-panel-title">Labor cost per pallet — threshold by location</div>
   <div class="threshold-grid">
@@ -272,8 +271,10 @@
     <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
   </div>
 </div>
-
-<!-- Workforce Panel -->
+  </div>
+  <div style="position:relative;display:inline-block;">
+    <button class="btn-workforce" onclick="toggleWorkforcePanel()">👥 Workforce</button>
+    <!-- Workforce Panel -->
 <div class="workforce-panel" id="workforce-panel">
   <div class="workforce-panel-title">New Employee Adaptation — Forklift Operator productivity coefficient by weeks since start</div>
   <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
@@ -292,6 +293,10 @@
     <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="renderOperations()"></div>
   </div>
 </div>
+  </div>
+  <button class="btn-refresh" onclick="loadData()">↻ Refresh</button>
+</div>
+
 
 <div class="date-range" id="date-range-row" style="display:none;">
   <div><label class="dr-label">From</label><input type="date" id="date-from" onchange="renderAll()"></div>
@@ -540,7 +545,17 @@ const LOC_NAME_MAP = {
   'freightbox, columbus':           'Columbus, OH',
   'freightbox, greenville':         'Greenville, SC',
   'greenville warehouse':           'Greenville, SC',
-  'jf fleet, markham':              null
+  'jf fleet, markham':              null,
+  'wh sparks':                      'Reno, NV',
+  'wh markham':                     'Markham, IL West',
+  'wh markham west':                'Markham, IL West',
+  'wh markham east':                'Markham, IL East',
+  'freight box, markham west':      'Markham, IL West',
+  'wh stockton':                    'Stockton, CA',
+  'wh san bernardino':              'San Bernardino, CA',
+  'wh denver':                      'Denver, CO',
+  'wh columbus':                    'Columbus, OH',
+  'wh greenville':                  'Greenville, SC'
 };
 
 let rawData = [], timeData = [];
@@ -1272,12 +1287,13 @@ function renderOperations(){
     // Sum Pallets counted from ALL rows incl. Sunday (Sunday is summary only for Costs2)
     buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     if(sum){
-
       buckets[key].costs2+=toNum(r[COL.costs2]);
       if(!b2[key])b2[key]={costs2:[],hourly:[]};
       if(toNum(r[COL.costs2])>0)b2[key].costs2.push(toNum(r[COL.costs2]));
       if(toNum(r[COL.avgHourlyRate])>0)b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
-      kpiHwyImd+=toNum(r[COL.hwyImd]);kpiCosts2+=toNum(r[COL.costs2]);
+      kpiCosts2+=toNum(r[COL.costs2]);
+    } else {
+      kpiHwyImd+=toNum(r[COL.hwyImd]); // HWY/IMD from non-summary rows only
     }
     kpiSumPallets+=toNum(r[COL.sumPallets]);kpiTotalTime+=toNum(r[COL.hours]);
   });
@@ -1355,7 +1371,10 @@ function renderOperations(){
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  renderSatStrip(keys, buckets);
+  // Sat strip needs buildProdBuckets data (has satWorkers), not combo buckets
+  const{gran:satGran,years:satYears,locs:satLocs,isDaily:satIsDaily,dateFrom:satFrom,dateTo:satTo,selectedPeriods:satSP}=getFilters();
+  const{bkts:satBkts}=buildProdBuckets(satGran,satYears,satLocs,satSP,satIsDaily,satFrom,satTo);
+  renderSatStrip(keys, satBkts);
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
