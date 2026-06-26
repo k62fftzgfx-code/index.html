@@ -2390,53 +2390,108 @@ function hideInsightTooltip(){
 
 function getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,pallets,prevPallets){
   const volD=pallets&&prevPallets?(pallets-prevPallets)/prevPallets*100:null;
+
   const pphDown=pphD!==null&&pphD<-5;
   const pphUp=pphD!==null&&pphD>5;
   const lcpUp=lcpD!==null&&lcpD>5;
   const lcpDown=lcpD!==null&&lcpD<-5;
-  const hrUp=hrD!==null&&hrD>3;
+  const lcpSharp=lcpD!==null&&lcpD>12;
+  const hrUp=hrD!==null&&hrD>4;
+  const hrSharp=hrD!==null&&hrD>10;
   const volDown=volD!==null&&volD<-5;
+  const volSharp=volD!==null&&volD<-15;
   const volUp=volD!==null&&volD>5;
-  const lowAdapt=adapt!==null&&adapt<85;
+  const volSharpUp=volD!==null&&volD>15;
   const hasSat=satW>0;
+  const lowAdapt=adapt!==null&&adapt<85;
+  const veryLowAdapt=adapt!==null&&adapt<75;
+  const lcpStable=lcpD!==null&&Math.abs(lcpD)<3;
+  const volStable=volD!==null&&Math.abs(volD)<3;
+  const pphStable=pphD!==null&&Math.abs(pphD)<3;
 
-  // Pattern matching — most specific first
-  if(pphDown&&lcpUp&&hasSat)
-    return{uk:`Продуктивність впала${pphD?` на ${Math.abs(pphD).toFixed(0)}%`:''}. Субота (${satW} прац.) підняла LCP через преміальні витрати.`,
-           en:`Productivity dropped. Saturday (${satW} workers) pushed LCP up via premium pay.`};
-  if(pphDown&&lcpUp&&volDown)
-    return{uk:`Об'єм скоротився${volD?` на ${Math.abs(volD).toFixed(0)}%`:''} але команда залишилась повною — звідси зростання LCP і падіння plt/hr.`,
-           en:`Volume dropped${volD?` ${Math.abs(volD).toFixed(0)}%`:''} but team stayed full — LCP rose, plt/hr fell.`};
-  if(pphDown&&lcpUp&&lowAdapt)
-    return{uk:`Нові працівники (адаптація ${adapt?.toFixed(0)}%) знижують продуктивність і збільшують витрати на палету.`,
-           en:`New employees (adapt. ${adapt?.toFixed(0)}%) are reducing productivity and raising cost per pallet.`};
-  if(pphDown&&lcpUp)
-    return{uk:`Продуктивність впала${pphD?` на ${Math.abs(pphD).toFixed(0)}%`:''} при зростанні LCP${lcpD?` на ${lcpD.toFixed(0)}%`:''}. Можливі причини: менший об'єм, нові працівники або понаднормові.`,
-           en:`Productivity down${pphD?` ${Math.abs(pphD).toFixed(0)}%`:''}, LCP up${lcpD?` ${lcpD.toFixed(0)}%`:''}. Possible: volume drop, new hires, or overtime.`};
-  if(pphUp&&lcpDown)
-    return{uk:`Відмінний результат: продуктивність виросла${pphD?` на ${pphD.toFixed(0)}%`:''}, LCP знизився${lcpD?` на ${Math.abs(lcpD).toFixed(0)}%`:''}. Команда працювала ефективно.`,
-           en:`Excellent: productivity up${pphD?` ${pphD.toFixed(0)}%`:''}, LCP down${lcpD?` ${Math.abs(lcpD).toFixed(0)}%`:''}. Team performed efficiently.`};
-  if(pphUp&&lcpUp&&hasSat)
-    return{uk:`Об'єм виріс — продуктивність покращилась. Субота (${satW} прац.) підтягнула LCP вгору попри ефективність.`,
-           en:`Volume grew, productivity improved. Saturday (${satW} workers) pushed LCP up despite efficiency gains.`};
-  if(pphUp&&lcpUp)
-    return{uk:`Продуктивність виросла${pphD?` на ${pphD.toFixed(0)}%`:''} але LCP теж зріс${lcpD?` на ${lcpD.toFixed(0)}%`:''}. Можливо: збільшилась погодинна ставка або понаднормові.`,
-           en:`Productivity up${pphD?` ${pphD.toFixed(0)}%`:''} but LCP also rose${lcpD?` ${lcpD.toFixed(0)}%`:''}. Possible: higher hourly rate or overtime.`};
-  if(hrUp&&!pphDown)
-    return{uk:`Погодинна ставка зросла${hrD?` на ${hrD.toFixed(0)}%`:''}. Можливі причини: бонуси, понаднормові${hasSat?` або субота (${satW} прац.)`:''}.`,
-           en:`Hourly rate up${hrD?` ${hrD.toFixed(0)}%`:''}. Possible: bonuses, overtime${hasSat?` or Saturday (${satW} workers)`:''}.`};
-  if(pphDown&&!lcpUp&&lowAdapt)
-    return{uk:`Продуктивність знизилась через нових працівників (адаптація ${adapt?.toFixed(0)}%). LCP поки стабільний.`,
-           en:`Productivity dipped due to new employees (adapt. ${adapt?.toFixed(0)}%). LCP remains stable.`};
-  if(hasSat&&!pphDown&&!lcpUp)
-    return{uk:`Субота (${satW} прац.) — додаткові витрати, але продуктивність і LCP залишаються в нормі.`,
-           en:`Saturday (${satW} workers) adds extra cost, but productivity and LCP remain normal.`};
-  if(lowAdapt)
-    return{uk:`Коефіцієнт адаптації ${adapt?.toFixed(0)}% — значна частка нових працівників на цей період.`,
-           en:`Adaptation coef ${adapt?.toFixed(0)}% — significant share of new employees this period.`};
-  // Default — stable
-  return{uk:`Стабільний тиждень: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Суттєвих відхилень немає.`,
-         en:`Stable period: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. No significant anomalies.`};
+  // 1. Різкий спад об\'єму + стабільні витрати
+  if(volSharp&&lcpSharp&&!hrUp)
+    return{uk:`Об\'єм різко впав на ${Math.abs(volD).toFixed(0)}% при незмінних витратах — команда залишилась повною. Фіксовані витрати розподіляються на менший об\'єм — класична причина стрибка LCP.`,
+           en:`Volume dropped sharply ${Math.abs(volD).toFixed(0)}% while costs stayed fixed — team remained full. Fixed costs spread over fewer pallets — classic LCP spike cause.`};
+
+  // 2. Об\'єм↓ + витрати↓ пропорційно
+  if(volDown&&lcpDown)
+    return{uk:`Об\'єм знизився але витрати скоротились пропорційно — менеджмент адаптував команду до навантаження. LCP під контролем.`,
+           en:`Volume dropped but costs reduced proportionally — management adjusted staffing to workload. LCP remains under control.`};
+
+  // 3. Об\'єм↓ + витрати стабільні = LCP↑
+  if(volDown&&lcpUp&&!hrSharp)
+    return{uk:`Об\'єм впав${volD?' на '+Math.abs(volD).toFixed(0)+'%':''} при стабільних витратах — LCP зріс${lcpD?' на '+lcpD.toFixed(0)+'%':''}. Команда залишилась незмінною при меншому вантажопотоці.`,
+           en:`Volume fell${volD?' '+Math.abs(volD).toFixed(0)+'%':''} with stable costs — LCP rose${lcpD?' '+lcpD.toFixed(0)+'%':''}. Same team size, lower freight volume.`};
+
+  // 4. Подвійний удар: об\'єм↓ + ставка↑
+  if(volDown&&lcpSharp&&hrUp)
+    return{uk:`Подвійний удар: об\'єм впав${volD?' на '+Math.abs(volD).toFixed(0)+'%':''} і ставка зросла${hrD?' на '+hrD.toFixed(0)+'%':''}${hasSat?' (субота: '+satW+' прац.)':''}. Найгірша комбінація для LCP.`,
+           en:`Double hit: volume fell${volD?' '+Math.abs(volD).toFixed(0)+'%':''} and rate rose${hrD?' '+hrD.toFixed(0)+'%':''}${hasSat?' (Saturday: '+satW+' workers)':''}. Worst LCP scenario.`};
+
+  // 5. Об\'єм різко↑ → LCP↓ (найкращий)
+  if(volSharpUp&&lcpDown)
+    return{uk:`Відмінний тиждень: об\'єм виріс на ${volD.toFixed(0)}% — фіксовані витрати розподілились на більше палет і LCP впав. Саме таку динаміку треба підтримувати.`,
+           en:`Excellent week: volume up ${volD.toFixed(0)}% — fixed costs spread over more pallets, LCP dropped. This is the target dynamic.`};
+
+  // 6. Об\'єм↑ → LCP↓
+  if(volUp&&lcpDown)
+    return{uk:`Об\'єм виріс${volD?' на '+volD.toFixed(0)+'%':''} і LCP знизився${lcpD?' на '+Math.abs(lcpD).toFixed(0)+'%':''}. Більше вантажу при тій самій команді = краща ефективність витрат.`,
+           en:`Volume up${volD?' '+volD.toFixed(0)+'%':''}, LCP down${lcpD?' '+Math.abs(lcpD).toFixed(0)+'%':''}. More freight with same team = better cost efficiency.`};
+
+  // 7. Об\'єм↑ але витрати з\'їли вигоду
+  if(volUp&&lcpUp&&hrUp)
+    return{uk:`Об\'єм виріс але ставка теж зросла${hrD?' на '+hrD.toFixed(0)+'%':''}${hasSat?' (субота: '+satW+' прац.)':''} — витрати з\'їли вигоду від більшого об\'єму.`,
+           en:`Volume up but rate also rose${hrD?' '+hrD.toFixed(0)+'%':''}${hasSat?' (Saturday: '+satW+' workers)':''} — cost increase offset volume gain.`};
+
+  // 8. Різкий стрибок ставки при стабільному об\'ємі
+  if(hrSharp&&lcpUp&&volStable)
+    return{uk:`Різкий стрибок погодинної ставки${hrD?' +'+hrD.toFixed(0)+'%':''}${hasSat?' і субота ('+satW+' прац.)':''} при стабільному об\'ємі. Можливі причини: понаднормові, бонуси або зміна складу команди.`,
+           en:`Sharp hourly rate spike${hrD?' +'+hrD.toFixed(0)+'%':''}${hasSat?' and Saturday ('+satW+' workers)':''} with stable volume. Likely: overtime, bonuses, or team change.`};
+
+  // 9. Ставка↑ при стабільному об\'ємі
+  if(hrUp&&lcpUp&&volStable)
+    return{uk:`Погодинна ставка зросла${hrD?' на '+hrD.toFixed(0)+'%':''}${hasSat?' (субота: '+satW+' прац.)':''} при стабільному об\'ємі. Перевірте понаднормові та преміальні виплати.`,
+           en:`Hourly rate up${hrD?' '+hrD.toFixed(0)+'%':''}${hasSat?' (Saturday: '+satW+' workers)':''} with stable volume. Review overtime and premium payments.`};
+
+  // 10. Нові працівники збільшили витрати
+  if(lcpUp&&!hrUp&&!volDown&&lowAdapt)
+    return{uk:`Витрати зросли через розширення команди (адаптація ${adapt?.toFixed(0)}%). Нові форкліфтери ще не вийшли на повну продуктивність — тимчасовий ефект.`,
+           en:`Costs rose due to team expansion (adaptation ${adapt?.toFixed(0)}%). New operators haven't reached full productivity yet — temporary effect.`};
+
+  // 11. Дуже низька адаптація домінує
+  if(veryLowAdapt&&pphDown)
+    return{uk:`Коефіцієнт адаптації ${adapt?.toFixed(0)}% — нові працівники суттєво знижують продуктивну годину. plt/hr впав але це структурний ефект росту команди, не провал.`,
+           en:`Adaptation coef ${adapt?.toFixed(0)}% — new employees significantly reduce productive hours. plt/hr dropped but this is structural growth effect, not failure.`};
+
+  // 12. Субота без інших аномалій
+  if(hasSat&&lcpUp&&volStable)
+    return{uk:`Субота (${satW} прац.) додала преміальні витрати при стабільному об\'ємі — звідси зростання LCP${lcpD?' +'+lcpD.toFixed(0)+'%':''}.`,
+           en:`Saturday (${satW} workers) added premium pay with stable volume — hence LCP increase${lcpD?' +'+lcpD.toFixed(0)+'%':''}.`};
+
+  // 13. Витрати↓ без росту об\'єму
+  if(lcpDown&&!volUp)
+    return{uk:`LCP знизився${lcpD?' на '+Math.abs(lcpD).toFixed(0)+'%':''} — витрати скорочено при стабільному об\'ємі. Ефективне управління командою.`,
+           en:`LCP dropped${lcpD?' '+Math.abs(lcpD).toFixed(0)+'%':''} — costs reduced with stable volume. Efficient team management.`};
+
+  // 14. plt/hr↑ без впливу на LCP
+  if(pphUp&&lcpStable)
+    return{uk:`Продуктивність покращилась${pphD?' +'+pphD.toFixed(0)+'%':''} без впливу на LCP — більше палет за ту саму вартість. Хороший тиждень.`,
+           en:`Productivity improved${pphD?' +'+pphD.toFixed(0)+'%':''} without LCP impact — more pallets for same cost. Good week.`};
+
+  // 15. plt/hr↓ але LCP тримається (нові адаптуються)
+  if(pphDown&&lcpStable&&lowAdapt)
+    return{uk:`plt/hr знизився через нових працівників (адаптація ${adapt?.toFixed(0)}%) але LCP тримається. Якщо об\'єм не зросте — LCP піде вгору.`,
+           en:`plt/hr dropped due to new hires (adapt. ${adapt?.toFixed(0)}%) but LCP holding. If volume doesn\'t grow — LCP will follow.`};
+
+  // 16. Стабільний тиждень
+  if(lcpStable&&volStable)
+    return{uk:`Стабільний тиждень: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Об\'єм і витрати в нормі.`,
+           en:`Stable week: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Volume and costs on track.`};
+
+  // Default
+  return{uk:`plt/hr: ${pph?.toFixed(1)||'—'}, LCP: $${lcp?.toFixed(2)||'—'}${volD?' | Об\'єм: '+(volD>0?'+':'')+volD.toFixed(0)+'%':''}${lcpD?' | LCP: '+(lcpD>0?'+':'')+lcpD.toFixed(0)+'%':''}. Змішана динаміка.`,
+         en:`plt/hr: ${pph?.toFixed(1)||'—'}, LCP: $${lcp?.toFixed(2)||'—'}${volD?' | Vol: '+(volD>0?'+':'')+volD.toFixed(0)+'%':''}${lcpD?' | LCP: '+(lcpD>0?'+':'')+lcpD.toFixed(0)+'%':''}. Mixed dynamics.`};
 }
 
 // ===================== CORRELATION CHART =====================
