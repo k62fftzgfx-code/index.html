@@ -2447,32 +2447,36 @@ function renderSatStrip(keys, bkts){
   const strip=document.getElementById('sat-strip');
   if(!strip)return;
   const hasSat=keys.some(k=>bkts&&bkts[k]?.satWorkers?.size>0);
-  if(!hasSat){strip.innerHTML='';strip.style.height='0';return;}
+  if(!hasSat){strip.innerHTML='';strip.style.height='0';strip.style.marginTop='0';return;}
 
   const canvas=document.getElementById('comboChart');
-  if(!canvas||!comboInst||!comboInst.data.labels.length){strip.innerHTML='';return;}
-  const meta=comboInst.getDatasetMeta(0);
-  if(!meta||!meta.data.length){strip.innerHTML='';return;}
-  const dpr=window.devicePixelRatio||1;
+  if(!canvas||!comboInst){strip.innerHTML='';return;}
 
-  strip.innerHTML=meta.data.map((bar,i)=>{
-    const k=keys[i];if(!k)return'';
+  // Get chart area to calculate cell width
+  const chartArea=comboInst.chartArea;
+  if(!chartArea){strip.innerHTML='';return;}
+  const dpr=window.devicePixelRatio||1;
+  const leftOffset=chartArea.left/dpr;
+  const innerW=(chartArea.right-chartArea.left)/dpr;
+  const cellW=keys.length>0?innerW/keys.length:32;
+
+  strip.style.height='14px';
+  strip.style.marginTop='2px';
+  strip.style.display='flex';
+  strip.style.alignItems='center';
+  strip.style.paddingLeft=leftOffset+'px';
+
+  strip.innerHTML=keys.map((k,i)=>{
     const cnt=bkts[k]?.satWorkers?.size||0;
-    const barW=bar.width||20;
-    const leftPx=(bar.x-barW/2)/dpr;
-    const widthPx=barW/dpr;
-    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;align-items:center;justify-content:center;">
-      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;">Sat:${cnt}</span>`
+    return`<div style="width:${cellW}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;">${cnt}</span>`
            :`<span style="font-size:9px;color:#2a3a50">·</span>`}
     </div>`;
   }).join('');
-  strip.style.position='relative';
-  strip.style.height='14px';
-  strip.style.minWidth=canvas.offsetWidth+'px';
 
   const legEnd=document.getElementById('combo-legend');
   if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
-    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Saturday workers</span>`;
+    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Sat workers</span>`;
   }
 }
 
@@ -2482,29 +2486,31 @@ function renderWorkerStrip(keys, bkts, gran){
   if(!strip)return;
 
   const canvas=document.getElementById('prodChart');
-  if(!canvas||!prodInst||!prodInst.data.labels.length){strip.innerHTML='';return;}
-  const meta=prodInst.getDatasetMeta(0);
-  if(!meta||!meta.data.length){strip.innerHTML='';return;}
-  const firstBar=meta.data[0];if(!firstBar){strip.innerHTML='';return;}
-  const barW=firstBar.width||20;
-  const dpr=window.devicePixelRatio||1;
+  if(!canvas||!prodInst){strip.innerHTML='';return;}
 
-  strip.innerHTML=meta.data.map((bar,i)=>{
-    // Use prodInst._bucketKeys for correct key-to-bar alignment
-    const k=(prodInst._bucketKeys||keys)[i];if(!k)return'';
+  const chartArea=prodInst.chartArea;
+  if(!chartArea){strip.innerHTML='';return;}
+  const dpr=window.devicePixelRatio||1;
+  const leftOffset=chartArea.left/dpr;
+  const innerW=(chartArea.right-chartArea.left)/dpr;
+  const bkeys=prodInst._bucketKeys||keys;
+  const cellW=bkeys.length>0?innerW/bkeys.length:32;
+
+  strip.style.height='38px';
+  strip.style.display='flex';
+  strip.style.alignItems='flex-start';
+  strip.style.paddingTop='3px';
+  strip.style.paddingLeft=leftOffset+'px';
+
+  strip.innerHTML=bkeys.map(k=>{
     const wc=bkts[k]?.workers||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
-    const leftPx=(bar.x-barW/2)/dpr;
-    const widthPx=barW/dpr;
-    return`<div style="position:absolute;left:${leftPx}px;width:${widthPx}px;display:flex;flex-direction:column;align-items:center;gap:1px;">
-      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#2a3a50'};line-height:1.2">${g||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#2a3a50'};line-height:1.2">${y||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#2a3a50'};line-height:1.2">${b||'·'}</span>
+    return`<div style="width:${cellW}px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;">
+      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#2a3a50'};line-height:1.3">${g||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#2a3a50'};line-height:1.3">${y||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#2a3a50'};line-height:1.3">${b||'·'}</span>
     </div>`;
   }).join('');
-  strip.style.position='relative';
-  strip.style.height='42px';
-  strip.style.minWidth=canvas.offsetWidth+'px';
 }
 
 function renderCorrChart(){
