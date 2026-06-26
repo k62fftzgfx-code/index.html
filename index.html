@@ -317,9 +317,6 @@
     <div class="chart-card main">
       <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
       <div class="chart-scroll-wrap" id="scroll1"><canvas id="comboChart" role="img" aria-label="Combo chart"></canvas></div>
-      <div id="sat-strip-wrap" style="overflow-x:auto;margin-top:2px;">
-        <div id="sat-strip" style="min-width:max-content;"></div>
-      </div>
       <div class="legend" id="combo-legend"></div>
     </div>
     <div class="chart-card donut">
@@ -346,10 +343,6 @@
         </div>
       </div>
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
-      <!-- Worker count strip -->
-      <div id="worker-strip-wrap" style="overflow-x:auto;margin-top:4px;">
-        <div id="worker-strip" style="display:flex;gap:0;min-width:max-content;padding:4px 0 2px;"></div>
-      </div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
         <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive</span>
@@ -561,6 +554,7 @@ const LOC_NAME_MAP = {
 let rawData = [], timeData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
 let topInst=null, dowInst=null, prodInst=null, corrInst=null;
+let satCanvasData={};
 let selectedBucket=null; // globally selected bucket key for cross-chart highlight
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
@@ -1344,7 +1338,7 @@ function renderOperations(){
     data:{labels:dispLabels,datasets},
     options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
-      layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:6}},
+      layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:20}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if(ctx.dataset.label==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -1373,13 +1367,28 @@ function renderOperations(){
       ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(val.toFixed(1),pt.x,by+bh/2);ctx.restore();
     });
+    // Draw sat workers below X-axis on canvas
+    const bottom=chart.chartArea.bottom;
+    ctx.save();
+    ctx.font='bold 9px -apple-system,sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    meta.data.forEach((bar,i)=>{
+      const k=keys[i];if(!k)return;
+      const cnt=satCanvasData&&satCanvasData[k]||0;
+      if(!cnt)return;
+      ctx.fillStyle='#e07070';
+      ctx.fillText(cnt,bar.x,bottom+10);
+    });
+    ctx.restore();
   }}]});
   comboInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  // Sat strip needs buildProdBuckets data (has satWorkers), not combo buckets
+  // Build sat data for canvas drawing
   const{gran:satGran,years:satYears,locs:satLocs,isDaily:satIsDaily,dateFrom:satFrom,dateTo:satTo,selectedPeriods:satSP}=getFilters();
   const{bkts:satBkts}=buildProdBuckets(satGran,satYears,satLocs,satSP,satIsDaily,satFrom,satTo);
-  renderSatStrip(keys, satBkts);
+  satCanvasData={};
+  keys.forEach(k=>{satCanvasData[k]=satBkts[k]?.satWorkers?.size||0;});
+  comboInst.update('none');
 
   const dTot=DIR_FIELD.map(f=>{if(dirF!=='ALL'&&f!==dirF)return 0;return keys.reduce((s,k)=>s+(buckets[k][f]||0),0);});
   const gTot=dTot.reduce((a,b)=>a+b,0);
@@ -2242,7 +2251,7 @@ function renderProductivity(){
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
-      layout:{padding:{top:28,right:14,left:6,bottom:6}},
+      layout:{padding:{top:28,right:14,left:6,bottom:42}},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
@@ -2283,9 +2292,7 @@ function renderProductivity(){
         ctx.textAlign='center';ctx.textBaseline='bottom';
         meta.data.forEach((bar,i)=>{
           const v=ds.data[i];if(v===null||v===undefined||v===0)return;
-          // plt/hr value
           ctx.fillText(v.toFixed(1),bar.x,bar.y-3);
-          // Lost pallets above productive bar
           if(isProd&&activeProdThr){
             const bkt=buckets[keys[i]];
             if(bkt&&bkt.prodHours>0){
@@ -2302,11 +2309,40 @@ function renderProductivity(){
         });
         ctx.restore();
       });
+
+      // Draw worker strip below X-axis directly on canvas
+      const prodBarDS=chart.data.datasets.find(d=>d.label==='Productive Hours');
+      if(!prodBarDS)return;
+      const mi=chart.data.datasets.indexOf(prodBarDS);
+      const meta=chart.getDatasetMeta(mi);
+      const bottom=chart.chartArea.bottom;
+      const rowH=12, gap=1;
+      const colors={green:'#6aab90',yellow:'#f0a050',blue:'#4a7fa0',dim:'#2a3a50'};
+
+      meta.data.forEach((bar,i)=>{
+        const k=keys[i];if(!k)return;
+        const wc=buckets[k]?.workers;
+        if(!wc)return;
+        const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
+        const x=bar.x;
+        ctx.save();
+        ctx.font='bold 9px -apple-system,sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        // row1: green
+        ctx.fillStyle=g?colors.green:colors.dim;
+        ctx.fillText(g||'·',x,bottom+rowH*1-gap);
+        // row2: yellow
+        ctx.fillStyle=y?colors.yellow:colors.dim;
+        ctx.fillText(y||'·',x,bottom+rowH*2-gap);
+        // row3: blue
+        ctx.fillStyle=b?colors.blue:colors.dim;
+        ctx.fillText(b||'·',x,bottom+rowH*3-gap);
+        ctx.restore();
+      });
     }}]
   });
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
-  renderWorkerStrip(keys, buckets, gran);
 }
 
 // ===================== INSIGHT TOOLTIP (deterministic) =====================
