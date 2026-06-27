@@ -2668,20 +2668,22 @@ function renderCorrMatrix(){
   const tbl=document.getElementById('corr-matrix-table');
   if(!tbl||!keys.length)return;
 
-  const pph=keys.map(k=>{const d=bkts[k];return d.prodHours>0?d.pallets/d.prodHours:null;}).filter(v=>v!==null);
-  const lcp=keys.map(k=>{const d=bkts[k];return d.pallets>0?d.costs2/d.pallets:null;}).filter(v=>v!==null);
-  const hr=keys.map(k=>{const d=bkts[k];return d.hours>0?d.costs2/d.hours:null;}).filter(v=>v!==null);
-  const pallets=keys.map(k=>bkts[k].pallets).filter(v=>v>0);
+  // Only use weeks where ALL metrics are available
+  const validKeys=keys.filter(k=>{
+    const d=bkts[k];
+    return d.pallets>0 && d.costs2>0 && d.prodHours>0 && d.allHours>0;
+  });
 
-  // Align arrays to same length
-  const minLen=Math.min(pph.length,lcp.length,hr.length,pallets.length);
-  const P=pph.slice(0,minLen),L=lcp.slice(0,minLen),H=hr.slice(0,minLen),PAL=pallets.slice(0,minLen);
+  const pph  =validKeys.map(k=>{const d=bkts[k];return d.pallets/d.prodHours;});
+  const lcp  =validKeys.map(k=>{const d=bkts[k];return d.costs2/d.pallets;});
+  const hr   =validKeys.map(k=>{const d=bkts[k];return d.costs2/d.allHours;});
+  const pal  =validKeys.map(k=>bkts[k].pallets);
 
   const metrics=[
-    {label:'Prod plt/hr', vals:P},
-    {label:'LCP $', vals:L},
-    {label:'Avg hourly $', vals:H},
-    {label:'Pallets', vals:PAL},
+    {label:'Prod plt/hr', vals:pph},
+    {label:'LCP $',       vals:lcp},
+    {label:'Avg hourly $',vals:hr},
+    {label:'Pallets',     vals:pal},
   ];
 
   function corrColor(r){
