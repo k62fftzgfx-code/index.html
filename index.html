@@ -1344,12 +1344,17 @@ function renderOperations(){
     if(isDaily)return;
     const{ctx}=chart;
     const bds=chart.data.datasets.filter(d=>d.yAxisID==='yP');if(!bds.length)return;
-    const tot={};bds.forEach(d=>d.data.forEach((v,i)=>{tot[i]=(tot[i]||0)+(v||0);}));
+    // Use sumPallets (includes Sunday rows) not direction totals
     const li=chart.data.datasets.map((d,i)=>({d,i})).filter(x=>x.d.yAxisID==='yP').pop()?.i;
     if(li===undefined)return;
     const meta=chart.getDatasetMeta(li);
     ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
-    meta.data.forEach((bar,i)=>{const t=tot[i]||0;if(t===0)return;ctx.fillText(fmtTop(t),bar.x,bar.y-3);});
+    meta.data.forEach((bar,i)=>{
+      const k=keys[i];if(!k)return;
+      const t=buckets[k]?.sumPallets||0;
+      if(t===0)return;
+      ctx.fillText(fmtTop(t),bar.x,bar.y-3);
+    });
     ctx.restore();
     const lni=chart.data.datasets.findIndex(d=>d.yAxisID==='yL'&&d.label==='Labor cost/pallet');if(lni<0)return;
     const lm=chart.getDatasetMeta(lni),ld=chart.data.datasets[lni].data;
