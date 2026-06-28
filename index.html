@@ -312,6 +312,7 @@
     <div class="kpi-card" id="kpi-card-lcp"><div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value highlight" id="kpi-lcp">—</div><div class="kpi-threshold-hint" id="kpi-lcp-hint"></div></div>
     <div class="kpi-card"><div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="kpi-hourly">—</div></div>
     <div class="kpi-card"><div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="kpi-cost">—</div></div>
+    <div class="kpi-card" id="kpi-card-util"><div class="kpi-label">Utilization Rate</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="kpi-util">—</div><div class="kpi-threshold-hint" id="kpi-util-hint"></div></div>
   </div>
   <div class="charts-row">
     <div class="chart-card main">
@@ -1042,6 +1043,16 @@ function renderProdTable(){
   if(targetPphRow) rows.push({label:'Target plt/hr', data:targetPphRow, color:'#E24B4A', fmt:v=>v===null?'—':v});
   if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
     fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
+
+  // Utilization Rate per bucket
+  const utilRow=activeThr?keys.map(k=>{
+    const d=bkts[k];
+    if(!d.prodHours||!d.pallets)return null;
+    const target=activeThr*d.prodHours;
+    return target>0?(d.pallets/target*100).toFixed(1)+'%':null;
+  }):null;
+  if(utilRow) rows.push({label:'Utilization %', data:utilRow, color:'', isUtil:true,
+    fmt:v=>v===null?'—':v});
   // Saturday workers
   const satRow=keys.map(k=>bkts[k].satWorkers?bkts[k].satWorkers.size:null);
   if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#e07070', fmt:v=>v===null||v===0?'—':v});
@@ -1055,8 +1066,13 @@ function renderProdTable(){
     <tr>
       <td style="color:${row.color||'#6a7d9a'}">${row.label}</td>
       ${row.data.map(v=>{
-        const cls=row.isLost&&v!==null?(v>0?'val-red':'val-green'):'';
-        const style=!row.isLost&&row.color?`color:${row.color}`:'';
+        let cls='', style='';
+        if(row.isLost&&v!==null){cls=v>0?'val-red':'val-green';}
+        else if(row.isUtil&&v!==null){
+          const pct=parseFloat(v);
+          style=`color:${pct>=90?'#6aab90':pct>=75?'#f0a050':'#e07070'}`;
+        }
+        else if(!row.isLost&&row.color){style=`color:${row.color}`;}
         return`<td class="${cls}" style="${style}">${row.fmt(v)}</td>`;
       }).join('')}
     </tr>`).join('')
@@ -1310,6 +1326,31 @@ function renderOperations(){
   document.getElementById('kpi-hwyimd').textContent=fmtKPI(kpiHwyImd);
   document.getElementById('kpi-hourly').textContent=kpiAvgH!==null?'$'+kpiAvgH.toFixed(2):'—';
   document.getElementById('kpi-cost').textContent=fmtKPI(kpiCosts2,'$');
+
+  // Utilization Rate = Actual pallets / Target pallets × 100%
+  // Built after buildProdBuckets in renderProductivity — calculate here from scratch
+  const utilEl=document.getElementById('kpi-util');
+  const utilHint=document.getElementById('kpi-util-hint');
+  const utilCard=document.getElementById('kpi-card-util');
+  const activeProdThrKpi=getActiveProdThreshold(locs);
+  if(activeProdThrKpi&&kpiSumPallets>0){
+    // Need prod hours — get from buildProdBuckets
+    const{bkts:utilBkts}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
+    const totalProdHrs=Object.values(utilBkts).reduce((s,b)=>s+b.prodHours,0);
+    const targetPallets=activeProdThrKpi*totalProdHrs;
+    const utilRate=targetPallets>0?kpiSumPallets/targetPallets*100:null;
+    if(utilRate!==null){
+      const utilColor=utilRate>=90?'#6aab90':utilRate>=75?'#f0a050':'#e07070';
+      utilEl.textContent=utilRate.toFixed(1)+'%';
+      utilEl.style.color=utilColor;
+      utilCard.querySelector('.kpi-bar').style.background=utilColor;
+      const utilLabel=utilRate>=90?'✅ On target':utilRate>=75?'⚠️ Below target':'🔴 Low utilization';
+      if(utilHint) utilHint.textContent=`Target: ${Math.round(targetPallets).toLocaleString()} pallets`;
+    }
+  } else {
+    if(utilEl) utilEl.textContent='—';
+    if(utilHint) utilHint.textContent='Set Labor Productivity target';
+  }
 
   const keys=Object.keys(buckets).sort();if(!keys.length)return;
   const dispLabels=keys.map(k=>getDisplayLabel(k,gran));
