@@ -2209,11 +2209,27 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
     const yw=String(r.yearWeek||'').trim();
     let key=null;
     if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
-    else if(gran==='monthly'||gran==='quarterly'){const rr=rawData.find(x=>x._location===loc&&String(x[COL.yearWeek]||'').trim()===yw);if(rr)key=getBucketKey(rr,gran);}
+    else if(gran==='monthly'){
+      // Use Thursday rule: find Thursday of this ISO week to determine month
+      const thuDt=new Date(pd.dt);thuDt.setDate(thuDt.getDate()+(4-thuDt.getDay()+7)%7);
+      key=String(thuDt.getFullYear())+'-'+String(thuDt.getMonth()+1).padStart(2,'0');
+    }
+    else if(gran==='quarterly'){
+      const thuDt=new Date(pd.dt);thuDt.setDate(thuDt.getDate()+(4-thuDt.getDay()+7)%7);
+      const q=Math.ceil((thuDt.getMonth()+1)/3);
+      key=String(thuDt.getFullYear())+'Q'+q;
+    }
     else if(gran==='yearly'){key=String(pd.y);}
     else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
-    if(!key||!bkts[key])return;
+    if(!key)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
+    // Create bucket if doesn't exist (time data may exist without pallet data)
+    if(!bkts[key])bkts[key]={
+      pallets:0, allHours:0, prodHours:0,
+      rawProdHours:0, weightedSum:0, costs2:0,
+      satWorkers:new Set(),
+      workers:{green:new Set(),yellow:new Set(),blue:new Set()}
+    };
 
     const hrs=toNum(r.totalHours);
     const name=String(r.employeeName||'').trim();
