@@ -1386,7 +1386,7 @@ function renderOperations(){
   const tipHr=document.getElementById('tip-hourly-formula');
   if(tipHr) tipHr.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${kpiTotalTime.toFixed(0)} hrs = ${kpiAvgH!==null?'$'+kpiAvgH.toFixed(2):'—'}`;
   const tipCost=document.getElementById('tip-cost-formula');
-  if(tipCost) tipCost.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})} (${keys.length} weeks)`;
+  if(tipCost) tipCost.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})}`;
 
   // Utilization Rate = Actual pallets / Target pallets × 100%
   // Built after buildProdBuckets in renderProductivity — calculate here from scratch
