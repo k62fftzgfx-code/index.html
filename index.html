@@ -1388,30 +1388,32 @@ function renderOperations(){
   const tipCost=document.getElementById('tip-cost-formula');
   if(tipCost) tipCost.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})}`;
 
-  // Utilization Rate = Actual pallets / Target pallets × 100%
-  // Built after buildProdBuckets in renderProductivity — calculate here from scratch
+  // Utilization Rate = Σ(target_loc × prod_hrs_loc) per location
   const utilEl=document.getElementById('kpi-util');
   const utilHint=document.getElementById('kpi-util-hint');
   const utilCard=document.getElementById('kpi-card-util');
-  const activeProdThrKpi=getActiveProdThreshold(locs);
-  if(activeProdThrKpi&&kpiSumPallets>0){
-    // Need prod hours — get from buildProdBuckets
-    const{bkts:utilBkts}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
-    const totalProdHrs=Object.values(utilBkts).reduce((s,b)=>s+b.prodHours,0);
-    const targetPallets=activeProdThrKpi*totalProdHrs;
-    const utilRate=targetPallets>0?kpiSumPallets/targetPallets*100:null;
+  if(utilEl&&kpiSumPallets>0){
+    let totalTargetPallets=0;
+    locs.forEach(loc=>{
+      const thr=getProdThreshold(loc);
+      if(!thr)return;
+      const{bkts:locBkts}=buildProdBuckets(gran,years,[loc],selectedPeriods,isDaily,dateFrom,dateTo);
+      const locProdH=Object.values(locBkts).reduce((s,b)=>s+b.prodHours,0);
+      totalTargetPallets+=thr*locProdH;
+    });
+    const utilRate=totalTargetPallets>0?kpiSumPallets/totalTargetPallets*100:null;
     if(utilRate!==null){
       const utilColor=utilRate>=90?'#6aab90':utilRate>=75?'#f0a050':'#e07070';
       utilEl.textContent=utilRate.toFixed(1)+'%';
       utilEl.style.color=utilColor;
-      utilCard.querySelector('.kpi-bar').style.background=utilColor;
-      if(utilHint) utilHint.textContent=`Target: ${Math.round(targetPallets).toLocaleString()} pallets`;
+      if(utilCard) utilCard.querySelector('.kpi-bar').style.background=utilColor;
+      if(utilHint) utilHint.textContent=`Target: ${Math.round(totalTargetPallets).toLocaleString()} pallets`;
       const tipUtil=document.getElementById('tip-util-formula');
-      if(tipUtil) tipUtil.textContent=`${kpiSumPallets.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${Math.round(targetPallets).toLocaleString()} = ${utilRate.toFixed(1)}%`;
+      if(tipUtil) tipUtil.textContent=`${kpiSumPallets.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${Math.round(totalTargetPallets).toLocaleString()} = ${utilRate.toFixed(1)}%`;
+    } else {
+      utilEl.textContent='—';
+      if(utilHint) utilHint.textContent='Set Labor Productivity targets';
     }
-  } else {
-    if(utilEl) utilEl.textContent='—';
-    if(utilHint) utilHint.textContent='Set Labor Productivity target';
   }
 
   const keys=Object.keys(buckets).sort();if(!keys.length)return;
