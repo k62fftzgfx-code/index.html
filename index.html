@@ -86,14 +86,23 @@
   .threshold-item input[type=number]:focus { border-color: #f0a050; }
 
   /* KPI Cards */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
-  .kpi-card { background: #1e2840; border-radius: 12px; border: 0.5px solid #2e3d5c; padding: 14px 16px; transition: border-color 0.3s; }
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi-card { background: #1e2840; border-radius: 12px; border: 0.5px solid #2e3d5c; padding: 10px 14px; transition: border-color 0.3s; }
   .kpi-card.alert { border-color: #E24B4A; background: #2a1e20; }
-  .kpi-label { font-size: 10px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
-  .kpi-bar { height: 3px; background: #4a9fd4; border-radius: 2px; margin-bottom: 10px; width: 60%; }
-  .kpi-value { font-size: 22px; font-weight: 500; color: #e0e8f8; }
+  .kpi-label { font-size: 9px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-bar { height: 3px; background: #4a9fd4; border-radius: 2px; margin-bottom: 8px; width: 60%; }
+  .kpi-value { font-size: 20px; font-weight: 500; color: #e0e8f8; }
   .kpi-value.highlight { color: #7dd4f0; }
   .kpi-value.alert-val { color: #E24B4A; }
+  /* KPI formula tooltip */
+  .kpi-card { position: relative; cursor: default; }
+  .kpi-formula-tip { display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); z-index:500;
+    background:#1a2540; border:1px solid #4a7ab0; border-radius:10px; padding:10px 14px;
+    font-size:11px; line-height:1.7; color:#c8d8f0; white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,0,0,0.5); pointer-events:none; }
+  .kpi-formula-tip .tip-title { font-size:10px; color:#6a7d9a; margin-bottom:4px; }
+  .kpi-formula-tip .tip-formula { color:#7dd4f0; font-weight:600; }
+  .kpi-card:hover .kpi-formula-tip { display:block; }
   .kpi-threshold-hint { font-size: 10px; color: #7a8daa; margin-top: 4px; }
   .kpi-threshold-hint.over { color: #E24B4A; }
 
@@ -308,11 +317,53 @@
 <!-- ===== TAB 1: OPERATIONS ===== -->
 <div class="tab-content active" id="tab-operations">
   <div class="kpi-row">
-    <div class="kpi-card" id="kpi-card-hwyimd"><div class="kpi-label">Total HWY/IMD</div><div class="kpi-bar"></div><div class="kpi-value" id="kpi-hwyimd">—</div></div>
-    <div class="kpi-card" id="kpi-card-lcp"><div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value highlight" id="kpi-lcp">—</div><div class="kpi-threshold-hint" id="kpi-lcp-hint"></div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="kpi-hourly">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="kpi-cost">—</div></div>
-    <div class="kpi-card" id="kpi-card-util"><div class="kpi-label">Utilization Rate</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="kpi-util">—</div><div class="kpi-threshold-hint" id="kpi-util-hint"></div></div>
+    <div class="kpi-card" id="kpi-card-hwyimd">
+      <div class="kpi-label">Total HWY/IMD</div><div class="kpi-bar"></div>
+      <div class="kpi-value" id="kpi-hwyimd">—</div>
+      <div class="kpi-formula-tip">
+        <div class="tip-title">TOTAL HWY/IMD</div>
+        <div class="tip-formula" id="tip-hwyimd-formula">—</div>
+        <div style="color:#6a7d9a;font-size:10px">Sum of Highway + Intermodal pallets<br>from Sunday summary rows</div>
+      </div>
+    </div>
+    <div class="kpi-card" id="kpi-card-lcp">
+      <div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#7dd4f0"></div>
+      <div class="kpi-value highlight" id="kpi-lcp">—</div>
+      <div class="kpi-threshold-hint" id="kpi-lcp-hint"></div>
+      <div class="kpi-formula-tip">
+        <div class="tip-title">LABOR COST PER PALLET</div>
+        <div class="tip-formula" id="tip-lcp-formula">—</div>
+        <div style="color:#6a7d9a;font-size:10px">Total costs ÷ Total pallets</div>
+      </div>
+    </div>
+    <div class="kpi-card" id="kpi-card-hourly">
+      <div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#f0a050"></div>
+      <div class="kpi-value" id="kpi-hourly">—</div>
+      <div class="kpi-formula-tip">
+        <div class="tip-title">AVG HOURLY PRICE</div>
+        <div class="tip-formula" id="tip-hourly-formula">—</div>
+        <div style="color:#6a7d9a;font-size:10px">Total costs ÷ Total hours worked</div>
+      </div>
+    </div>
+    <div class="kpi-card" id="kpi-card-cost">
+      <div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#6aab90"></div>
+      <div class="kpi-value" id="kpi-cost">—</div>
+      <div class="kpi-formula-tip">
+        <div class="tip-title">TOTAL COST</div>
+        <div class="tip-formula" id="tip-cost-formula">—</div>
+        <div style="color:#6a7d9a;font-size:10px">Sum of Costs2 from Sunday summary rows<br>(weekly labor cost totals)</div>
+      </div>
+    </div>
+    <div class="kpi-card" id="kpi-card-util">
+      <div class="kpi-label">Utilization Rate</div><div class="kpi-bar" style="background:#a07dd4"></div>
+      <div class="kpi-value" id="kpi-util">—</div>
+      <div class="kpi-threshold-hint" id="kpi-util-hint"></div>
+      <div class="kpi-formula-tip">
+        <div class="tip-title">UTILIZATION RATE</div>
+        <div class="tip-formula" id="tip-util-formula">—</div>
+        <div style="color:#6a7d9a;font-size:10px">Actual pallets ÷ Target pallets × 100%<br>Target = Labor Productivity target × Prod hrs</div>
+      </div>
+    </div>
   </div>
   <div class="charts-row">
     <div class="chart-card main">
@@ -1327,6 +1378,16 @@ function renderOperations(){
   document.getElementById('kpi-hourly').textContent=kpiAvgH!==null?'$'+kpiAvgH.toFixed(2):'—';
   document.getElementById('kpi-cost').textContent=fmtKPI(kpiCosts2,'$');
 
+  // Update formula tooltips
+  const tipHwy=document.getElementById('tip-hwyimd-formula');
+  if(tipHwy) tipHwy.textContent=`${fmtKPI(kpiHwyImd)} pallets`;
+  const tipLcp=document.getElementById('tip-lcp-formula');
+  if(tipLcp) tipLcp.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${kpiSumPallets.toLocaleString(undefined,{maximumFractionDigits:0})} pallets = ${kpiLCP!==null?'$'+kpiLCP.toFixed(2):'—'}`;
+  const tipHr=document.getElementById('tip-hourly-formula');
+  if(tipHr) tipHr.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${kpiTotalTime.toFixed(0)} hrs = ${kpiAvgH!==null?'$'+kpiAvgH.toFixed(2):'—'}`;
+  const tipCost=document.getElementById('tip-cost-formula');
+  if(tipCost) tipCost.textContent=`$${kpiCosts2.toLocaleString(undefined,{maximumFractionDigits:0})} (${keys.length} weeks)`;
+
   // Utilization Rate = Actual pallets / Target pallets × 100%
   // Built after buildProdBuckets in renderProductivity — calculate here from scratch
   const utilEl=document.getElementById('kpi-util');
@@ -1344,8 +1405,9 @@ function renderOperations(){
       utilEl.textContent=utilRate.toFixed(1)+'%';
       utilEl.style.color=utilColor;
       utilCard.querySelector('.kpi-bar').style.background=utilColor;
-      const utilLabel=utilRate>=90?'✅ On target':utilRate>=75?'⚠️ Below target':'🔴 Low utilization';
       if(utilHint) utilHint.textContent=`Target: ${Math.round(targetPallets).toLocaleString()} pallets`;
+      const tipUtil=document.getElementById('tip-util-formula');
+      if(tipUtil) tipUtil.textContent=`${kpiSumPallets.toLocaleString(undefined,{maximumFractionDigits:0})} ÷ ${Math.round(targetPallets).toLocaleString()} = ${utilRate.toFixed(1)}%`;
     }
   } else {
     if(utilEl) utilEl.textContent='—';
