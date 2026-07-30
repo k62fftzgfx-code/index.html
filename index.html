@@ -295,65 +295,67 @@
     <div class="shift-grid-header">Day end</div>
     <div class="shift-grid-header">Night start</div>
     <div class="shift-grid-header">Night end</div>
-    <div class="shift-grid-header">Plan FO</div>
+    <div class="shift-grid-header" style="color:#f0a050;border-left:1px solid #2e3d5c;padding-left:8px;">🔬 Sim FO</div>
 
     <div class="shift-grid-label">Markham, IL West</div>
     <input type="time" class="shift-time-input" id="sh-mrk-ds" value="06:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrk-de" value="18:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrk-ns" value="17:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrk-ne" value="05:00" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-mrk-fo" value="7" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-mrk-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Markham, IL East</div>
     <input type="time" class="shift-time-input" id="sh-mrke-ds" value="07:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrke-de" value="18:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrke-ns" value="" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-mrke-ne" value="" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-mrke-fo" value="2" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-mrke-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Reno, NV</div>
     <input type="time" class="shift-time-input" id="sh-reno-ds" value="07:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-reno-de" value="15:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-reno-ns" value="14:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-reno-ne" value="22:00" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-reno-fo" value="4" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-reno-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Stockton, CA</div>
     <input type="time" class="shift-time-input" id="sh-stk-ds" value="07:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-stk-de" value="15:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-stk-ns" value="15:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-stk-ne" value="23:00" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-stk-fo" value="3" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-stk-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">San Bernardino, CA</div>
     <input type="time" class="shift-time-input" id="sh-sanb-ds" value="05:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-sanb-de" value="14:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-sanb-ns" value="14:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-sanb-ne" value="23:00" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-sanb-fo" value="5" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-sanb-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Denver, CO</div>
     <input type="time" class="shift-time-input" id="sh-den-ds" value="06:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-den-de" value="15:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-den-ns" value="" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-den-ne" value="" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-den-fo" value="2" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-den-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Columbus, OH</div>
     <input type="time" class="shift-time-input" id="sh-col-ds" value="07:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-col-de" value="16:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-col-ns" value="" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-col-ne" value="" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-col-fo" value="2" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-col-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Greenville, SC</div>
     <input type="time" class="shift-time-input" id="sh-grv-ds" value="07:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-grv-de" value="16:00" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-grv-ns" value="" onchange="renderOperations()">
     <input type="time" class="shift-time-input" id="sh-grv-ne" value="" onchange="renderOperations()">
-    <input type="number" class="shift-fo-input" id="sh-grv-fo" value="2" min="0" step="1" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-grv-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
   </div>
-  <div style="font-size:9px;color:#4a5a70;margin-top:6px;">Night end після опівночі — система автоматично враховує перехід через північ · Порожні поля = одна зміна</div>
+  <div style="font-size:9px;color:#4a5a70;margin-top:6px;">
+    Порожній Sim FO = автоматично з Deputy даних · Заповни для симуляції · Ніч через північ враховується автоматично
+  </div>
 </div>
   </div>
   <div style="position:relative;display:inline-block;">
@@ -1142,23 +1144,13 @@ function renderProdTable(){
   const activeThr=getActiveProdThreshold(locs);
 
   // Rows
-  // Planned prod hrs per bucket — from shift plan × FO headcount × adapt coef
-  // For each key: count weeks in bucket, calc planned hrs per loc
+  // Planned prod hrs per bucket — from shift plan + actual FO from Deputy (or Sim FO)
   const plannedProdHrsRow=keys.map(k=>{
-    // Count how many weeks in this bucket
-    const weeksInBucket=gran==='weekly'?1:
-      gran==='monthly'?4.33:
-      gran==='quarterly'?13:
-      gran==='yearly'?52:1;
-    // Sum planned prod hrs across selected locs
+    const d=bkts[k];
+    const adaptCoef=d.rawProdHours>0?d.weightedSum/d.rawProdHours:1.0;
     let total=0;
     locs.forEach(loc=>{
-      const sh=getShiftHours(loc);
-      if(!sh.fo||!sh.total)return;
-      // Apply avg adapt coef for this bucket/loc
-      const d=bkts[k];
-      const adaptCoef=d.rawProdHours>0?d.weightedSum/d.rawProdHours:1.0;
-      total+=sh.fo*sh.total*weeksInBucket*adaptCoef;
+      total+=calcPlannedProdHrs(loc,k,gran,years,selectedPeriods,adaptCoef);
     });
     return total>0?Math.round(total):null;
   });
@@ -2406,32 +2398,103 @@ const SHIFT_IDS = {
   'Greenville, SC':     'grv',
 };
 
+function calcShiftHrs(start,end){
+  if(!start||!end)return 0;
+  const[sh,sm]=start.split(':').map(Number);
+  const[eh,em]=end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<=0)mins+=24*60; // overnight
+  return mins/60;
+}
+
 function getShiftHours(loc){
-  const id=SHIFT_IDS[loc];if(!id)return{day:0,night:0,total:0,fo:0};
+  const id=SHIFT_IDS[loc];if(!id)return{day:0,night:0,total:0};
   const ds=document.getElementById(`sh-${id}-ds`)?.value;
   const de=document.getElementById(`sh-${id}-de`)?.value;
   const ns=document.getElementById(`sh-${id}-ns`)?.value;
   const ne=document.getElementById(`sh-${id}-ne`)?.value;
-  const fo=parseFloat(document.getElementById(`sh-${id}-fo`)?.value)||0;
-
-  function calcHrs(start,end){
-    if(!start||!end)return 0;
-    const [sh,sm]=start.split(':').map(Number);
-    const [eh,em]=end.split(':').map(Number);
-    let hrs=(eh*60+em)-(sh*60+sm);
-    if(hrs<=0)hrs+=24*60; // overnight shift
-    return hrs/60;
-  }
-
-  const dayHrs=calcHrs(ds,de);
-  const nightHrs=calcHrs(ns,ne);
-  return{day:dayHrs,night:nightHrs,total:dayHrs+nightHrs,fo};
+  const dayHrs=calcShiftHrs(ds,de);
+  const nightHrs=calcShiftHrs(ns,ne);
+  return{day:dayHrs,night:nightHrs,total:dayHrs+nightHrs,
+         dayStart:ds?parseInt(ds):6, nightStart:ns?parseInt(ns):null};
 }
 
-function getPlannedProdHrs(loc, weekCount=1){
-  // Planned prod hrs = FO count × total shift hours × weeks × adapt (not applied here)
+function getSimFO(loc){
+  const id=SHIFT_IDS[loc];if(!id)return null;
+  const val=document.getElementById(`sh-${id}-sim`)?.value;
+  return val&&val!==''?parseFloat(val):null;
+}
+
+// Get actual FO count from timeData for a specific bucket key and location
+function getActualFOCount(loc, bucketKey, gran, years, selectedPeriods){
   const sh=getShiftHours(loc);
-  return sh.fo * sh.total * weekCount;
+  const dayStartHr=sh.dayStart||6;
+  const nightStartHr=sh.nightStart||17;
+
+  const dayFO=new Set(), nightFO=new Set();
+
+  timeData.forEach(r=>{
+    const role=String(r.role||'').trim();
+    if(role!=='Forklift Operator')return;
+    const locMapped=LOC_NAME_MAP[String(r.locationName||'').trim().toLowerCase()]||null;
+    if(locMapped!==loc)return;
+    const pd=parseDate(r.date);if(!pd||!years.includes(pd.y))return;
+
+    // Check if this record belongs to the bucket
+    const yw=String(r.yearWeek||'').trim();
+    let key=null;
+    if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
+    else if(gran==='monthly'){const th=new Date(pd.dt);th.setDate(th.getDate()+(4-th.getDay()+7)%7);key=String(th.getFullYear())+'-'+String(th.getMonth()+1).padStart(2,'0');}
+    else if(gran==='quarterly'){const th=new Date(pd.dt);th.setDate(th.getDate()+(4-th.getDay()+7)%7);key=String(th.getFullYear())+'Q'+Math.ceil((th.getMonth()+1)/3);}
+    else if(gran==='yearly'){key=String(pd.y);}
+    if(key!==bucketKey)return;
+    if(selectedPeriods&&!selectedPeriods.has(key))return;
+
+    // Classify shift by start hour
+    const startHr=parseInt(String(r.start||'0').split(':')[0])||0;
+    const name=String(r.employeeName||'').trim();
+    // Day: within 3h of dayStart, Night: within 3h of nightStart
+    if(Math.abs(startHr-dayStartHr)<=3) dayFO.add(name+pd.str);
+    else if(sh.nightStart!==null&&Math.abs(startHr-nightStartHr)<=3) nightFO.add(name+pd.str);
+    else if(startHr<=12) dayFO.add(name+pd.str);
+    else nightFO.add(name+pd.str);
+  });
+
+  // Unique FO per day — count unique name+date combos / days in bucket
+  const daysInBucket=gran==='weekly'?6:gran==='monthly'?26:gran==='quarterly'?78:365;
+  const dayCount=dayFO.size/daysInBucket;
+  const nightCount=nightFO.size/daysInBucket;
+  return{day:Math.round(dayCount*10)/10, night:Math.round(nightCount*10)/10};
+}
+
+// Calculate planned prod hours for a bucket
+function calcPlannedProdHrs(loc, bucketKey, gran, years, selectedPeriods, adaptCoef=1.0){
+  const sim=getSimFO(loc);
+  const sh=getShiftHours(loc);
+  if(!sh.total)return 0;
+
+  const daysInBucket=gran==='weekly'?6:gran==='monthly'?26:gran==='quarterly'?78:365;
+
+  let dayFO, nightFO;
+  if(sim!==null){
+    // Simulation mode — split evenly between shifts
+    dayFO=sh.night>0?sim/2:sim;
+    nightFO=sh.night>0?sim/2:0;
+  } else {
+    // Auto mode — from Deputy data
+    const actual=getActualFOCount(loc,bucketKey,gran,years,selectedPeriods);
+    dayFO=actual.day;
+    nightFO=actual.night;
+  }
+
+  const planned=(dayFO*sh.day + nightFO*sh.night)*daysInBucket*adaptCoef;
+  return planned;
+}
+
+function getShiftHoursLegacy(loc){return getShiftHours(loc);}
+function getPlannedProdHrs(loc,weekCount=1){
+  const sh=getShiftHours(loc);
+  return sh.total*weekCount;
 }
 
 function getProdThreshold(loc){
@@ -2564,14 +2627,10 @@ function renderProductivity(){
           if(isProd&&activeProdThr){
             const bkt=buckets[keys[i]];
             if(bkt&&bkt.prodHours>0){
-              // Use planned prod hrs from shift plan
-              const weeksInBucket=gran==='weekly'?1:gran==='monthly'?4.33:gran==='quarterly'?13:52;
+              const adaptCoef=bkt.rawProdHours>0?bkt.weightedSum/bkt.rawProdHours:1.0;
               let plannedPH=0;
               locs.forEach(loc=>{
-                const sh=getShiftHours(loc);
-                if(!sh.fo||!sh.total)return;
-                const adaptCoef=bkt.rawProdHours>0?bkt.weightedSum/bkt.rawProdHours:1.0;
-                plannedPH+=sh.fo*sh.total*weeksInBucket*adaptCoef;
+                plannedPH+=calcPlannedProdHrs(loc,keys[i],gran,years,selectedPeriods,adaptCoef);
               });
               const usePH=plannedPH>0?plannedPH:bkt.prodHours;
               const lost=Math.round((activeProdThr-v)*usePH);
