@@ -75,9 +75,16 @@
   .status.err { color: #e07070; border-color: #4a2a2a; }
 
   /* Threshold panel */
-  .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:460px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:560px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
   .threshold-panel.visible { display: block; }
-  .threshold-panel.visible { display: block; }
+  /* Shift plan grid */
+  .shift-grid { display:grid; grid-template-columns: 140px repeat(4,72px) 60px; gap:4px 8px; align-items:center; margin-top:4px; }
+  .shift-grid-header { font-size:9px; color:#6a7d9a; text-align:center; text-transform:uppercase; letter-spacing:0.4px; padding-bottom:2px; border-bottom:1px solid #2e3d5c; }
+  .shift-grid-label { font-size:10px; color:#8a9dba; }
+  .shift-time-input { font-size:11px; padding:3px 4px; border:1px solid #2e3d5c; border-radius:6px; background:#1a2035; color:#c8d8f0; outline:none; width:68px; text-align:center; }
+  .shift-time-input:focus { border-color:#6aab90; }
+  .shift-fo-input { font-size:11px; padding:3px 4px; border:1px solid #2e3d5c; border-radius:6px; background:#1a2035; color:#a07dd4; outline:none; width:52px; text-align:center; }
+  .shift-fo-input:focus { border-color:#a07dd4; }
   .threshold-panel-title { font-size: 11px; color: #f0a050; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
   .threshold-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 12px; }
   .threshold-item { display: flex; align-items: center; gap: 6px; }
@@ -279,6 +286,74 @@
     <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="3.00" step="0.5" min="0" onchange="renderOperations()"></div>
     <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
   </div>
+
+  <!-- SHIFT PLAN -->
+  <div class="threshold-panel-title" style="margin-top:14px;color:#6aab90;">Shift Plan — by location</div>
+  <div class="shift-grid">
+    <div class="shift-grid-header">Location</div>
+    <div class="shift-grid-header">Day start</div>
+    <div class="shift-grid-header">Day end</div>
+    <div class="shift-grid-header">Night start</div>
+    <div class="shift-grid-header">Night end</div>
+    <div class="shift-grid-header">Plan FO</div>
+
+    <div class="shift-grid-label">Markham, IL West</div>
+    <input type="time" class="shift-time-input" id="sh-mrk-ds" value="06:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-de" value="18:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-ns" value="17:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-ne" value="05:00" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-mrk-fo" value="7" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Markham, IL East</div>
+    <input type="time" class="shift-time-input" id="sh-mrke-ds" value="07:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-de" value="18:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-ns" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-ne" value="" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-mrke-fo" value="2" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Reno, NV</div>
+    <input type="time" class="shift-time-input" id="sh-reno-ds" value="07:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-de" value="15:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-ns" value="14:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-ne" value="22:00" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-reno-fo" value="4" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Stockton, CA</div>
+    <input type="time" class="shift-time-input" id="sh-stk-ds" value="07:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-de" value="15:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-ns" value="15:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-ne" value="23:00" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-stk-fo" value="3" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">San Bernardino, CA</div>
+    <input type="time" class="shift-time-input" id="sh-sanb-ds" value="05:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-de" value="14:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-ns" value="14:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-ne" value="23:00" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-sanb-fo" value="5" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Denver, CO</div>
+    <input type="time" class="shift-time-input" id="sh-den-ds" value="06:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-de" value="15:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-ns" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-ne" value="" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-den-fo" value="2" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Columbus, OH</div>
+    <input type="time" class="shift-time-input" id="sh-col-ds" value="07:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-de" value="16:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-ns" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-ne" value="" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-col-fo" value="2" min="0" step="1" onchange="renderOperations()">
+
+    <div class="shift-grid-label">Greenville, SC</div>
+    <input type="time" class="shift-time-input" id="sh-grv-ds" value="07:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-de" value="16:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-ns" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-ne" value="" onchange="renderOperations()">
+    <input type="number" class="shift-fo-input" id="sh-grv-fo" value="2" min="0" step="1" onchange="renderOperations()">
+  </div>
+  <div style="font-size:9px;color:#4a5a70;margin-top:6px;">Night end після опівночі — система автоматично враховує перехід через північ · Порожні поля = одна зміна</div>
 </div>
   </div>
   <div style="position:relative;display:inline-block;">
@@ -1067,24 +1142,57 @@ function renderProdTable(){
   const activeThr=getActiveProdThreshold(locs);
 
   // Rows
+  // Planned prod hrs per bucket — from shift plan × FO headcount × adapt coef
+  // For each key: count weeks in bucket, calc planned hrs per loc
+  const plannedProdHrsRow=keys.map(k=>{
+    // Count how many weeks in this bucket
+    const weeksInBucket=gran==='weekly'?1:
+      gran==='monthly'?4.33:
+      gran==='quarterly'?13:
+      gran==='yearly'?52:1;
+    // Sum planned prod hrs across selected locs
+    let total=0;
+    locs.forEach(loc=>{
+      const sh=getShiftHours(loc);
+      if(!sh.fo||!sh.total)return;
+      // Apply avg adapt coef for this bucket/loc
+      const d=bkts[k];
+      const adaptCoef=d.rawProdHours>0?d.weightedSum/d.rawProdHours:1.0;
+      total+=sh.fo*sh.total*weeksInBucket*adaptCoef;
+    });
+    return total>0?Math.round(total):null;
+  });
+
   const allHrsRow   =keys.map(k=>bkts[k].allHours>0?Math.round(bkts[k].allHours):null);
   const prodHrsRow  =keys.map(k=>bkts[k].prodHours>0?Math.round(bkts[k].prodHours):null);
   const adaptRow    =keys.map(k=>{const d=bkts[k];return d.rawProdHours?((d.weightedSum/d.rawProdHours)*100).toFixed(1)+'%':null;});
   const actualPltRow=keys.map(k=>bkts[k].pallets>0?Math.round(bkts[k].pallets):null);
-  const targetPltRow=activeThr?keys.map(k=>bkts[k].prodHours>0?Math.round(activeThr*bkts[k].prodHours):null):null;
+  // Target pallets uses PLANNED prod hrs (not actual)
+  const targetPltRow=activeThr?keys.map((k,i)=>{
+    const planned=plannedProdHrsRow[i];
+    return planned?Math.round(activeThr*planned):null;
+  }):null;
   const allPphRow   =keys.map(k=>bkts[k].allHours>0?(bkts[k].pallets/bkts[k].allHours).toFixed(1):null);
   const prodPphRow  =keys.map(k=>bkts[k].prodHours>0?(bkts[k].pallets/bkts[k].prodHours).toFixed(1):null);
   const targetPphRow=activeThr?keys.map(()=>activeThr.toFixed(1)):null;
-  const lostRow     =activeThr?keys.map(k=>{const d=bkts[k];return d.prodHours?Math.round((activeThr-(d.pallets/d.prodHours))*d.prodHours):null;}):null;
+  // Lost pallets uses PLANNED prod hrs
+  const lostRow=activeThr?keys.map((k,i)=>{
+    const d=bkts[k];
+    const planned=plannedProdHrsRow[i];
+    if(!planned||!d.pallets)return null;
+    const pph=d.prodHours>0?d.pallets/d.prodHours:0;
+    return Math.round((activeThr-pph)*planned);
+  }):null;
 
   thead.innerHTML=`<tr><th></th>${labels.map(l=>`<th>${l}</th>`).join('')}</tr>`;
 
   const numFmt=v=>v===null?'—':Number(v).toLocaleString();
   const rows=[
-    {label:'All hrs',       data:allHrsRow,    color:'#7dd4f0',   fmt:numFmt},
-    {label:'Prod hrs',      data:prodHrsRow,   color:'#6aab90',   fmt:numFmt},
-    {label:'Adapt. coef',   data:adaptRow,     color:'#f0a050',   fmt:v=>v===null?'—':v},
-    {label:'Actual pallets',data:actualPltRow, color:'#c8d8f0',   fmt:numFmt},
+    {label:'All hrs',         data:allHrsRow,         color:'#7dd4f0', fmt:numFmt},
+    {label:'Prod hrs (act.)', data:prodHrsRow,         color:'#6aab90', fmt:numFmt},
+    {label:'Prod hrs (plan)', data:plannedProdHrsRow,  color:'#a07dd4', fmt:numFmt},
+    {label:'Adapt. coef',     data:adaptRow,           color:'#f0a050', fmt:v=>v===null?'—':v},
+    {label:'Actual pallets',  data:actualPltRow,       color:'#c8d8f0', fmt:numFmt},
   ];
   if(targetPltRow) rows.push({label:'Target pallets', data:targetPltRow, color:'#8a9dba', fmt:numFmt});
   rows.push(
@@ -2286,6 +2394,46 @@ function getRoleWeight(role){
   return ROLE_WEIGHT[norm]!==undefined?ROLE_WEIGHT[norm]:0;
 }
 
+// ===================== SHIFT PLAN =====================
+const SHIFT_IDS = {
+  'Markham, IL West':   'mrk',
+  'Markham, IL East':   'mrke',
+  'Reno, NV':           'reno',
+  'Stockton, CA':       'stk',
+  'San Bernardino, CA': 'sanb',
+  'Denver, CO':         'den',
+  'Columbus, OH':       'col',
+  'Greenville, SC':     'grv',
+};
+
+function getShiftHours(loc){
+  const id=SHIFT_IDS[loc];if(!id)return{day:0,night:0,total:0,fo:0};
+  const ds=document.getElementById(`sh-${id}-ds`)?.value;
+  const de=document.getElementById(`sh-${id}-de`)?.value;
+  const ns=document.getElementById(`sh-${id}-ns`)?.value;
+  const ne=document.getElementById(`sh-${id}-ne`)?.value;
+  const fo=parseFloat(document.getElementById(`sh-${id}-fo`)?.value)||0;
+
+  function calcHrs(start,end){
+    if(!start||!end)return 0;
+    const [sh,sm]=start.split(':').map(Number);
+    const [eh,em]=end.split(':').map(Number);
+    let hrs=(eh*60+em)-(sh*60+sm);
+    if(hrs<=0)hrs+=24*60; // overnight shift
+    return hrs/60;
+  }
+
+  const dayHrs=calcHrs(ds,de);
+  const nightHrs=calcHrs(ns,ne);
+  return{day:dayHrs,night:nightHrs,total:dayHrs+nightHrs,fo};
+}
+
+function getPlannedProdHrs(loc, weekCount=1){
+  // Planned prod hrs = FO count × total shift hours × weeks × adapt (not applied here)
+  const sh=getShiftHours(loc);
+  return sh.fo * sh.total * weekCount;
+}
+
 function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
@@ -2416,7 +2564,17 @@ function renderProductivity(){
           if(isProd&&activeProdThr){
             const bkt=buckets[keys[i]];
             if(bkt&&bkt.prodHours>0){
-              const lost=Math.round((activeProdThr-v)*bkt.prodHours);
+              // Use planned prod hrs from shift plan
+              const weeksInBucket=gran==='weekly'?1:gran==='monthly'?4.33:gran==='quarterly'?13:52;
+              let plannedPH=0;
+              locs.forEach(loc=>{
+                const sh=getShiftHours(loc);
+                if(!sh.fo||!sh.total)return;
+                const adaptCoef=bkt.rawProdHours>0?bkt.weightedSum/bkt.rawProdHours:1.0;
+                plannedPH+=sh.fo*sh.total*weeksInBucket*adaptCoef;
+              });
+              const usePH=plannedPH>0?plannedPH:bkt.prodHours;
+              const lost=Math.round((activeProdThr-v)*usePH);
               const lostStr=(lost>0?'+':'')+lost;
               const lostColor=lost>0?'#e07070':'#6aab90';
               ctx.save();
