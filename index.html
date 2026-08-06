@@ -266,25 +266,25 @@
 <div class="threshold-panel" id="threshold-panel">
   <div class="threshold-panel-title">Labor cost per pallet — threshold by location</div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="thr-markham" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="thr-markham-east" value="3.70" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="thr-reno" value="4.25" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="thr-stockton" value="3.60" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="thr-sanb" value="5.00" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="thr-denver" value="9.00" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="thr-columbus" value="25.00" step="0.05" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="thr-greenville" value="5.00" step="0.05" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="thr-markham" value="3.70" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="thr-markham-east" value="3.70" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="thr-reno" value="4.25" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="thr-stockton" value="3.60" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="thr-sanb" value="5.00" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="thr-denver" value="9.00" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="thr-columbus" value="25.00" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="thr-greenville" value="5.00" step="0.05" min="0" onchange="saveSettings();renderOperations()"></div>
   </div>
   <div class="threshold-panel-title" style="margin-top:14px;">Labor Productivity — pallets/hr target by location</div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="pthr-markham" value="17.50" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="17.50" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.50" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.50" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="pthr-sanb" value="7.50" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="pthr-denver" value="4.75" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="3.00" step="0.5" min="0" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL West</label><input type="number" id="pthr-markham" value="17.50" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Markham, IL East</label><input type="number" id="pthr-markham-east" value="17.50" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Reno, NV</label><input type="number" id="pthr-reno" value="10.50" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Stockton, CA</label><input type="number" id="pthr-stockton" value="10.50" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>San Bernardino, CA</label><input type="number" id="pthr-sanb" value="7.50" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Denver, CO</label><input type="number" id="pthr-denver" value="4.75" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Columbus, OH</label><input type="number" id="pthr-columbus" value="3.00" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
   </div>
 
   <!-- SHIFT PLAN -->
@@ -298,59 +298,59 @@
     <div class="shift-grid-header" style="color:#f0a050;border-left:1px solid #2e3d5c;padding-left:8px;">🔬 Sim FO</div>
 
     <div class="shift-grid-label">Markham, IL West</div>
-    <input type="time" class="shift-time-input" id="sh-mrk-ds" value="06:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrk-de" value="18:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrk-ns" value="17:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrk-ne" value="05:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-ds" value="06:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-de" value="18:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-ns" value="17:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrk-ne" value="05:00" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-mrk-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Markham, IL East</div>
-    <input type="time" class="shift-time-input" id="sh-mrke-ds" value="07:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrke-de" value="18:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrke-ns" value="" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-mrke-ne" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-ds" value="07:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-de" value="18:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-ns" value="" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-mrke-ne" value="" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-mrke-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Reno, NV</div>
-    <input type="time" class="shift-time-input" id="sh-reno-ds" value="07:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-reno-de" value="15:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-reno-ns" value="14:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-reno-ne" value="22:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-ds" value="07:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-de" value="15:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-ns" value="14:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-reno-ne" value="22:00" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-reno-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Stockton, CA</div>
-    <input type="time" class="shift-time-input" id="sh-stk-ds" value="07:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-stk-de" value="15:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-stk-ns" value="15:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-stk-ne" value="23:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-ds" value="07:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-de" value="15:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-ns" value="15:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-stk-ne" value="23:00" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-stk-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">San Bernardino, CA</div>
-    <input type="time" class="shift-time-input" id="sh-sanb-ds" value="05:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-sanb-de" value="14:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-sanb-ns" value="14:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-sanb-ne" value="23:00" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-ds" value="05:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-de" value="14:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-ns" value="14:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-sanb-ne" value="23:00" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-sanb-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Denver, CO</div>
-    <input type="time" class="shift-time-input" id="sh-den-ds" value="06:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-den-de" value="15:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-den-ns" value="" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-den-ne" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-ds" value="06:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-de" value="15:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-ns" value="" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-den-ne" value="" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-den-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Columbus, OH</div>
-    <input type="time" class="shift-time-input" id="sh-col-ds" value="07:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-col-de" value="16:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-col-ns" value="" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-col-ne" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-ds" value="07:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-de" value="16:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-ns" value="" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-col-ne" value="" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-col-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
 
     <div class="shift-grid-label">Greenville, SC</div>
-    <input type="time" class="shift-time-input" id="sh-grv-ds" value="07:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-grv-de" value="16:00" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-grv-ns" value="" onchange="renderOperations()">
-    <input type="time" class="shift-time-input" id="sh-grv-ne" value="" onchange="renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-ds" value="07:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-de" value="16:00" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-ns" value="" onchange="saveSettings();renderOperations()">
+    <input type="time" class="shift-time-input" id="sh-grv-ne" value="" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-grv-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid #2e3d5c;margin-left:4px;">
   </div>
   <div style="font-size:9px;color:#4a5a70;margin-top:6px;">
@@ -368,15 +368,15 @@
     <input type="date" id="wf-hire-date" value="2026-03-01" onchange="renderOperations()" style="font-size:12px;padding:4px 8px;border:1px solid #2e3d5c;border-radius:8px;background:#1a2035;color:#c8d8f0;outline:none;color-scheme:dark;">
   </div>
   <div class="threshold-grid">
-    <div class="threshold-item"><label>Week 1</label><input type="number" id="wf-w1" value="40" step="1" min="0" max="100" onchange="renderOperations()"> <span style="font-size:9px;color:#6a7d9a;">%</span></div>
-    <div class="threshold-item"><label>Week 2</label><input type="number" id="wf-w2" value="50" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Week 3</label><input type="number" id="wf-w3" value="58" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Week 4</label><input type="number" id="wf-w4" value="64" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Weeks 5–6</label><input type="number" id="wf-w56" value="68" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Weeks 7–8</label><input type="number" id="wf-w78" value="74" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Weeks 9–10</label><input type="number" id="wf-w910" value="82" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Weeks 11–12</label><input type="number" id="wf-w1112" value="90" step="1" min="0" max="100" onchange="renderOperations()"></div>
-    <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="renderOperations()"></div>
+    <div class="threshold-item"><label>Week 1</label><input type="number" id="wf-w1" value="40" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"> <span style="font-size:9px;color:#6a7d9a;">%</span></div>
+    <div class="threshold-item"><label>Week 2</label><input type="number" id="wf-w2" value="50" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Week 3</label><input type="number" id="wf-w3" value="58" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Week 4</label><input type="number" id="wf-w4" value="64" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 5–6</label><input type="number" id="wf-w56" value="68" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 7–8</label><input type="number" id="wf-w78" value="74" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 9–10</label><input type="number" id="wf-w910" value="82" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Weeks 11–12</label><input type="number" id="wf-w1112" value="90" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
+    <div class="threshold-item"><label>Week 13+</label><input type="number" id="wf-w13" value="100" step="1" min="0" max="100" onchange="saveSettings();renderOperations()"></div>
   </div>
 </div>
   </div>
@@ -385,8 +385,8 @@
 
 
 <div class="date-range" id="date-range-row" style="display:none;">
-  <div><label class="dr-label">From</label><input type="date" id="date-from" onchange="renderAll()"></div>
-  <div><label class="dr-label">To</label><input type="date" id="date-to" onchange="renderAll()"></div>
+  <div><label class="dr-label">From</label><input type="date" id="date-from" onchange="saveSettings();renderAll()"></div>
+  <div><label class="dr-label">To</label><input type="date" id="date-to" onchange="saveSettings();renderAll()"></div>
 </div>
 
 <div class="status" id="status">Connecting to Google Sheets...</div>
@@ -703,6 +703,40 @@ function switchTab(tab) {
 function toggleThresholdPanel() {
   thresholdPanelOpen=!thresholdPanelOpen;
   document.getElementById('threshold-panel').classList.toggle('visible',thresholdPanelOpen);
+}
+
+// ---- Persist all threshold/shift/workforce fields ----
+const PERSIST_IDS=['thr-markham','thr-markham-east','thr-reno','thr-stockton','thr-sanb','thr-denver','thr-columbus','thr-greenville',
+  'pthr-markham','pthr-markham-east','pthr-reno','pthr-stockton','pthr-sanb','pthr-denver','pthr-columbus','pthr-greenville',
+  'sh-mrk-ds','sh-mrk-de','sh-mrk-ns','sh-mrk-ne','sh-mrk-sim',
+  'sh-mrke-ds','sh-mrke-de','sh-mrke-ns','sh-mrke-ne','sh-mrke-sim',
+  'sh-reno-ds','sh-reno-de','sh-reno-ns','sh-reno-ne','sh-reno-sim',
+  'sh-stk-ds','sh-stk-de','sh-stk-ns','sh-stk-ne','sh-stk-sim',
+  'sh-sanb-ds','sh-sanb-de','sh-sanb-ns','sh-sanb-ne','sh-sanb-sim',
+  'sh-den-ds','sh-den-de','sh-den-ns','sh-den-ne','sh-den-sim',
+  'sh-col-ds','sh-col-de','sh-col-ns','sh-col-ne','sh-col-sim',
+  'sh-grv-ds','sh-grv-de','sh-grv-ns','sh-grv-ne','sh-grv-sim',
+  'wf-hire-date','wf-w1','wf-w2','wf-w3','wf-w4','wf-w56','wf-w78','wf-w910','wf-w1112','wf-w13'];
+
+function saveSettings(){
+  const data={};
+  PERSIST_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) data[id]=el.value;
+  });
+  try{localStorage.setItem('fb_settings',JSON.stringify(data));}catch(e){}
+}
+
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem('fb_settings');
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    PERSIST_IDS.forEach(id=>{
+      const el=document.getElementById(id);
+      if(el&&data[id]!==undefined&&data[id]!=='') el.value=data[id];
+    });
+  }catch(e){}
 }
 
 let workforcePanelOpen=false;
@@ -3238,6 +3272,7 @@ async function loadData(){
     if(errCount>0) showErrorToast(`⚠ ${errCount} error cell(s) found in data (#REF!, #VALUE! etc). Some values may be missing.`);
     st.className='status ok';
     st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time + ${invData.amazon.length} amz + ${invData.hd.length} hd · Updated: ${new Date().toLocaleTimeString()}`;
+    loadSettings(); // restore saved threshold/shift/workforce settings
     renderAll();
   }catch(e){st.className='status err';st.textContent='✗ Error: '+e.message;}
 }
