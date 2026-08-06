@@ -2616,7 +2616,7 @@ function renderProductivity(){
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
-      layout:{padding:{top:28,right:14,left:6,bottom:42}},
+      layout:{padding:{top:36,right:14,left:6,bottom:42}},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
@@ -2661,6 +2661,16 @@ function renderProductivity(){
           if(isProd&&activeProdThr){
             const bkt=buckets[keys[i]];
             if(bkt&&bkt.prodHours>0){
+              // Efficiency %
+              const effPct=v/activeProdThr*100;
+              const effColor=effPct>=90?'#6aab90':effPct>=75?'#f0a050':'#e07070';
+              ctx.save();
+              ctx.font='bold 8px -apple-system,sans-serif';
+              ctx.fillStyle=effColor;
+              ctx.fillText(effPct.toFixed(0)+'%',bar.x,bar.y-14);
+              ctx.restore();
+
+              // Lost pallets
               const adaptCoef=bkt.rawProdHours>0?bkt.weightedSum/bkt.rawProdHours:1.0;
               let plannedPH=0;
               locs.forEach(loc=>{
@@ -2673,7 +2683,7 @@ function renderProductivity(){
               ctx.save();
               ctx.font='bold 8px -apple-system,sans-serif';
               ctx.fillStyle=lostColor;
-              ctx.fillText(lostStr,bar.x,bar.y-14);
+              ctx.fillText(lostStr,bar.x,bar.y-24);
               ctx.restore();
             }
           }
