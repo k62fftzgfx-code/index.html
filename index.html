@@ -2580,11 +2580,21 @@ function renderProductivity(){
     yAxisID:'yP',order:3,maxBarThickness:56
   });
 
-  // Bar 2 — Productive Hours (яскравий) — тільки якщо є Role дані
+  // Bar 2 — Productive Hours — color by efficiency %
   if(prodVals){
+    const barColors=keys.map((k,i)=>{
+      if(!activeProdThr||!prodVals[i])return'#6aab90cc';
+      const eff=prodVals[i]/activeProdThr*100;
+      return eff>=90?'#6aab90cc':eff>=75?'#f0a050cc':'#e07070cc';
+    });
+    const barBorders=keys.map((k,i)=>{
+      if(!activeProdThr||!prodVals[i])return'#6aab90';
+      const eff=prodVals[i]/activeProdThr*100;
+      return eff>=90?'#6aab90':eff>=75?'#f0a050':'#e07070';
+    });
     datasets.push({
       type:'bar',label:'Productive Hours',data:prodVals,
-      backgroundColor:'#6aab90cc',borderColor:'#6aab90',borderWidth:0,borderRadius:4,
+      backgroundColor:barColors,borderColor:barBorders,borderWidth:0,borderRadius:4,
       yAxisID:'yP',order:2,maxBarThickness:56
     });
   }
@@ -2661,16 +2671,17 @@ function renderProductivity(){
           if(isProd&&activeProdThr){
             const bkt=buckets[keys[i]];
             if(bkt&&bkt.prodHours>0){
-              // Efficiency %
+              // Efficiency % — above plt/hr value
               const effPct=v/activeProdThr*100;
               const effColor=effPct>=90?'#6aab90':effPct>=75?'#f0a050':'#e07070';
               ctx.save();
-              ctx.font='bold 8px -apple-system,sans-serif';
+              ctx.font='bold 9px -apple-system,sans-serif';
               ctx.fillStyle=effColor;
+              ctx.textBaseline='bottom';
               ctx.fillText(effPct.toFixed(0)+'%',bar.x,bar.y-14);
               ctx.restore();
 
-              // Lost pallets
+              // Lost pallets — above efficiency %
               const adaptCoef=bkt.rawProdHours>0?bkt.weightedSum/bkt.rawProdHours:1.0;
               let plannedPH=0;
               locs.forEach(loc=>{
@@ -2683,7 +2694,8 @@ function renderProductivity(){
               ctx.save();
               ctx.font='bold 8px -apple-system,sans-serif';
               ctx.fillStyle=lostColor;
-              ctx.fillText(lostStr,bar.x,bar.y-24);
+              ctx.textBaseline='bottom';
+              ctx.fillText(lostStr,bar.x,bar.y-26);
               ctx.restore();
             }
           }
