@@ -2326,12 +2326,13 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
     if(selectedPeriods&&!selectedPeriods.has(key))return;
     if(!bkts[key])bkts[key]={
       pallets:0, allHours:0, prodHours:0,
-      rawProdHours:0, weightedSum:0, costs2:0,
+      rawProdHours:0, weightedSum:0, costs2:0, local:0,
       satWorkers:new Set(),
       workers:{green:new Set(),yellow:new Set(),blue:new Set()}
     };
     bkts[key].pallets+=toNum(r[COL.sumPallets]);
     bkts[key].costs2+=toNum(r[COL.costs2]);
+    bkts[key].local+=toNum(r[COL.localDelivery]);
   });
 
   // hours from timeData
@@ -2592,11 +2593,14 @@ function renderProductivity(){
       const eff=prodVals[i]/activeProdThr*100;
       return eff>=90?'#6aab90':eff>=75?'#f0a050':'#e07070';
     });
-    datasets.push({
+    const prodDs={
       type:'bar',label:'Productive Hours',data:prodVals,
       backgroundColor:barColors,borderColor:barBorders,borderWidth:0,borderRadius:4,
       yAxisID:'yP',order:2,maxBarThickness:56
-    });
+    };
+    // Clear cached highlight colors so applyBucketHighlight uses new colors
+    delete prodDs._origBg;
+    datasets.push(prodDs);
   }
 
   // Threshold line
@@ -2746,7 +2750,7 @@ function getOrCreateTooltip(){
   return insightTooltip;
 }
 
-function showInsightTooltip(e, key, gran, d, prev){
+function showInsightTooltip(e, key, gran, d, trendBkts){
   const tt=getOrCreateTooltip();
   if(insightHideTimer){clearTimeout(insightHideTimer);insightHideTimer=null;}
 
@@ -2754,18 +2758,41 @@ function showInsightTooltip(e, key, gran, d, prev){
   const pph=d.prodHours>0?d.pallets/d.prodHours:null;
   const lcp=d.pallets>0?d.costs2/d.pallets:null;
   const hr=d.hours>0?d.costs2/d.hours:null;
-  const prevPph=prev&&prev.prodHours>0?prev.pallets/prev.prodHours:null;
-  const prevLcp=prev&&prev.pallets>0?prev.costs2/prev.pallets:null;
-  const prevHr=prev&&prev.hours>0?prev.costs2/prev.hours:null;
-  const pphD=pph&&prevPph?(pph-prevPph)/prevPph*100:null;
-  const lcpD=lcp&&prevLcp?(lcp-prevLcp)/prevLcp*100:null;
-  const hrD=hr&&prevHr?(hr-prevHr)/prevHr*100:null;
   const satW=d.satWorkers?d.satWorkers.size:0;
   const adapt=d.rawProdHours?d.weightedSum/d.rawProdHours*100:null;
 
-  const insight=getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,d.pallets,prev?prev.pallets:null);
+  // Build 4-week trend baseline via linear regression (fallback to simple avg if <2 points)
+  function trendBaseline(getter){
+    const vals=(trendBkts||[]).map(getter).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
+    if(vals.length===0)return null;
+    if(vals.length===1)return vals[0];
+    // simple linear regression y = a + b*x, project one step forward
+    const n=vals.length;
+    const xs=vals.map((_,i)=>i);
+    const xMean=xs.reduce((a,b)=>a+b,0)/n;
+    const yMean=vals.reduce((a,b)=>a+b,0)/n;
+    let num=0,den=0;
+    for(let i=0;i<n;i++){num+=(xs[i]-xMean)*(vals[i]-yMean);den+=(xs[i]-xMean)**2;}
+    const slope=den!==0?num/den:0;
+    // project to next point (index n)
+    return yMean+slope*(n-xMean);
+  }
 
-  tt.innerHTML=`<div style="font-size:10px;color:#6a7d9a;margin-bottom:6px;">📊 <span style="color:#7dd4f0;font-weight:600">${label}</span></div>`
+  const pphBase=trendBaseline(b=>b.prodHours>0?b.pallets/b.prodHours:null);
+  const lcpBase=trendBaseline(b=>b.pallets>0?b.costs2/b.pallets:null);
+  const hrBase=trendBaseline(b=>b.hours>0?b.costs2/b.hours:null);
+
+  const pphD=pph&&pphBase?(pph-pphBase)/pphBase*100:null;
+  const lcpD=lcp&&lcpBase?(lcp-lcpBase)/lcpBase*100:null;
+  const hrD=hr&&hrBase?(hr-hrBase)/hrBase*100:null;
+  const avgPrevPallets=trendBkts&&trendBkts.length?trendBkts.reduce((s,b)=>s+(b.pallets||0),0)/trendBkts.length:null;
+  const localRatio=d.pallets>0&&d.local!==undefined?d.local/d.pallets:null;
+
+  const insight=getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,d.pallets,avgPrevPallets,localRatio);
+
+  const trendLabel=trendBkts&&trendBkts.length>=2?`vs ${trendBkts.length}-week trend`:trendBkts&&trendBkts.length===1?'vs prev week':'';
+
+  tt.innerHTML=`<div style="font-size:10px;color:#6a7d9a;margin-bottom:6px;">📊 <span style="color:#7dd4f0;font-weight:600">${label}</span>${trendLabel?` <span style="color:#4a5a70;font-size:9px">${trendLabel}</span>`:''}</div>`
     +`<div style="margin-bottom:6px;display:flex;gap:12px;font-size:10px;">`
     +(pph?`<span style="color:#6aab90">plt/hr: <b>${pph.toFixed(1)}</b>${pphD?` <span style="color:${pphD>0?'#6aab90':'#e07070'}">${pphD>0?'▲':'▼'}${Math.abs(pphD).toFixed(0)}%</span>`:''}</span>`:'')
     +(lcp?`<span style="color:#7dd4f0">LCP: <b>$${lcp.toFixed(2)}</b>${lcpD?` <span style="color:${lcpD>0?'#e07070':'#6aab90'}">${lcpD>0?'▲':'▼'}${Math.abs(lcpD).toFixed(0)}%</span>`:''}</span>`:'')
@@ -2787,7 +2814,7 @@ function hideInsightTooltip(){
   },200);
 }
 
-function getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,pallets,prevPallets){
+function getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,pallets,prevPallets,localRatio,dayCtx){
   const volD=pallets&&prevPallets?(pallets-prevPallets)/prevPallets*100:null;
 
   const pphDown=pphD!==null&&pphD<-5;
@@ -2887,6 +2914,21 @@ function getInsight(pph,lcp,hr,pphD,lcpD,hrD,satW,adapt,pallets,prevPallets){
   if(lcpStable&&volStable)
     return{uk:`Стабільний тиждень: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Об\'єм і витрати в нормі.`,
            en:`Stable week: plt/hr ${pph?.toFixed(1)||'—'}, LCP $${lcp?.toFixed(2)||'—'}. Volume and costs on track.`};
+
+  // 17. Local Delivery ratio (слабкий, незалежний від об'єму фактор)
+  if(localRatio!==null&&localRatio!==undefined){
+    if(localRatio>0.50&&lcpDown)
+      return{uk:`Висока частка Local Delivery (${(localRatio*100).toFixed(0)}%) — деконсолідований вантаж дешевший в обробці, що додатково знижує LCP.`,
+             en:`High Local Delivery share (${(localRatio*100).toFixed(0)}%) — deconsolidated freight is cheaper to process, adding to LCP decline.`};
+    if(localRatio<0.38&&lcpUp)
+      return{uk:`Низька частка Local Delivery (${(localRatio*100).toFixed(0)}%) — більше консолідаційної роботи на палету, що частково пояснює вищий LCP.`,
+             en:`Low Local Delivery share (${(localRatio*100).toFixed(0)}%) — more consolidation work per pallet, partially explaining higher LCP.`};
+  }
+
+  // 18. Середина тижня (провал перед п'ятничною відправкою) — контекст, не аномалія
+  if(dayCtx==='midweek_dip')
+    return{uk:`Середина тижня (середа-четвер) традиційно слабша — OTR/Rail вантаж накопичується для п\'ятничної відправки. Це нормальний бізнес-цикл, не аномалія.`,
+           en:`Midweek (Wed-Thu) is traditionally slower — OTR/Rail freight builds up for Friday shipping. This is a normal business cycle, not an anomaly.`};
 
   // Default
   return{uk:`plt/hr: ${pph?.toFixed(1)||'—'}, LCP: $${lcp?.toFixed(2)||'—'}${volD?' | Об\'єм: '+(volD>0?'+':'')+volD.toFixed(0)+'%':''}${lcpD?' | LCP: '+(lcpD>0?'+':'')+lcpD.toFixed(0)+'%':''}. Змішана динаміка.`,
@@ -3035,15 +3077,18 @@ function renderCorrChart(){
   corrInst._bkts=bkts;
   corrInst._keys=keys;
 
-  // Hover → deterministic insight tooltip
+  // Hover → deterministic insight tooltip (4-week trend)
   c.onmousemove=function(e){
     if(!corrInst)return;
     const pts=corrInst.getElementsAtEventForMode(e,'index',{intersect:false},true);
     if(!pts.length){hideInsightTooltip();return;}
     const idx=pts[0].index;
     const key=keys[idx];
-    const prevKey=idx>0?keys[idx-1]:null;
-    showInsightTooltip(e, key, gran, bkts[key], prevKey?bkts[prevKey]:null);
+    // Build 4-week trend window (up to 4 preceding buckets)
+    const trendKeys=[];
+    for(let i=Math.max(0,idx-4);i<idx;i++) trendKeys.push(keys[i]);
+    const trendBkts=trendKeys.map(k=>bkts[k]);
+    showInsightTooltip(e, key, gran, bkts[key], trendBkts);
   };
   c.onmouseleave=function(){hideInsightTooltip();};
 
