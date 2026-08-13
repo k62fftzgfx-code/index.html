@@ -3232,11 +3232,17 @@ function renderDailySchedule(filtered){
     return role||'—';
   };
 
-  const names=Object.keys(empData).sort((a,b)=>{
-    const ra=empData[a].role, rb=empData[b].role;
-    if(ra!==rb) return ra.localeCompare(rb);
-    return a.localeCompare(b);
-  });
+  const names=Object.keys(empData)
+    .filter(name=>{
+      // Only show employees with at least some actual worked hours in this period
+      const total=Object.values(empData[name].byDate).reduce((s,h)=>s+h,0);
+      return total>0;
+    })
+    .sort((a,b)=>{
+      const ra=empData[a].role, rb=empData[b].role;
+      if(ra!==rb) return ra.localeCompare(rb);
+      return a.localeCompare(b);
+    });
 
   tbody.innerHTML=names.map(name=>{
     const emp=empData[name];
