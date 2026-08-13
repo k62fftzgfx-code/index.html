@@ -145,6 +145,14 @@
   .table-scroll { max-height: 320px; overflow-y: auto; }
   .table-scroll::-webkit-scrollbar { width: 4px; }
   .table-scroll::-webkit-scrollbar-thumb { background: #3a5080; border-radius: 2px; }
+  /* Schedule table sticky first two columns */
+  #schedule-table th:nth-child(1), #schedule-table td:nth-child(1) { position:sticky; left:0; background:#1a2035; z-index:2; min-width:150px; }
+  #schedule-table th:nth-child(2), #schedule-table td:nth-child(2) { position:sticky; left:150px; background:#1a2035; z-index:2; min-width:110px; }
+  #schedule-table th { position:sticky; top:0; background:#1a2035; z-index:3; }
+  #schedule-table th:nth-child(1), #schedule-table th:nth-child(2) { z-index:4; }
+  #schedule-table td { text-align:center; min-width:52px; }
+  #schedule-table td:nth-child(1) { text-align:left; }
+  #schedule-table td:nth-child(2) { text-align:left; font-size:10px; }
   /* Error toast */
   .error-toast { position:fixed; bottom:20px; right:20px; background:#2a1e20; border:1px solid #E24B4A; border-radius:10px; padding:10px 16px; font-size:11px; color:#e07070; z-index:999; display:none; max-width:280px; line-height:1.5; box-shadow:0 4px 16px rgba(0,0,0,0.4); }
   .error-toast.visible { display:block; }
@@ -618,6 +626,22 @@
           <tbody id="inactive-tbody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- Daily Schedule (per-employee hours by day) -->
+  <div class="chart-card" style="margin-top:14px;">
+    <div class="card-title">Daily Schedule — hours per employee</div>
+    <div class="table-scroll" id="schedule-scroll" style="max-height:480px;overflow:auto;">
+      <table class="staff-table" id="schedule-table" style="white-space:nowrap;">
+        <thead><tr id="schedule-thead"></tr></thead>
+        <tbody id="schedule-tbody"></tbody>
+      </table>
+    </div>
+    <div class="legend" style="margin-top:8px;">
+      <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Forklift Operator</span>
+      <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Supervisor/LM/FO</span>
+      <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Other roles</span>
     </div>
   </div>
 
@@ -2360,13 +2384,10 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
     else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
     if(!key)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
-    // Create bucket if doesn't exist (time data may exist without pallet data)
-    if(!bkts[key])bkts[key]={
-      pallets:0, allHours:0, prodHours:0,
-      rawProdHours:0, weightedSum:0, costs2:0,
-      satWorkers:new Set(),
-      workers:{green:new Set(),yellow:new Set(),blue:new Set()}
-    };
+    // Only accumulate hours into buckets that already have pallet data (rawData).
+    // Skip periods where Deputy has time records but no pallet tracking yet — otherwise
+    // Utilization Rate gets skewed by phantom hours with 0 pallets.
+    if(!bkts[key])return;
 
     const hrs=toNum(r.totalHours);
     const name=String(r.employeeName||'').trim();
@@ -3157,6 +3178,79 @@ function renderCorrMatrix(){
     </td></tr>`;
 }
 
+// ===================== DAILY SCHEDULE TABLE =====================
+function renderDailySchedule(filtered){
+  const thead=document.getElementById('schedule-thead');
+  const tbody=document.getElementById('schedule-tbody');
+  if(!thead||!tbody)return;
+
+  if(!filtered.length){thead.innerHTML='';tbody.innerHTML='<tr><td style="padding:10px;color:#6a7d9a">No data</td></tr>';return;}
+
+  // Collect unique dates (sorted) and unique employees
+  const dateSet=new Set();
+  const empData={}; // name -> {role, loc, byDate:{dateStr: hours}}
+
+  filtered.forEach(r=>{
+    const pd=parseDate(r.date);if(!pd)return;
+    const dateStr=pd.str;
+    dateSet.add(dateStr);
+    const name=String(r.employeeName||'').trim();if(!name)return;
+    if(!empData[name]) empData[name]={role:r.role||'',loc:mapLocName(r.locationName)||r.locationName,byDate:{}};
+    empData[name].byDate[dateStr]=(empData[name].byDate[dateStr]||0)+toNum(r.totalHours);
+    // Keep most recent role seen
+    empData[name].role=r.role||empData[name].role;
+  });
+
+  const dates=[...dateSet].sort();
+  if(dates.length>60){
+    // Too many days — cap to most recent 60 to keep table usable
+    dates.splice(0,dates.length-60);
+  }
+
+  // Build header
+  const dayLabels=dates.map(d=>{
+    const dt=new Date(d+'T00:00:00');
+    const dow=DOW_LABELS[(dt.getDay()+6)%7]; // Mon-Sun
+    const md=(dt.getMonth()+1)+'/'+dt.getDate();
+    return{dow,md};
+  });
+  thead.innerHTML='<th>Name</th><th>Role</th>'+dayLabels.map(d=>`<th style="font-size:9px;line-height:1.3">${d.dow}<br>${d.md}</th>`).join('');
+
+  // Sort employees by role group then name
+  const roleColor=(role)=>{
+    if(role==='Forklift Operator')return'#6aab90';
+    if(role==='Supervisor / Forklift Operator'||role==='Local Manager / Forklift Operator')return'#f0a050';
+    return'#4a7fa0';
+  };
+  const roleShort=(role)=>{
+    if(role==='Forklift Operator')return'FO';
+    if(role==='Supervisor / Forklift Operator')return'Sup/FO';
+    if(role==='Local Manager / Forklift Operator')return'LM/FO';
+    if(role==='Spotter')return'Spotter';
+    if(role==='Consolidator')return'Consol.';
+    if(role==='Fleet')return'Fleet';
+    return role||'—';
+  };
+
+  const names=Object.keys(empData).sort((a,b)=>{
+    const ra=empData[a].role, rb=empData[b].role;
+    if(ra!==rb) return ra.localeCompare(rb);
+    return a.localeCompare(b);
+  });
+
+  tbody.innerHTML=names.map(name=>{
+    const emp=empData[name];
+    const color=roleColor(emp.role);
+    const cells=dates.map(d=>{
+      const hrs=emp.byDate[d];
+      if(!hrs)return`<td style="color:#2a3a50">—</td>`;
+      return`<td style="color:${color};font-weight:600">${hrs.toFixed(1)}</td>`;
+    }).join('');
+    return`<tr><td style="color:#c8d8f0">${name}</td><td style="color:${color}">${roleShort(emp.role)}</td>${cells}</tr>`;
+  }).join('');
+}
+
+
 function renderStaff(){
   const{years,locs,isDaily,dateFrom,dateTo}=getFilters();
 
@@ -3213,6 +3307,8 @@ function renderStaff(){
   document.getElementById('s-inactive').textContent=inactive.length;
   document.getElementById('s-hours').textContent=fmtTop(totalHours);
   document.getElementById('s-shift').textContent=avgShift.toFixed(1)+'h';
+
+  renderDailySchedule(filtered);
 
   // Active loc badges
   const activeLocCount = {};
