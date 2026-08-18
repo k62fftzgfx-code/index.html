@@ -77,6 +77,15 @@
   /* Threshold panel */
   .threshold-panel { display: none; background: #222d45; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:560px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
   .threshold-panel.visible { display: block; }
+  /* Capacity panel */
+  .capacity-loc-block { border-top:1px solid #2e3d5c; padding-top:8px; margin-top:8px; }
+  .capacity-loc-block:first-child { border-top:none; margin-top:0; padding-top:0; }
+  .capacity-loc-title { font-size:11px; color:#a07dd4; font-weight:600; margin-bottom:6px; }
+  .capacity-fields { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:5px 12px; }
+  .capacity-field { display:flex; align-items:center; gap:6px; }
+  .capacity-field label { font-size:9px; color:#7a8daa; white-space:nowrap; min-width:130px; }
+  .capacity-field input { font-size:11px; padding:3px 6px; border:1px solid #2e3d5c; border-radius:6px; background:#1a2035; color:#c8d8f0; outline:none; width:64px; }
+  .capacity-field input:focus { border-color:#a07dd4; }
   /* Shift plan grid */
   .shift-grid { display:grid; grid-template-columns: 140px repeat(4,72px) 60px; gap:4px 8px; align-items:center; margin-top:4px; }
   .shift-grid-header { font-size:9px; color:#6a7d9a; text-align:center; text-transform:uppercase; letter-spacing:0.4px; padding-bottom:2px; border-bottom:1px solid #2e3d5c; }
@@ -217,6 +226,7 @@
   <button class="tab-btn active" onclick="switchTab('operations')">Operations</button>
   <button class="tab-btn" onclick="switchTab('staff')">Time & Staff</button>
   <button class="tab-btn" onclick="switchTab('inventory')">Procurement</button>
+  <button class="tab-btn" onclick="switchTab('capacity')" style="border-color:#a07dd460;">🧪 Capacity (test)</button>
 </div>
 
 <!-- SHARED CONTROLS -->
@@ -647,6 +657,59 @@
 
 </div>
 
+<!-- ===================== CAPACITY TAB (TEST) ===================== -->
+<div class="tab-content" id="tab-capacity">
+  <div style="background:#2a2040;border:1px solid #a07dd460;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#c8b0f0;">
+    🧪 <b>Тестова вкладка.</b> Розрахунки пропускної здатності на основі кількості людей, обладнання, доків та поточної продуктивності. Дані вводяться вручну по кожній локації нижче.
+  </div>
+
+  <!-- Capacity Panel -->
+  <div style="position:relative;display:inline-block;margin-bottom:14px;">
+    <button class="btn-threshold" onclick="toggleCapacityPanel()" style="border-color:#a07dd460;color:#c8b0f0;">⚙ Capacity Settings</button>
+    <div class="threshold-panel" id="capacity-panel" style="border-color:#a07dd460;">
+      <div class="threshold-panel-title" style="color:#a07dd4;">Capacity inputs — by location</div>
+      <div id="capacity-inputs"></div>
+    </div>
+  </div>
+
+  <!-- Location selector for capacity view -->
+  <div style="margin-bottom:14px;">
+    <label style="font-size:11px;color:#7a8daa;margin-right:8px;">Локація:</label>
+    <select id="capacity-loc-select" onchange="renderCapacity()" style="font-size:12px;padding:5px 10px;border-radius:8px;background:#1e2840;color:#c8d8f0;border:1px solid #2e3d5c;">
+      <option value="Markham, IL West">Markham, IL West</option>
+      <option value="Markham, IL East">Markham, IL East</option>
+      <option value="Reno, NV">Reno, NV</option>
+      <option value="Stockton, CA">Stockton, CA</option>
+      <option value="San Bernardino, CA">San Bernardino, CA</option>
+      <option value="Denver, CO">Denver, CO</option>
+      <option value="Columbus, OH">Columbus, OH</option>
+      <option value="Greenville, SC">Greenville, SC</option>
+    </select>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row" id="capacity-kpi-row" style="grid-template-columns:repeat(4,1fr);">
+    <div class="kpi-card"><div class="kpi-label">Load State (поточний тиждень)</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="cap-loadstate">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Лімітуючий фактор</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="cap-bottleneck" style="font-size:15px;">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Запас росту (палет/тиждень)</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="cap-headroom">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Стеля при повній адаптації</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="cap-maxpotential">—</div></div>
+  </div>
+
+  <!-- Main chart -->
+  <div class="chart-card main" style="margin-top:14px;">
+    <div class="card-title">Пропускна здатність по тижнях — <span id="cap-chart-loc" style="color:#a07dd4"></span></div>
+    <div class="chart-scroll-wrap" id="scroll-capacity"><canvas id="capacityChart" role="img" aria-label="Capacity chart"></canvas></div>
+    <div class="legend" id="capacity-legend"></div>
+  </div>
+
+  <!-- Bottleneck ladder -->
+  <div class="chart-card" style="margin-top:14px;">
+    <div class="card-title">Драбина обмежень (людей/зміну)</div>
+    <div id="capacity-ladder" style="padding:10px 0;"></div>
+  </div>
+
+</div>
+
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxo-dN8yl7464gG8Pw4vyHWdP6lw-zA3D5915TgVPjBF6EKGA13mrGd_KnG1lZUa3Q/exec';
 const TODAY = new Date(); // current date
@@ -708,19 +771,22 @@ let rawData = [], timeData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
 let topInst=null, dowInst=null, prodInst=null, corrInst=null;
 let satCanvasData={};
+let capacityInst=null;
 let selectedBucket=null; // globally selected bucket key for cross-chart highlight
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
 
 function switchTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')||(i===3&&tab==='capacity')));
   document.getElementById('tab-operations').classList.toggle('active', tab==='operations');
   document.getElementById('tab-staff').classList.toggle('active', tab==='staff');
   document.getElementById('tab-inventory').classList.toggle('active', tab==='inventory');
+  document.getElementById('tab-capacity').classList.toggle('active', tab==='capacity');
   if (tab==='staff') { document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily'); renderStaff(); }
   if (tab==='operations') renderOperations();
   if (tab==='inventory') renderInventory();
+  if (tab==='capacity') renderCapacity();
 }
 
 
@@ -740,7 +806,9 @@ const PERSIST_IDS=['thr-markham','thr-markham-east','thr-reno','thr-stockton','t
   'sh-den-ds','sh-den-de','sh-den-ns','sh-den-ne','sh-den-sim',
   'sh-col-ds','sh-col-de','sh-col-ns','sh-col-ne','sh-col-sim',
   'sh-grv-ds','sh-grv-de','sh-grv-ns','sh-grv-ne','sh-grv-sim',
-  'wf-hire-date','wf-w1','wf-w2','wf-w3','wf-w4','wf-w56','wf-w78','wf-w910','wf-w1112','wf-w13'];
+  'wf-hire-date','wf-w1','wf-w2','wf-w3','wf-w4','wf-w56','wf-w78','wf-w910','wf-w1112','wf-w13',
+  // Capacity panel fields (per location: comfortable, uncomfortable, dock, equipment, base-pph)
+  ...['mrk','mrke','reno','stk','sanb','den','col','grv'].flatMap(id=>[`cap-${id}-comf`,`cap-${id}-uncomf`,`cap-${id}-dock`,`cap-${id}-equip`,`cap-${id}-basepph`])];
 
 function saveSettings(){
   const data={};
@@ -3417,6 +3485,188 @@ function showErrorToast(msg) {
   toast.classList.add('visible');
   setTimeout(()=>toast.classList.remove('visible'), 6000);
 }
+
+// ===================== CAPACITY TAB (TEST) =====================
+const CAP_LOC_IDS = {
+  'Markham, IL West':'mrk', 'Markham, IL East':'mrke', 'Reno, NV':'reno',
+  'Stockton, CA':'stk', 'San Bernardino, CA':'sanb', 'Denver, CO':'den',
+  'Columbus, OH':'col', 'Greenville, SC':'grv'
+};
+const CAP_DEFAULTS = {
+  'Markham, IL West': {comf:8, uncomf:10, dock:12, equip:7, basepph:17.5},
+};
+
+let capacityPanelOpen=false;
+function toggleCapacityPanel(){
+  capacityPanelOpen=!capacityPanelOpen;
+  document.getElementById('capacity-panel').classList.toggle('visible',capacityPanelOpen);
+}
+
+function buildCapacityInputs(){
+  const container=document.getElementById('capacity-inputs');
+  if(!container)return;
+  container.innerHTML=Object.entries(CAP_LOC_IDS).map(([loc,id])=>{
+    const def=CAP_DEFAULTS[loc]||{comf:'',uncomf:'',dock:'',equip:'',basepph:''};
+    return`<div class="capacity-loc-block">
+      <div class="capacity-loc-title">${loc}</div>
+      <div class="capacity-fields">
+        <div class="capacity-field"><label>Комфортна стеля (люд/зм)</label><input type="number" id="cap-${id}-comf" placeholder="${def.comf}" min="0" step="1" onchange="saveSettings();renderCapacity()"></div>
+        <div class="capacity-field"><label>Незручна стеля (люд/зм)</label><input type="number" id="cap-${id}-uncomf" placeholder="${def.uncomf}" min="0" step="1" onchange="saveSettings();renderCapacity()"></div>
+        <div class="capacity-field"><label>Стеля доків (люд/зм)</label><input type="number" id="cap-${id}-dock" placeholder="${def.dock}" min="0" step="1" onchange="saveSettings();renderCapacity()"></div>
+        <div class="capacity-field"><label>Обладнання (машин)</label><input type="number" id="cap-${id}-equip" placeholder="${def.equip}" min="0" step="1" onchange="saveSettings();renderCapacity()"></div>
+        <div class="capacity-field"><label>Базова продукт. (plt/hr)</label><input type="number" id="cap-${id}-basepph" placeholder="${def.basepph}" min="0" step="0.1" onchange="saveSettings();renderCapacity()"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function getCapacitySettings(loc){
+  const id=CAP_LOC_IDS[loc];if(!id)return null;
+  const get=(field)=>{
+    const el=document.getElementById(`cap-${id}-${field}`);
+    if(!el)return null;
+    const v=el.value!==''?el.value:el.placeholder;
+    const n=parseFloat(v);
+    return isNaN(n)?null:n;
+  };
+  return{comf:get('comf'), uncomf:get('uncomf'), dock:get('dock'), equip:get('equip'), basepph:get('basepph')};
+}
+
+function renderCapacity(){
+  buildCapacityInputs();
+  const locSelect=document.getElementById('capacity-loc-select');
+  if(!locSelect)return;
+  const loc=locSelect.value;
+  document.getElementById('cap-chart-loc').textContent=loc;
+
+  const cap=getCapacitySettings(loc);
+  const hasCapData=cap.comf!==null&&cap.basepph!==null;
+
+  if(!hasCapData){
+    document.getElementById('cap-loadstate').textContent='—';
+    document.getElementById('cap-bottleneck').textContent='Немає даних';
+    document.getElementById('cap-headroom').textContent='—';
+    document.getElementById('cap-maxpotential').textContent='—';
+    document.getElementById('capacity-ladder').innerHTML=`<div style="color:#6a7d9a;font-size:12px;padding:20px;text-align:center;">Введіть capacity дані для цієї локації в панелі "⚙ Capacity Settings" вище.</div>`;
+    if(capacityInst){capacityInst.destroy();capacityInst=null;}
+    return;
+  }
+
+  const{years,selectedPeriods}=getFilters();
+  const isDaily=document.getElementById('granularity').value==='daily';
+  const dateFrom=document.getElementById('date-from')?.value;
+  const dateTo=document.getElementById('date-to')?.value;
+  const{bkts}=buildProdBuckets('weekly',years,[loc],selectedPeriods,isDaily,dateFrom,dateTo);
+  const keys=Object.keys(bkts).sort();
+
+  if(!keys.length){
+    document.getElementById('cap-loadstate').textContent='—';
+    document.getElementById('cap-bottleneck').textContent='Немає даних';
+    if(capacityInst){capacityInst.destroy();capacityInst=null;}
+    return;
+  }
+
+  const sh=getShiftHours(loc);
+  const shiftsPerDay=(sh.day>0?1:0)+(sh.night>0?1:0)||1;
+  const daysPerWeek=6;
+
+  // Bottleneck (min of comf, dock, equip) — in people per shift
+  const limits=[
+    {label:'Обладнання',val:cap.equip},
+    {label:'Комфортна стеля',val:cap.comf},
+    {label:'Стеля доків',val:cap.dock},
+  ].filter(l=>l.val!==null);
+  const bottleneckPeople=limits.length?Math.min(...limits.map(l=>l.val)):null;
+  const bottleneckLabel=limits.length?limits.find(l=>l.val===bottleneckPeople).label:'—';
+
+  // Weekly ceiling at current productivity (uses current adapt-weighted pph average)
+  const weeklyLabels=[], actualPallets=[], ceilingCurrentEff=[], ceilingMaxComf=[], ceilingMaxPotential=[];
+  keys.forEach(k=>{
+    const d=bkts[k];
+    const curPph=d.prodHours>0?d.pallets/d.prodHours:null;
+    weeklyLabels.push(getDisplayLabel(k,'weekly'));
+    actualPallets.push(Math.round(d.pallets));
+    // Ceiling using actual FO count this week (from getActualFOCount) at current pph
+    let totalPeopleWeek=0;
+    const actual=getActualFOCount(loc,k,'weekly',years,selectedPeriods);
+    totalPeopleWeek=(actual.day||0)+(actual.night||0);
+    const hrsWeek=(actual.day*sh.day+actual.night*sh.night)*daysPerWeek;
+    ceilingCurrentEff.push(curPph&&hrsWeek?Math.round(hrsWeek*curPph):null);
+    // Ceiling at comfortable staffing with current pph
+    const comfHrsWeek=cap.comf*shiftsPerDay*((sh.day+sh.night)/(shiftsPerDay||1))*daysPerWeek;
+    ceilingMaxComf.push(curPph?Math.round(cap.comf*(sh.day+sh.night)*daysPerWeek*curPph):null);
+    // Max potential: comfortable staffing + base (fully adapted) productivity
+    ceilingMaxPotential.push(Math.round(cap.comf*(sh.day+sh.night)*daysPerWeek*cap.basepph));
+  });
+
+  // KPIs from most recent week
+  const lastIdx=keys.length-1;
+  const lastPallets=actualPallets[lastIdx];
+  const lastCeiling=ceilingCurrentEff[lastIdx];
+  const loadState=lastCeiling?(lastPallets/lastCeiling*100):null;
+  const maxPotential=ceilingMaxPotential[lastIdx];
+  const headroom=maxPotential?maxPotential-lastPallets:null;
+
+  document.getElementById('cap-loadstate').textContent=loadState!==null?loadState.toFixed(0)+'%':'—';
+  document.getElementById('cap-bottleneck').textContent=bottleneckLabel+(bottleneckPeople?` (${bottleneckPeople})`:'');
+  document.getElementById('cap-headroom').textContent=headroom!==null?'+'+headroom.toLocaleString():'—';
+  document.getElementById('cap-maxpotential').textContent=maxPotential?maxPotential.toLocaleString():'—';
+
+  // Chart
+  const ctx=document.getElementById('capacityChart');
+  if(!ctx)return;
+  if(capacityInst) capacityInst.destroy();
+  capacityInst=new Chart(ctx,{
+    data:{
+      labels:weeklyLabels,
+      datasets:[
+        {type:'bar',label:'Факт палет',data:actualPallets,backgroundColor:'#4a9fd4cc',borderColor:'#4a9fd4',borderWidth:0,borderRadius:4,order:3,maxBarThickness:44},
+        {type:'line',label:'Стеля (поточна команда+ефект.)',data:ceilingCurrentEff,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f0a050',tension:0.2,order:2},
+        {type:'line',label:'Стеля (комфортна команда, поточна ефект.)',data:ceilingMaxComf,borderColor:'#a07dd4',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'#a07dd4',tension:0.2,order:1},
+        {type:'line',label:'Потенціал (комфортна команда, повна адаптація)',data:ceilingMaxPotential,borderColor:'#6aab90',backgroundColor:'transparent',borderWidth:2,borderDash:[2,3],pointRadius:2,pointBackgroundColor:'#6aab90',tension:0.2,order:0},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba'}
+      },
+      scales:{
+        x:{ticks:{color:'#6a7d9a',font:{size:10}},grid:{color:'#1e2840'}},
+        y:{ticks:{color:'#6a7d9a',font:{size:10}},grid:{color:'#1e2840'},title:{display:true,text:'Палети/тиждень',color:'#6a7d9a',font:{size:10}}}
+      }
+    }
+  });
+
+  const legEl=document.getElementById('capacity-legend');
+  if(legEl) legEl.innerHTML=`
+    <span class="leg-item"><span class="leg-box" style="background:#4a9fd4"></span>Факт палет</span>
+    <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Стеля (поточна команда)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#a07dd4;border-style:dashed"></span>Стеля (комфортна команда)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#6aab90;border-style:dashed"></span>Потенціал (повна адаптація)</span>`;
+
+  // Bottleneck ladder visualization
+  const ladderEl=document.getElementById('capacity-ladder');
+  if(ladderEl){
+    const rungs=[
+      {label:'Комфортно',val:cap.comf,color:'#6aab90'},
+      {label:'Незручність',val:cap.uncomf,color:'#f0a050'},
+      {label:'Стеля доків',val:cap.dock,color:'#e07070'},
+      {label:'Обладнання',val:cap.equip,color:'#7dd4f0'},
+    ].filter(r=>r.val!==null).sort((a,b)=>a.val-b.val);
+    const maxVal=Math.max(...rungs.map(r=>r.val),1);
+    ladderEl.innerHTML=rungs.map(r=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:130px;font-size:11px;color:#8a9dba;">${r.label}</div>
+        <div style="flex:1;background:#1a2035;border-radius:6px;height:20px;position:relative;overflow:hidden;">
+          <div style="width:${r.val/maxVal*100}%;height:100%;background:${r.color};border-radius:6px;"></div>
+        </div>
+        <div style="width:40px;text-align:right;font-size:12px;font-weight:600;color:${r.color};">${r.val}</div>
+      </div>`).join('');
+  }
+}
+
 
 async function loadData(){
   const st=document.getElementById('status');
