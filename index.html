@@ -1267,7 +1267,7 @@ function renderProdTable(){
   const keys=Object.keys(bkts).sort();
   if(!keys.length){thead.innerHTML='';tbody.innerHTML='<tr><td colspan="2" style="color:#6a7d9a;padding:8px">No data</td></tr>';return;}
   const labels=keys.map(k=>getDisplayLabel(k,gran));
-  const activeThr=getActiveProdThreshold(locs);
+  const activeThr=getActiveProdThreshold(locs,gran,years,selectedPeriods,isDaily,dateFrom,dateTo);
 
   // Rows
   // Planned prod hrs per bucket — from shift plan + actual FO from Deputy (or Sim FO)
@@ -2624,10 +2624,29 @@ function getPlannedProdHrs(loc,weekCount=1){
 function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
-function getActiveProdThreshold(locs){
+function getActiveProdThreshold(locs, gran, years, selectedPeriods, isDaily, dateFrom, dateTo){
   if(!locs.length)return null;
-  const vals=locs.map(l=>getProdThreshold(l)).filter(v=>v>0);
-  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  // Single location — just return its target directly
+  if(locs.length===1){
+    const v=getProdThreshold(locs[0]);
+    return v>0?v:null;
+  }
+  // Multiple locations — weight by each location's prod hours (matches Utilization Rate logic)
+  if(gran===undefined){
+    // Fallback: simple average if filter context not provided (shouldn't normally happen)
+    const vals=locs.map(l=>getProdThreshold(l)).filter(v=>v>0);
+    return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  }
+  let totalWeighted=0, totalProdHrs=0;
+  locs.forEach(loc=>{
+    const thr=getProdThreshold(loc);
+    if(!thr)return;
+    const{bkts:locBkts}=buildProdBuckets(gran,years,[loc],selectedPeriods,isDaily,dateFrom,dateTo);
+    const locProdH=Object.values(locBkts).reduce((s,b)=>s+b.prodHours,0);
+    totalWeighted+=thr*locProdH;
+    totalProdHrs+=locProdH;
+  });
+  return totalProdHrs>0?totalWeighted/totalProdHrs:null;
 }
 
 function renderProductivity(){
@@ -2655,7 +2674,7 @@ function renderProductivity(){
   }
 
   // Threshold line
-  const activeProdThr=getActiveProdThreshold(locs);
+  const activeProdThr=getActiveProdThreshold(locs,gran,years,selectedPeriods,isDaily,dateFrom,dateTo);
 
   // Datasets
   const allVals=keys.map(k=>{const d=buckets[k];return d.allHours>0?parseFloat((d.pallets/d.allHours).toFixed(2)):null;});
