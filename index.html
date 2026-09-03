@@ -2474,7 +2474,9 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
       if(fd&&fd>hireThr){
         const wks=Math.floor((pd.dt-fd)/(7*24*3600*1000));
         w=getAdaptationWeight(wks);
-        isNewFO=true;
+        // Only classify as "new/adapting" while weight is below 100% —
+        // once fully adapted (w===1.0), they're experienced, not "yellow" forever.
+        isNewFO=w<1.0;
       }
     }
 
