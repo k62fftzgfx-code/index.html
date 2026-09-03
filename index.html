@@ -2662,7 +2662,7 @@ function renderProductivity(){
   const H=getHeights();
 
   // Use shared bucket builder
-  const{bkts:buckets,hasRoles}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
+  const{bkts:buckets,hasRoles,empFirstDate,hireThr}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
 
   const keys=Object.keys(buckets).sort();
   if(!keys.length){if(prodInst){prodInst.destroy();prodInst=null;}return;}
@@ -2833,6 +2833,19 @@ function renderProductivity(){
       const barW=(meta2.data[0]?.width)||24;
       const hitZones=[];
 
+      // Approximate bucket date (Thursday of ISO week) for weekly granularity, used for adaptation week calc
+      function bucketRefDate(key){
+        if(gran==='weekly'&&key.length===6){
+          const yr=parseInt(key.slice(0,4)), wk=parseInt(key.slice(4,6));
+          const jan4=new Date(yr,0,4);
+          const dayOfWeek=(jan4.getDay()+6)%7; // Mon=0
+          const week1Mon=new Date(jan4);week1Mon.setDate(jan4.getDate()-dayOfWeek);
+          const thu=new Date(week1Mon);thu.setDate(week1Mon.getDate()+(wk-1)*7+3);
+          return thu;
+        }
+        return null;
+      }
+
       meta2.data.forEach((bar,i)=>{
         const k=keys[i];if(!k)return;
         const wc=buckets[k]?.workers;
@@ -2848,8 +2861,17 @@ function renderProductivity(){
         ctx.fillStyle=b?'#4a7fa0':'#2a3a50'; ctx.fillText(b||'·',x,startY+rowH*3);
         ctx.restore();
         // Store hit zone for each row (for hover tooltip with names)
+        const refDt=bucketRefDate(k);
+        const yellowNames=[...wc.yellow].map(name=>{
+          const fd=empFirstDate?empFirstDate[name]:null;
+          if(refDt&&fd&&fd>hireThr){
+            const wks=Math.floor((refDt-fd)/(7*24*3600*1000))+1;
+            return`${name} (тиждень #${wks})`;
+          }
+          return name;
+        });
         hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*0-rowH/2, yBot:startY+rowH*0+rowH/2, names:[...wc.green], label:'🟢 Productive', color:'#6aab90'});
-        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*1-rowH/2, yBot:startY+rowH*1+rowH/2, names:[...wc.yellow], label:'🟡 New FO (adapting)', color:'#f0a050'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*1-rowH/2, yBot:startY+rowH*1+rowH/2, names:yellowNames, label:'🟡 New FO (adapting)', color:'#f0a050'});
         hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*2-rowH/2, yBot:startY+rowH*2+rowH/2, names:wc.purple?[...wc.purple]:[], label:'🟣 Sup/LM (FO duty)', color:'#a07dd4'});
         hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*3-rowH/2, yBot:startY+rowH*3+rowH/2, names:[...wc.blue], label:'🔵 Non-prod', color:'#4a7fa0'});
       });
