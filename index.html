@@ -492,8 +492,9 @@
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
-        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive</span>
-        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Partial</span>
+        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive (FO)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>New FO (adapting)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#a07dd4"></span>Supervisor/LM (FO duty)</span>
         <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Non-prod</span>
       </div>
       <!-- Collapsible productivity details table -->
@@ -1335,9 +1336,10 @@ function renderProdTable(){
   if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#e07070', fmt:v=>v===null||v===0?'—':v});
 
   // Worker type counts — already computed in buildProdBuckets
-  rows.push({label:'🟢 Productive', data:keys.map(k=>bkts[k].workers.green.size||0), color:'#6aab90', fmt:v=>v||'—'});
-  rows.push({label:'🟡 Partial',    data:keys.map(k=>bkts[k].workers.yellow.size||0), color:'#f0a050', fmt:v=>v||'—'});
-  rows.push({label:'🔵 Non-prod',   data:keys.map(k=>bkts[k].workers.blue.size||0),  color:'#4a7fa0', fmt:v=>v||'—'});
+  rows.push({label:'🟢 Productive (FO)',  data:keys.map(k=>bkts[k].workers.green.size||0), color:'#6aab90', fmt:v=>v||'—'});
+  rows.push({label:'🟡 New FO (adapt.)',  data:keys.map(k=>bkts[k].workers.yellow.size||0), color:'#f0a050', fmt:v=>v||'—'});
+  rows.push({label:'🟣 Sup/LM (FO duty)', data:keys.map(k=>bkts[k].workers.purple?bkts[k].workers.purple.size:0||0), color:'#a07dd4', fmt:v=>v||'—'});
+  rows.push({label:'🔵 Non-prod',         data:keys.map(k=>bkts[k].workers.blue.size||0),  color:'#4a7fa0', fmt:v=>v||'—'});
 
   tbody.innerHTML=rows.map(row=>`
     <tr>
@@ -2420,7 +2422,7 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
       pallets:0, allHours:0, prodHours:0,
       rawProdHours:0, weightedSum:0, costs2:0, local:0,
       satWorkers:new Set(),
-      workers:{green:new Set(),yellow:new Set(),blue:new Set()}
+      workers:{green:new Set(),yellow:new Set(),blue:new Set(),purple:new Set()}
     };
     bkts[key].pallets+=toNum(r[COL.sumPallets]);
     bkts[key].costs2+=toNum(r[COL.costs2]);
@@ -2477,9 +2479,14 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
     }
 
     // Worker type classification
+    // 🟢 green = experienced FO (100%)
+    // 🟡 yellow = new FO still adapting (weight <100%, time-limited)
+    // 🟣 purple = Supervisor/LM doing FO duty (weight 0.75, structural — not "new")
+    // 🔵 blue = non-productive role (weight 0)
     if(w===0){bkts[key].workers.blue.add(name);}
     else if(role==='Forklift Operator'&&!isNewFO){bkts[key].workers.green.add(name);}
-    else{bkts[key].workers.yellow.add(name);}
+    else if(role==='Forklift Operator'&&isNewFO){bkts[key].workers.yellow.add(name);}
+    else{bkts[key].workers.purple.add(name);}
 
     bkts[key].prodHours+=hrs*w;
     if(w>0){bkts[key].rawProdHours+=hrs;bkts[key].weightedSum+=hrs*w;}
@@ -2738,7 +2745,7 @@ function renderProductivity(){
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
-      layout:{padding:{top:36,right:14,left:6,bottom:42}},
+      layout:{padding:{top:36,right:14,left:6,bottom:52}},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
@@ -2752,10 +2759,10 @@ function renderProductivity(){
             const idx=ctx[0].dataIndex;
             const k=keys[idx];if(!k||!buckets[k])return[];
             const wc=buckets[k].workers||{};
-            const g=wc.green?.size||0, y=wc.yellow?.size||0, b=wc.blue?.size||0;
-            const total=g+y+b;
+            const g=wc.green?.size||0, y=wc.yellow?.size||0, b=wc.blue?.size||0, p=wc.purple?.size||0;
+            const total=g+y+p+b;
             if(!total)return[];
-            return[` 👥 Total: ${total}  🟢${g} 🟡${y} 🔵${b}`];
+            return[` 👥 Total: ${total}  🟢${g} 🟡${y} 🟣${p} 🔵${b}`];
           }}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -2828,14 +2835,15 @@ function renderProductivity(){
         const k=keys[i];if(!k)return;
         const wc=buckets[k]?.workers;
         if(!wc)return;
-        const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
+        const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size, p=wc.purple?wc.purple.size:0;
         const x=bar.x;
         ctx.save();
         ctx.font='bold 9px -apple-system,sans-serif';
         ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle=g?'#6aab90':'#2a3a50'; ctx.fillText(g||'·',x,startY+rowH*0);
         ctx.fillStyle=y?'#f0a050':'#2a3a50'; ctx.fillText(y||'·',x,startY+rowH*1);
-        ctx.fillStyle=b?'#4a7fa0':'#2a3a50'; ctx.fillText(b||'·',x,startY+rowH*2);
+        ctx.fillStyle=p?'#a07dd4':'#2a3a50'; ctx.fillText(p||'·',x,startY+rowH*2);
+        ctx.fillStyle=b?'#4a7fa0':'#2a3a50'; ctx.fillText(b||'·',x,startY+rowH*3);
         ctx.restore();
       });
     }}]
