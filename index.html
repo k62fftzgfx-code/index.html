@@ -2830,6 +2830,8 @@ function renderProductivity(){
       const bottom=chart.chartArea.bottom;
       const xAxisH=chart.scales.x?.height||20; // height of X-axis labels
       const rowH=11, startY=bottom+xAxisH+4;
+      const barW=(meta2.data[0]?.width)||24;
+      const hitZones=[];
 
       meta2.data.forEach((bar,i)=>{
         const k=keys[i];if(!k)return;
@@ -2845,11 +2847,58 @@ function renderProductivity(){
         ctx.fillStyle=p?'#a07dd4':'#2a3a50'; ctx.fillText(p||'·',x,startY+rowH*2);
         ctx.fillStyle=b?'#4a7fa0':'#2a3a50'; ctx.fillText(b||'·',x,startY+rowH*3);
         ctx.restore();
+        // Store hit zone for each row (for hover tooltip with names)
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*0-rowH/2, yBot:startY+rowH*0+rowH/2, names:[...wc.green], label:'🟢 Productive', color:'#6aab90'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*1-rowH/2, yBot:startY+rowH*1+rowH/2, names:[...wc.yellow], label:'🟡 New FO (adapting)', color:'#f0a050'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*2-rowH/2, yBot:startY+rowH*2+rowH/2, names:wc.purple?[...wc.purple]:[], label:'🟣 Sup/LM (FO duty)', color:'#a07dd4'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*3-rowH/2, yBot:startY+rowH*3+rowH/2, names:[...wc.blue], label:'🔵 Non-prod', color:'#4a7fa0'});
       });
+      chart._workerStripHitZones=hitZones;
     }}]
   });
   prodInst._bucketKeys=[...keys];
   if(selectedBucket!==null) applyBucketHighlight();
+
+  // Worker strip hover tooltip (names list)
+  c.onmousemove=function(e){
+    const rect=c.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    const mx=(e.clientX-rect.left)*dpr;
+    const my=(e.clientY-rect.top)*dpr;
+    const zones=prodInst._workerStripHitZones||[];
+    const hit=zones.find(z=>mx>=z.x&&mx<=z.x+z.w&&my>=z.yTop&&my<=z.yBot&&z.names.length>0);
+    if(hit){
+      c.style.cursor='pointer';
+      showWorkerStripTooltip(e, hit.label, hit.names, hit.color);
+    } else {
+      c.style.cursor='default';
+      hideWorkerStripTooltip();
+    }
+  };
+  c.onmouseleave=function(){hideWorkerStripTooltip();c.style.cursor='default';};
+}
+
+let workerStripTip=null;
+function getOrCreateWorkerStripTip(){
+  if(!workerStripTip){
+    workerStripTip=document.createElement('div');
+    workerStripTip.id='worker-strip-tooltip';
+    workerStripTip.style.cssText='display:none;position:fixed;z-index:600;background:#1a2540;border:1px solid #3a5080;border-radius:8px;padding:8px 12px;font-size:11px;color:#c8d8f0;line-height:1.6;box-shadow:0 8px 24px rgba(0,0,0,0.5);pointer-events:none;max-width:220px;';
+    document.body.appendChild(workerStripTip);
+  }
+  return workerStripTip;
+}
+function showWorkerStripTooltip(e, label, names, color){
+  const tt=getOrCreateWorkerStripTip();
+  tt.innerHTML=`<div style="color:${color};font-weight:600;margin-bottom:4px;">${label} (${names.length})</div>`+names.map(n=>`<div>${n}</div>`).join('');
+  const x=e.clientX, y=e.clientY;
+  const w=window.innerWidth;
+  tt.style.left=(x+14+220>w?x-234:x+14)+'px';
+  tt.style.top=Math.max(10,y-10)+'px';
+  tt.style.display='block';
+}
+function hideWorkerStripTooltip(){
+  if(workerStripTip) workerStripTip.style.display='none';
 }
 
 // ===================== INSIGHT TOOLTIP (deterministic) =====================
