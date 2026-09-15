@@ -535,7 +535,7 @@
   </div>
 
   <!-- Restack Activity chart -->
-  <div class="chart-card" id="restack-card" style="margin-top:14px;display:none;">
+  <div class="chart-card" id="restack-card" style="margin-top:14px;">
     <div class="card-title">Restack Activity — extra pallets reprocessed</div>
     <div class="chart-scroll-wrap" id="scroll-restack"><canvas id="restackChart" role="img" aria-label="Restack chart"></canvas></div>
     <div class="legend" id="restack-legend"></div>
@@ -3365,43 +3365,80 @@ function renderRestackChart(){
   const card=document.getElementById('restack-card');
   const c=document.getElementById('restackChart');
   if(!card||!c)return;
+  card.style.display='block'; // always visible
 
   const{gran,years,locs,selectedPeriods}=getFilters();
 
-  // Only show at weekly granularity — Restack data is tracked daily→weekly, no meaningful monthly rollup yet
-  if(gran!=='weekly'||!crossDockData.length){
-    card.style.display='none';
+  if(!crossDockData.length){
     if(restackInst){restackInst.destroy();restackInst=null;}
+    c.style.display='none';
+    showRestackEmptyState('No Cross Dock data loaded yet.');
     return;
   }
 
-  // Reuse the same weekly keys as the correlation chart for alignment
-  const bkts=getCorrData();
-  const keys=Object.keys(bkts).sort();
-  if(!keys.length){card.style.display='none';return;}
+  // Weekly-native data; for monthly/quarterly/yearly, roll weekly sums up to the selected granularity
+  const weeklyBkts=getCorrData(); // always weekly keys, used as the base grid
+  const weeklyKeys=Object.keys(weeklyBkts).sort();
+  if(!weeklyKeys.length){
+    if(restackInst){restackInst.destroy();restackInst=null;}
+    c.style.display='none';
+    showRestackEmptyState('No data for the selected period.');
+    return;
+  }
 
-  const revenueVals=[], equivVals=[];
-  let hasAny=false;
-  keys.forEach(k=>{
+  // Compute weekly revenue/equiv per weekly key, then group into the active granularity
+  const weeklyRevenue={}, weeklyEquiv={};
+  weeklyKeys.forEach(wk=>{
     let totalRevenue=0, totalEquiv=0;
     locs.forEach(loc=>{
-      const r=getRestackForWeek(loc,k);
+      const r=getRestackForWeek(loc,wk);
       totalRevenue+=r.revenue;
       totalEquiv+=r.equivPallets;
     });
-    if(totalRevenue>0)hasAny=true;
-    revenueVals.push(totalRevenue>0?Math.round(totalRevenue):null);
-    equivVals.push(totalRevenue>0?Math.round(totalEquiv):null);
+    weeklyRevenue[wk]=totalRevenue;
+    weeklyEquiv[wk]=totalEquiv;
   });
 
-  if(!hasAny){
-    card.style.display='none';
+  let keys, revenueVals, equivVals, labels;
+  if(gran==='weekly'){
+    keys=weeklyKeys;
+    revenueVals=keys.map(k=>weeklyRevenue[k]>0?Math.round(weeklyRevenue[k]):0);
+    equivVals=keys.map(k=>weeklyEquiv[k]>0?Math.round(weeklyEquiv[k]):0);
+    labels=keys.map(k=>getDisplayLabel(k,gran));
+  } else {
+    // Roll weekly figures up into the active granularity bucket (monthly/quarterly/yearly)
+    // by re-deriving each week's bucket key using the same Thursday-rule as getBucketKey.
+    const grouped={};
+    weeklyKeys.forEach(wk=>{
+      const yr=parseInt(wk.slice(0,4)), week=parseInt(wk.slice(4,6));
+      const jan4=new Date(yr,0,4);
+      const dow=(jan4.getDay()+6)%7;
+      const week1Mon=new Date(jan4);week1Mon.setDate(jan4.getDate()-dow);
+      const thu=new Date(week1Mon);thu.setDate(week1Mon.getDate()+(week-1)*7+3);
+      let bucketKey=null;
+      if(gran==='monthly')bucketKey=String(thu.getFullYear())+'-'+String(thu.getMonth()+1).padStart(2,'0');
+      else if(gran==='quarterly')bucketKey=String(thu.getFullYear())+'Q'+Math.ceil((thu.getMonth()+1)/3);
+      else if(gran==='yearly')bucketKey=String(thu.getFullYear());
+      if(!bucketKey)return;
+      if(!grouped[bucketKey])grouped[bucketKey]={revenue:0,equiv:0};
+      grouped[bucketKey].revenue+=weeklyRevenue[wk]||0;
+      grouped[bucketKey].equiv+=weeklyEquiv[wk]||0;
+    });
+    keys=Object.keys(grouped).sort();
+    revenueVals=keys.map(k=>Math.round(grouped[k].revenue));
+    equivVals=keys.map(k=>Math.round(grouped[k].equiv));
+    labels=keys.map(k=>getDisplayLabel(k,gran));
+  }
+
+  if(!keys.length){
     if(restackInst){restackInst.destroy();restackInst=null;}
+    c.style.display='none';
+    showRestackEmptyState('No data for the selected period.');
     return;
   }
-  card.style.display='block';
 
-  const labels=keys.map(k=>getDisplayLabel(k,gran));
+  c.style.display='block';
+  hideRestackEmptyState();
 
   if(restackInst)restackInst.destroy();
   restackInst=new Chart(c,{
@@ -3433,6 +3470,22 @@ function renderRestackChart(){
   if(legEl)legEl.innerHTML=`
     <span class="leg-item"><span class="leg-box" style="background:#f0c050"></span>Restack equiv. (pallets)</span>
     <span class="leg-item"><span class="leg-line" style="background:#e07070"></span>Restack revenue ($)</span>`;
+}
+
+function showRestackEmptyState(msg){
+  let el=document.getElementById('restack-empty-state');
+  const card=document.getElementById('restack-card');
+  if(!el&&card){
+    el=document.createElement('div');
+    el.id='restack-empty-state';
+    el.style.cssText='color:#6a7d9a;font-size:12px;padding:30px 0;text-align:center;';
+    card.querySelector('.chart-scroll-wrap')?.after(el);
+  }
+  if(el)el.textContent=msg;
+}
+function hideRestackEmptyState(){
+  const el=document.getElementById('restack-empty-state');
+  if(el)el.remove();
 }
 
 function renderCorrMatrix(){
