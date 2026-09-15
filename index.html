@@ -768,7 +768,7 @@ const LOC_NAME_MAP = {
   'wh greenville':                  'Greenville, SC'
 };
 
-let rawData = [], timeData = [];
+let rawData = [], timeData = [], crossDockData = [];
 let comboInst=null, donutInst=null, chart2Inst=null;
 let topInst=null, dowInst=null, prodInst=null, corrInst=null;
 let satCanvasData={};
@@ -1322,6 +1322,22 @@ function renderProdTable(){
   if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
     fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
 
+  // Restack equivalent pallets — only meaningful at weekly granularity (Cross Dock data is daily→weekly)
+  if(gran==='weekly'&&crossDockData.length){
+    const restackRow=keys.map(k=>{
+      let totalEquiv=0, totalRevenue=0;
+      locs.forEach(loc=>{
+        const r=getRestackForWeek(loc,k);
+        totalEquiv+=r.equivPallets;
+        totalRevenue+=r.revenue;
+      });
+      return totalRevenue>0?Math.round(totalEquiv):null;
+    });
+    if(restackRow.some(v=>v!==null&&v>0)){
+      rows.push({label:'Restack equiv. (plt)', data:restackRow, color:'#f0c050', fmt:v=>v===null||v===0?'—':'+'+Number(v).toLocaleString()});
+    }
+  }
+
   // Utilization Rate per bucket
   const utilRow=activeThr?keys.map(k=>{
     const d=bkts[k];
@@ -1375,6 +1391,7 @@ function renderProdTable(){
     <b style="color:#8a9dba">Target pallets</b> = Target plt/hr × Prod hrs &nbsp;·&nbsp;
     <b style="color:#8a9dba">Lost pallets</b> = (Target − Prod plt/hr) × Prod hrs
     ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#E24B4A">${activeThr.toFixed(1)} plt/hr</span>`:''}
+    ${crossDockData.length?`<br><b style="color:#f0c050">Restack equiv.</b> = Restack revenue ÷ Reload price — extra pallets reprocessed (not in Actual pallets, explains lower plt/hr this week)`:''}
   </td></tr>`;
 }
 
@@ -2633,6 +2650,50 @@ function getPlannedProdHrs(loc,weekCount=1){
 function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
+// ===================== RESTACK / RELOAD (Cross Dock sheet) =====================
+// Maps full dashboard location names to the short column-name prefix used in the Cross Dock sheet
+const RESTACK_COL_PREFIX = {
+  'Markham, IL West':   'Markham',
+  'Reno, NV':            'Reno',
+  'Stockton, CA':        'Stockton',
+  'San Bernardino, CA':  'San Bernardino',
+  'Denver, CO':          'Denver',
+  'Columbus, OH':        'Columbus',
+  'Greenville, SC':      'Greenville',
+  // Markham, IL East has no dedicated Restack column in the Cross Dock sheet
+};
+
+// Returns {revenue, price, equivPallets} for one location summed over the given weekly bucket key (e.g. "202635")
+function getRestackForWeek(loc, weekKey){
+  const prefix=RESTACK_COL_PREFIX[loc];
+  if(!prefix||!crossDockData.length)return{revenue:0,price:null,equivPallets:0};
+  const revCol=`${prefix} Restack revenue ($)`;
+  const priceCol=`${prefix} Reload price ($/pallet)`;
+
+  let revenue=0, lastPrice=null;
+  crossDockData.forEach(r=>{
+    const pd=parseDate(r.date);if(!pd)return;
+    // Derive ISO week key from date (same convention as elsewhere in the dashboard)
+    const key=String(pd.y)+String(getISOWeek(pd.dt)).padStart(2,'0');
+    if(key!==weekKey)return;
+    revenue+=toNum(r[revCol]);
+    const p=toNum(r[priceCol]);
+    if(p>0)lastPrice=p;
+  });
+  const equivPallets=lastPrice>0?revenue/lastPrice:0;
+  return{revenue, price:lastPrice, equivPallets};
+}
+
+function getISOWeek(dt){
+  const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate()));
+  const dayNum=(d.getUTCDay()+6)%7;
+  d.setUTCDate(d.getUTCDate()-dayNum+3);
+  const firstThu=new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  const firstThuDay=(firstThu.getUTCDay()+6)%7;
+  firstThu.setUTCDate(firstThu.getUTCDate()-firstThuDay+3);
+  return 1+Math.round((d-firstThu)/(7*24*3600*1000));
+}
+
 function getActiveProdThreshold(locs, gran, years, selectedPeriods, isDaily, dateFrom, dateTo){
   if(!locs.length)return null;
   // Single location — just return its target directly
@@ -3779,6 +3840,7 @@ async function loadData(){
     if(json.sheets){Object.entries(json.sheets).forEach(([loc,rows])=>{rows.forEach(r=>{r._location=loc;rawData.push(r);});});}
     else if(json.data){rawData=json.data;}
     timeData=json.time||[];
+    crossDockData=json.crossDock||[];
     invData.amazon=json.amazon||[];
     invData.hd=json.hd||[];
     const dates=rawData.map(r=>parseDate(r[COL.date])).filter(Boolean).map(pd=>pd.str).sort();
@@ -3790,7 +3852,7 @@ async function loadData(){
     rawData.forEach(r=>Object.values(r).forEach(v=>{if(v==='#REF!'||v==='#VALUE!'||v==='#N/A'||v==='#DIV/0!')errCount++;}));
     if(errCount>0) showErrorToast(`⚠ ${errCount} error cell(s) found in data (#REF!, #VALUE! etc). Some values may be missing.`);
     st.className='status ok';
-    st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time + ${invData.amazon.length} amz + ${invData.hd.length} hd · Updated: ${new Date().toLocaleTimeString()}`;
+    st.textContent=`✓ Loaded ${rawData.length} ops rows + ${timeData.length} time + ${crossDockData.length} restack + ${invData.amazon.length} amz + ${invData.hd.length} hd · Updated: ${new Date().toLocaleTimeString()}`;
     loadSettings(); // restore saved threshold/shift/workforce settings
     renderAll();
   }catch(e){st.className='status err';st.textContent='✗ Error: '+e.message;}
