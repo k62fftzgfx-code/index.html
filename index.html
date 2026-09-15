@@ -533,6 +533,13 @@
       </div>
     </div>
   </div>
+
+  <!-- Restack Activity chart -->
+  <div class="chart-card" id="restack-card" style="margin-top:14px;display:none;">
+    <div class="card-title">Restack Activity — extra pallets reprocessed</div>
+    <div class="chart-scroll-wrap" id="scroll-restack"><canvas id="restackChart" role="img" aria-label="Restack chart"></canvas></div>
+    <div class="legend" id="restack-legend"></div>
+  </div>
 </div>
 
 
@@ -3349,6 +3356,83 @@ function renderCorrChart(){
     <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly $</span>`;
 
   if(corrMatrixOpen) renderCorrMatrix();
+  renderRestackChart();
+}
+
+// ===================== RESTACK ACTIVITY CHART =====================
+let restackInst=null;
+function renderRestackChart(){
+  const card=document.getElementById('restack-card');
+  const c=document.getElementById('restackChart');
+  if(!card||!c)return;
+
+  const{gran,years,locs,selectedPeriods}=getFilters();
+
+  // Only show at weekly granularity — Restack data is tracked daily→weekly, no meaningful monthly rollup yet
+  if(gran!=='weekly'||!crossDockData.length){
+    card.style.display='none';
+    if(restackInst){restackInst.destroy();restackInst=null;}
+    return;
+  }
+
+  // Reuse the same weekly keys as the correlation chart for alignment
+  const bkts=getCorrData();
+  const keys=Object.keys(bkts).sort();
+  if(!keys.length){card.style.display='none';return;}
+
+  const revenueVals=[], equivVals=[];
+  let hasAny=false;
+  keys.forEach(k=>{
+    let totalRevenue=0, totalEquiv=0;
+    locs.forEach(loc=>{
+      const r=getRestackForWeek(loc,k);
+      totalRevenue+=r.revenue;
+      totalEquiv+=r.equivPallets;
+    });
+    if(totalRevenue>0)hasAny=true;
+    revenueVals.push(totalRevenue>0?Math.round(totalRevenue):null);
+    equivVals.push(totalRevenue>0?Math.round(totalEquiv):null);
+  });
+
+  if(!hasAny){
+    card.style.display='none';
+    if(restackInst){restackInst.destroy();restackInst=null;}
+    return;
+  }
+  card.style.display='block';
+
+  const labels=keys.map(k=>getDisplayLabel(k,gran));
+
+  if(restackInst)restackInst.destroy();
+  restackInst=new Chart(c,{
+    data:{
+      labels,
+      datasets:[
+        {type:'bar',label:'Restack equiv. (pallets)',data:equivVals,backgroundColor:'#f0c050cc',borderColor:'#f0c050',borderWidth:0,borderRadius:4,yAxisID:'yP',order:2,maxBarThickness:40},
+        {type:'line',label:'Restack revenue ($)',data:revenueVals,borderColor:'#e07070',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e07070',tension:0.2,yAxisID:'yR',order:1},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#1a2540',borderColor:'#3a5080',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
+          callbacks:{label:ctx=>{
+            if(ctx.dataset.label==='Restack revenue ($)')return` Revenue: $${Number(ctx.raw).toLocaleString()}`;
+            return` Equiv: ${Number(ctx.raw).toLocaleString()} pallets`;
+          }}}},
+      scales:{
+        x:{ticks:{color:'#6a7d9a',font:{size:10}},grid:{color:'#1e2840'}},
+        yP:{position:'left',ticks:{color:'#f0c050',font:{size:10}},grid:{color:'#1e2840'},title:{display:true,text:'Equiv. pallets',color:'#f0c050',font:{size:10}}},
+        yR:{position:'right',ticks:{color:'#e07070',font:{size:10}},grid:{display:false},title:{display:true,text:'Revenue ($)',color:'#e07070',font:{size:10}}},
+      }
+    }
+  });
+
+  const legEl=document.getElementById('restack-legend');
+  if(legEl)legEl.innerHTML=`
+    <span class="leg-item"><span class="leg-box" style="background:#f0c050"></span>Restack equiv. (pallets)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#e07070"></span>Restack revenue ($)</span>`;
 }
 
 function renderCorrMatrix(){
