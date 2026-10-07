@@ -2726,6 +2726,50 @@ function finMoney(v){
   return sg+'$'+a.toFixed(2);
 }
 
+function finLabelsPlugin(opts){
+  return{id:'finLabels',afterDatasetsDraw(chart){
+    const ctx=chart.ctx;ctx.save();ctx.textAlign='center';ctx.font='10px sans-serif';
+    const n=chart.data.labels.length;
+    // totals above stacked bars
+    if(opts.totals){
+      const ys=chart.scales[opts.totalAxis];
+      for(let i=0;i<n;i++){
+        const tot=opts.totals[i];if(!tot)continue;
+        const x=chart.getDatasetMeta(0).data[i]?.x;if(x===undefined)continue;
+        ctx.fillStyle='#e0e8f8';ctx.font='bold 10px sans-serif';ctx.textBaseline='bottom';
+        ctx.fillText(opts.fmtTotal(tot),x,ys.getPixelForValue(tot)-4);
+      }
+    }
+    // value labels on line datasets
+    chart.data.datasets.forEach((ds,di)=>{
+      if(ds.type!=='line')return;
+      const meta=chart.getDatasetMeta(di);
+      ctx.fillStyle=ds.borderColor;ctx.font='bold 10px sans-serif';
+      meta.data.forEach((pt,i)=>{
+        const v=ds.data[i];if(v===null||v===undefined)return;
+        ctx.textBaseline=ds._lblPos==='below'?'top':'bottom';
+        const dy=ds._lblPos==='below'?7:-7;
+        const txt=String(ds._fmt?ds._fmt(v):v),tw=ctx.measureText(txt).width;
+        const ty=pt.y+(ds._lblPos==='below'?dy+6:dy-6);
+        ctx.fillStyle='#1e2840e6';ctx.fillRect(pt.x-tw/2-2,ty-6,tw+4,12);
+        ctx.fillStyle=ds.borderColor;ctx.textBaseline='middle';
+        ctx.fillText(txt,pt.x,ty);
+      });
+    });
+    // profit bar values
+    if(opts.barValues){
+      const meta=chart.getDatasetMeta(0);
+      meta.data.forEach((bar,i)=>{
+        const v=chart.data.datasets[0].data[i];if(v===null||v===undefined)return;
+        ctx.fillStyle=v<0?'#e07070':'#9fd4b8';ctx.font='bold 10px sans-serif';
+        ctx.textBaseline=v<0?'top':'bottom';
+        ctx.fillText(opts.barValues(v),bar.x,v<0?bar.y+4:bar.y-4);
+      });
+    }
+    ctx.restore();
+  }};
+}
+
 function renderFinance(){
   if(!rawData.length)return;
   const f=getFilters();
@@ -2804,11 +2848,12 @@ function renderFinance(){
   const dsBars=DIR_LABELS.map((lbl,i)=>({type:'bar',label:lbl,data:keys.map(k=>+g[k].dirRev[i].toFixed(0)),backgroundColor:FIN_DIR_COLORS[i]+'dd',stack:'r',yAxisID:'yR',order:2,maxBarThickness:60})).filter(d=>d.data.some(v=>v>0));
   finInst1=draw('scroll-fin1','finChart1',finInst1,{
     data:{labels,datasets:[...dsBars,
-      {type:'line',label:'Price / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true},
-      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7dd4f0',backgroundColor:'#7dd4f0',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true}]},
+      {type:'line',label:'Price / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
+      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7dd4f0',backgroundColor:'#7dd4f0',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'below',_fmt:v=>'$'+v.toFixed(2)}]},
+    plugins:[finLabelsPlugin({totals:keys.map(k=>g[k].rev),totalAxis:'yR',fmtTotal:finMoney})],
     options:{...baseOpts,scales:{...baseOpts.scales,
-      yR:{stacked:true,position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
-      yL:{position:'right',ticks:{color:'#7a8daa',callback:v=>'$'+v},grid:{display:false}}},
+      yR:{stacked:true,grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
+      yL:{position:'right',grace:'10%',ticks:{color:'#7a8daa',callback:v=>'$'+v},grid:{display:false}}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?`${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`:`${c.dataset.label}: $${c.parsed.y}`}}}}
   });
   document.getElementById('fin-legend1').innerHTML=dsBars.map(d=>{const i=DIR_LABELS.indexOf(d.label);return`<span class="leg-item"><span class="leg-box" style="background:${FIN_DIR_COLORS[i]}"></span>${d.label}</span>`;}).join('')+
@@ -2817,10 +2862,11 @@ function renderFinance(){
   finInst2=draw('scroll-fin2','finChart2',finInst2,{
     data:{labels,datasets:[
       {type:'bar',label:'Profit after labor ($)',data:profits,backgroundColor:profits.map(v=>v!==null&&v<0?'#e07070cc':'#6aab90cc'),yAxisID:'yP',order:2,maxBarThickness:60},
-      {type:'line',label:'Margin %',data:margins,borderColor:'#f0a050',backgroundColor:'#f0a050',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true}]},
+      {type:'line',label:'Margin %',data:margins,borderColor:'#f0a050',backgroundColor:'#f0a050',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>v+'%'}]},
+    plugins:[finLabelsPlugin({barValues:finMoney})],
     options:{...baseOpts,scales:{...baseOpts.scales,
-      yP:{position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
-      yM:{position:'right',ticks:{color:'#7a8daa',callback:v=>v+'%'},grid:{display:false}}},
+      yP:{grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
+      yM:{grace:'10%',position:'right',ticks:{color:'#7a8daa',callback:v=>v+'%'},grid:{display:false}}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yP'?`Profit: ${finMoney(c.parsed.y)}`:`Margin: ${c.parsed.y}%`}}}}
   });
   document.getElementById('fin-legend2').innerHTML='<span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Profit</span><span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Loss</span><span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Margin %</span>';
