@@ -227,6 +227,7 @@
   <button class="tab-btn" onclick="switchTab('staff')">Time & Staff</button>
   <button class="tab-btn" onclick="switchTab('inventory')">Procurement</button>
   <button class="tab-btn" onclick="switchTab('capacity')" style="border-color:#a07dd460;">🧪 Capacity (test)</button>
+  <button class="tab-btn" onclick="switchTab('finance')" style="border-color:#f0c05060;">💰 Finance</button>
 </div>
 
 <!-- SHARED CONTROLS -->
@@ -665,6 +666,31 @@
 
 </div>
 
+<!-- ===================== FINANCE TAB ===================== -->
+<div class="tab-content" id="tab-finance">
+  <div style="background:#2a2618;border:1px solid #f0c05060;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#f0d890;">
+    💰 <b>Finance (етап 1).</b> Виручка = палети × ціна Reload/Cross-Dock (з листа Cross Dock, по кожному тижню). Прибуток поки <b>після ЗП</b> (виручка − Costs2). Газ, обслуговування навантажувачів і витрати складу ще не підключені. Тижні без Costs2 у прибуток не входять. Для Daily показується по тижнях. Markham East використовує ціну Markham West.
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-bar" style="background:#f0c050"></div><div class="kpi-value" id="fin-kpi-rev">—</div><div class="kpi-threshold-hint" id="fin-kpi-rev-sub"></div></div>
+    <div class="kpi-card"><div class="kpi-label">Labor cost (Costs2)</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="fin-kpi-lab">—</div><div class="kpi-threshold-hint" id="fin-kpi-lab-sub"></div></div>
+    <div class="kpi-card"><div class="kpi-label">Profit after labor</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="fin-kpi-profit">—</div><div class="kpi-threshold-hint">виручка − ЗП</div></div>
+    <div class="kpi-card"><div class="kpi-label">Margin %</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="fin-kpi-margin">—</div><div class="kpi-threshold-hint">прибуток ÷ виручка</div></div>
+    <div class="kpi-card"><div class="kpi-label">Profit / pallet</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="fin-kpi-ppp">—</div><div class="kpi-threshold-hint" id="fin-kpi-ppp-sub"></div></div>
+  </div>
+  <div class="chart-card" style="margin-bottom:14px;">
+    <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Price / pallet</div>
+    <div class="chart-scroll-wrap" id="scroll-fin1"><canvas id="finChart1"></canvas></div>
+    <div class="legend" id="fin-legend1"></div>
+  </div>
+  <div class="chart-card">
+    <div class="card-title">Profit after labor ($) &amp; Margin %</div>
+    <div class="chart-scroll-wrap" id="scroll-fin2"><canvas id="finChart2"></canvas></div>
+    <div class="legend" id="fin-legend2"></div>
+  </div>
+  <div id="fin-empty" style="display:none;color:#7a8daa;font-size:12px;padding:10px;">Немає даних про ціну (Cross Dock) для вибраних локацій/періодів.</div>
+</div>
+
 <!-- ===================== CAPACITY TAB (TEST) ===================== -->
 <div class="tab-content" id="tab-capacity">
   <div style="background:#2a2040;border:1px solid #a07dd460;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#c8b0f0;">
@@ -786,15 +812,17 @@ let currentTab = 'operations';
 
 function switchTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')||(i===3&&tab==='capacity')));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')||(i===3&&tab==='capacity')||(i===4&&tab==='finance')));
   document.getElementById('tab-operations').classList.toggle('active', tab==='operations');
   document.getElementById('tab-staff').classList.toggle('active', tab==='staff');
   document.getElementById('tab-inventory').classList.toggle('active', tab==='inventory');
   document.getElementById('tab-capacity').classList.toggle('active', tab==='capacity');
+  document.getElementById('tab-finance').classList.toggle('active', tab==='finance');
   if (tab==='staff') { document.getElementById('date-range-row').classList.toggle('visible', document.getElementById('granularity').value==='daily'); renderStaff(); }
   if (tab==='operations') renderOperations();
   if (tab==='inventory') renderInventory();
   if (tab==='capacity') renderCapacity();
+  if (tab==='finance') renderFinance();
 }
 
 
@@ -1239,6 +1267,7 @@ function renderAll(){
   if(currentTab==='operations') renderOperations();
   else if(currentTab==='staff') renderStaff();
   else if(currentTab==='inventory') renderInventory();
+  else if(currentTab==='finance') renderFinance();
 }
 
 
@@ -2657,6 +2686,146 @@ function getPlannedProdHrs(loc,weekCount=1){
 function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
+// ===================== FINANCE TAB =====================
+let finInst1=null, finInst2=null;
+const FIN_DIR_COLORS=['#4a9fd4','#2d5f8a','#d4e8d0','#6aab90','#1a3a5c'];
+
+// price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
+function finBuildPriceMap(){
+  const map={};
+  Object.keys(RESTACK_COL_PREFIX).forEach(loc=>{map[loc]={};});
+  crossDockData.forEach(r=>{
+    const pd=parseDate(r.date);if(!pd)return;
+    const shifted=new Date(pd.dt);shifted.setDate(shifted.getDate()+3);
+    let wk=parseInt((String(r.cw||'').match(/(\d+)/)||[])[1]);
+    if(!wk||wk<1||wk>53)wk=getISOWeek(shifted);
+    const yr=shifted.getFullYear();
+    const key=String(yr)+String(wk).padStart(2,'0');
+    Object.keys(RESTACK_COL_PREFIX).forEach(loc=>{
+      const p=toNum(r[`${RESTACK_COL_PREFIX[loc]} Reload price ($/pallet)`]);
+      if(p>0)map[loc][key]=p;
+    });
+  });
+  return map;
+}
+function finPriceFor(map,loc,wkKey){
+  const ploc=loc==='Markham, IL East'?'Markham, IL West':loc;
+  const m=map[ploc];if(!m)return null;
+  if(m[wkKey]>0)return m[wkKey];
+  const keys=Object.keys(m).sort();if(!keys.length)return null;
+  let last=null;
+  for(const k of keys){if(k<=wkKey)last=m[k];else break;}
+  return last!==null?last:m[keys[0]];
+}
+
+function finMoney(v){
+  if(v===null||v===undefined||isNaN(v))return'—';
+  const a=Math.abs(v),sg=v<0?'-':'';
+  if(a>=1000000)return sg+'$'+(a/1000000).toFixed(2)+'M';
+  if(a>=1000)return sg+'$'+(a/1000).toFixed(1)+'K';
+  return sg+'$'+a.toFixed(2);
+}
+
+function renderFinance(){
+  if(!rawData.length)return;
+  const f=getFilters();
+  const gran=f.isDaily?'weekly':f.gran;
+  const sel=f.isDaily?null:f.selectedPeriods;
+  const years=f.isDaily?[...new Set(rawData.map(r=>parseDate(r[COL.date])?.y).filter(Boolean))]:f.years;
+  const priceMap=finBuildPriceMap();
+
+  // 1) weekly aggregation per location
+  const wk={}; // key: loc|weekKey -> {gkey, dirRev[5], rev, pallets, costs2, price}
+  rawData.forEach(r=>{
+    if(!f.locs.includes(r._location))return;
+    const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
+    const wkKey=getBucketKey(r,'weekly');if(!wkKey)return;
+    const gkey=gran==='weekly'?wkKey:getBucketKey(r,gran);if(!gkey)return;
+    if(sel&&!sel.has(gkey))return;
+    const id=r._location+'|'+wkKey;
+    if(!wk[id]){
+      const price=finPriceFor(priceMap,r._location,wkKey);
+      wk[id]={gkey,price,dirPal:[0,0,0,0,0],pallets:0,costs2:0};
+    }
+    const o=wk[id];
+    DIR_FIELD.forEach((fld,i)=>{o.dirPal[i]+=toNum(r[fld]);});
+    o.pallets+=toNum(r[COL.sumPallets]);
+    o.costs2+=toNum(r[COL.costs2]);
+  });
+
+  // 2) roll up to selected granularity
+  const g={};
+  Object.values(wk).forEach(o=>{
+    if(!g[o.gkey])g[o.gkey]={dirRev:[0,0,0,0,0],rev:0,pal:0,palOk:0,revOk:0,lab:0,priceW:0,priceP:0};
+    const b=g[o.gkey];
+    const price=o.price||0;
+    const rev=o.dirPal.reduce((a,v)=>a+v,0)*price;
+    o.dirPal.forEach((v,i)=>{b.dirRev[i]+=v*price;});
+    b.rev+=rev;b.pal+=o.pallets;
+    if(o.price>0){b.priceW+=price*o.dirPal.reduce((a,v)=>a+v,0);b.priceP+=o.dirPal.reduce((a,v)=>a+v,0);}
+    if(o.costs2>0){b.revOk+=rev;b.palOk+=o.pallets;b.lab+=o.costs2;} // complete weeks only
+  });
+  const keys=Object.keys(g).sort();
+  const hasPrice=keys.some(k=>g[k].rev>0);
+  document.getElementById('fin-empty').style.display=hasPrice?'none':'block';
+
+  // 3) KPIs (profit metrics from complete weeks only)
+  let T={rev:0,revOk:0,lab:0,palOk:0,pal:0};
+  keys.forEach(k=>{const b=g[k];T.rev+=b.rev;T.revOk+=b.revOk;T.lab+=b.lab;T.palOk+=b.palOk;T.pal+=b.pal;});
+  const profit=T.revOk-T.lab;
+  document.getElementById('fin-kpi-rev').textContent=finMoney(T.rev);
+  document.getElementById('fin-kpi-rev-sub').textContent=Math.round(T.pal).toLocaleString()+' pallets';
+  document.getElementById('fin-kpi-lab').textContent=finMoney(T.lab);
+  document.getElementById('fin-kpi-lab-sub').textContent=T.palOk>0?'LCP $'+(T.lab/T.palOk).toFixed(2):'';
+  const pe=document.getElementById('fin-kpi-profit');
+  pe.textContent=T.lab>0?finMoney(profit):'—';pe.style.color=profit<0?'#e07070':'#6aab90';
+  document.getElementById('fin-kpi-margin').textContent=T.revOk>0&&T.lab>0?(profit/T.revOk*100).toFixed(1)+'%':'—';
+  document.getElementById('fin-kpi-ppp').textContent=T.palOk>0&&T.lab>0?'$'+(profit/T.palOk).toFixed(2):'—';
+  document.getElementById('fin-kpi-ppp-sub').textContent=T.palOk>0&&T.lab>0?'ціна $'+(T.revOk/Math.max(T.palOk,1)).toFixed(2)+' − LCP':'';
+
+  // 4) charts
+  const labels=keys.map(k=>getDisplayLabel(k,gran));
+  const lcp=keys.map(k=>g[k].lab>0&&g[k].palOk>0?+(g[k].lab/g[k].palOk).toFixed(2):null);
+  const price=keys.map(k=>g[k].priceP>0?+(g[k].priceW/g[k].priceP).toFixed(2):null);
+  const profits=keys.map(k=>g[k].lab>0?+(g[k].revOk-g[k].lab).toFixed(0):null);
+  const margins=keys.map(k=>g[k].lab>0&&g[k].revOk>0?+((g[k].revOk-g[k].lab)/g[k].revOk*100).toFixed(1):null);
+
+  const draw=(wrapId,canvasId,old,cfg)=>{
+    if(old)old.destroy();
+    const wrap=document.getElementById(wrapId),cv=document.getElementById(canvasId);
+    const n=labels.length,w=Math.max(wrap.clientWidth||800,n*42+100);
+    cv.style.width=w+'px';cv.style.height='340px';cv.width=w;cv.height=340;
+    return new Chart(cv,cfg);
+  };
+  const baseOpts={responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false}},
+    scales:{x:{ticks:{color:'#7a8daa',font:{size:10}},grid:{display:false}}}};
+
+  const dsBars=DIR_LABELS.map((lbl,i)=>({type:'bar',label:lbl,data:keys.map(k=>+g[k].dirRev[i].toFixed(0)),backgroundColor:FIN_DIR_COLORS[i]+'dd',stack:'r',yAxisID:'yR',order:2,maxBarThickness:60})).filter(d=>d.data.some(v=>v>0));
+  finInst1=draw('scroll-fin1','finChart1',finInst1,{
+    data:{labels,datasets:[...dsBars,
+      {type:'line',label:'Price / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true},
+      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7dd4f0',backgroundColor:'#7dd4f0',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true}]},
+    options:{...baseOpts,scales:{...baseOpts.scales,
+      yR:{stacked:true,position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
+      yL:{position:'right',ticks:{color:'#7a8daa',callback:v=>'$'+v},grid:{display:false}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?`${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`:`${c.dataset.label}: $${c.parsed.y}`}}}}
+  });
+  document.getElementById('fin-legend1').innerHTML=dsBars.map(d=>{const i=DIR_LABELS.indexOf(d.label);return`<span class="leg-item"><span class="leg-box" style="background:${FIN_DIR_COLORS[i]}"></span>${d.label}</span>`;}).join('')+
+    '<span class="leg-item"><span class="leg-line" style="background:#f0c050"></span>Price / pallet</span><span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost / pallet</span>';
+
+  finInst2=draw('scroll-fin2','finChart2',finInst2,{
+    data:{labels,datasets:[
+      {type:'bar',label:'Profit after labor ($)',data:profits,backgroundColor:profits.map(v=>v!==null&&v<0?'#e07070cc':'#6aab90cc'),yAxisID:'yP',order:2,maxBarThickness:60},
+      {type:'line',label:'Margin %',data:margins,borderColor:'#f0a050',backgroundColor:'#f0a050',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true}]},
+    options:{...baseOpts,scales:{...baseOpts.scales,
+      yP:{position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'#2e3d5c'}},
+      yM:{position:'right',ticks:{color:'#7a8daa',callback:v=>v+'%'},grid:{display:false}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yP'?`Profit: ${finMoney(c.parsed.y)}`:`Margin: ${c.parsed.y}%`}}}}
+  });
+  document.getElementById('fin-legend2').innerHTML='<span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Profit</span><span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Loss</span><span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Margin %</span>';
+}
+
 // ===================== RESTACK / RELOAD (Cross Dock sheet) =====================
 // Maps full dashboard location names to the short column-name prefix used in the Cross Dock sheet
 const RESTACK_COL_PREFIX = {
