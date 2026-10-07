@@ -669,7 +669,7 @@
 <!-- ===================== FINANCE TAB ===================== -->
 <div class="tab-content" id="tab-finance">
   <div style="background:#2a2618;border:1px solid #f0c05060;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#f0d890;">
-    💰 <b>Finance (етап 1).</b> Виручка = палети × ціна Reload/Cross-Dock (з листа Cross Dock, по кожному тижню). Прибуток поки <b>після ЗП</b> (виручка − Costs2). Газ, обслуговування навантажувачів і витрати складу ще не підключені. Тижні без Costs2 у прибуток не входять. Для Daily показується по тижнях. Markham East використовує ціну Markham West.
+    💰 <b>Finance (етап 1).</b> Виручка Cross Dock береться з листа Cross Dock (колонки «&lt;Loc&gt; Restack revenue ($)» = загальна виручка); Highway/Intermodal/Local/East Coast = палети × ціна Reload. Прибуток поки <b>після ЗП</b> (виручка − Costs2). Газ, обслуговування навантажувачів і витрати складу ще не підключені. Тижні без Costs2 у прибуток не входять. Для Daily показується по тижнях. Markham East (немає колонки) і тижні без рядка в листі: Cross Dock = палети × ціна Markham West.
   </div>
   <div class="kpi-row">
     <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-bar" style="background:#f0c050"></div><div class="kpi-value" id="fin-kpi-rev">—</div><div class="kpi-threshold-hint" id="fin-kpi-rev-sub"></div></div>
@@ -679,7 +679,7 @@
     <div class="kpi-card"><div class="kpi-label">Profit / pallet</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="fin-kpi-ppp">—</div><div class="kpi-threshold-hint" id="fin-kpi-ppp-sub"></div></div>
   </div>
   <div class="chart-card" style="margin-bottom:14px;">
-    <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Price / pallet</div>
+    <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Avg revenue / pallet</div>
     <div class="chart-scroll-wrap" id="scroll-fin1"><canvas id="finChart1"></canvas></div>
     <div class="legend" id="fin-legend1"></div>
   </div>
@@ -2692,8 +2692,9 @@ const FIN_DIR_COLORS=['#4a9fd4','#2d5f8a','#d4e8d0','#6aab90','#1a3a5c'];
 
 // price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
 function finBuildPriceMap(){
-  const map={};
-  Object.keys(RESTACK_COL_PREFIX).forEach(loc=>{map[loc]={};});
+  const map={};const cd={};
+  Object.keys(RESTACK_COL_PREFIX).forEach(loc=>{map[loc]={};cd[loc]={};});
+  window._finCdRev=cd; // loc -> weekKey -> Cross Dock revenue ($) from sheet
   crossDockData.forEach(r=>{
     const pd=parseDate(r.date);if(!pd)return;
     const shifted=new Date(pd.dt);shifted.setDate(shifted.getDate()+3);
@@ -2704,6 +2705,8 @@ function finBuildPriceMap(){
     Object.keys(RESTACK_COL_PREFIX).forEach(loc=>{
       const p=toNum(r[`${RESTACK_COL_PREFIX[loc]} Reload price ($/pallet)`]);
       if(p>0)map[loc][key]=p;
+      const rv=r[`${RESTACK_COL_PREFIX[loc]} Restack revenue ($)`];
+      if(rv!==undefined&&rv!==null&&rv!=='')cd[loc][key]=(cd[loc][key]||0)+toNum(rv);
     });
   });
   return map;
@@ -2789,7 +2792,8 @@ function renderFinance(){
     const id=r._location+'|'+wkKey;
     if(!wk[id]){
       const price=finPriceFor(priceMap,r._location,wkKey);
-      wk[id]={gkey,price,dirPal:[0,0,0,0,0],pallets:0,costs2:0};
+      const cdv=(window._finCdRev[r._location]||{})[wkKey];
+      wk[id]={gkey,price,dirPal:[0,0,0,0,0],pallets:0,costs2:0,cdRev:cdv===undefined?null:cdv};
     }
     const o=wk[id];
     DIR_FIELD.forEach((fld,i)=>{o.dirPal[i]+=toNum(r[fld]);});
@@ -2803,10 +2807,13 @@ function renderFinance(){
     if(!g[o.gkey])g[o.gkey]={dirRev:[0,0,0,0,0],rev:0,pal:0,palOk:0,revOk:0,lab:0,priceW:0,priceP:0};
     const b=g[o.gkey];
     const price=o.price||0;
-    const rev=o.dirPal.reduce((a,v)=>a+v,0)*price;
-    o.dirPal.forEach((v,i)=>{b.dirRev[i]+=v*price;});
+    // Cross Dock (index 2): money from sheet column; other directions: pallets x price
+    const dirRevs=o.dirPal.map((v,i)=>(i===2&&o.cdRev!==null)?o.cdRev:v*price);
+    const rev=dirRevs.reduce((a,v)=>a+v,0);
+    const palAll=o.dirPal.reduce((a,v)=>a+v,0);
+    dirRevs.forEach((v,i)=>{b.dirRev[i]+=v;});
     b.rev+=rev;b.pal+=o.pallets;
-    if(o.price>0){b.priceW+=price*o.dirPal.reduce((a,v)=>a+v,0);b.priceP+=o.dirPal.reduce((a,v)=>a+v,0);}
+    if(palAll>0&&rev>0){b.priceW+=rev;b.priceP+=palAll;}
     if(o.costs2>0){b.revOk+=rev;b.palOk+=o.pallets;b.lab+=o.costs2;} // complete weeks only
   });
   const keys=Object.keys(g).sort();
@@ -2848,7 +2855,7 @@ function renderFinance(){
   const dsBars=DIR_LABELS.map((lbl,i)=>({type:'bar',label:lbl,data:keys.map(k=>+g[k].dirRev[i].toFixed(0)),backgroundColor:FIN_DIR_COLORS[i]+'dd',stack:'r',yAxisID:'yR',order:2,maxBarThickness:60})).filter(d=>d.data.some(v=>v>0));
   finInst1=draw('scroll-fin1','finChart1',finInst1,{
     data:{labels,datasets:[...dsBars,
-      {type:'line',label:'Price / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
+      {type:'line',label:'Avg revenue / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
       {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7dd4f0',backgroundColor:'#7dd4f0',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'below',_fmt:v=>'$'+v.toFixed(2)}]},
     plugins:[finLabelsPlugin({totals:keys.map(k=>g[k].rev),totalAxis:'yR',fmtTotal:finMoney})],
     options:{...baseOpts,scales:{...baseOpts.scales,
@@ -2857,7 +2864,7 @@ function renderFinance(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?`${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`:`${c.dataset.label}: $${c.parsed.y}`}}}}
   });
   document.getElementById('fin-legend1').innerHTML=dsBars.map(d=>{const i=DIR_LABELS.indexOf(d.label);return`<span class="leg-item"><span class="leg-box" style="background:${FIN_DIR_COLORS[i]}"></span>${d.label}</span>`;}).join('')+
-    '<span class="leg-item"><span class="leg-line" style="background:#f0c050"></span>Price / pallet</span><span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost / pallet</span>';
+    '<span class="leg-item"><span class="leg-line" style="background:#f0c050"></span>Avg revenue / pallet</span><span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost / pallet</span>';
 
   finInst2=draw('scroll-fin2','finChart2',finInst2,{
     data:{labels,datasets:[
