@@ -671,6 +671,7 @@
   <div style="background:#2a2618;border:1px solid #f0c05060;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#f0d890;">
     💰 <b>Finance (етап 1).</b> Виручка Cross Dock береться з листа Cross Dock (колонки «&lt;Loc&gt; Restack revenue ($)» = загальна виручка); Highway/Intermodal/Local/East Coast = палети × ціна Reload. Прибуток поки <b>після ЗП</b> (виручка − Costs2). Газ, обслуговування навантажувачів і витрати складу ще не підключені. Тижні без Costs2 у прибуток не входять. Для Daily показується по тижнях. Markham East (немає колонки) і тижні без рядка в листі: Cross Dock = палети × ціна Markham West.
   </div>
+  <div id="fin-warn" style="display:none;background:#2a1e20;border:1px solid #E24B4A60;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#f0b0b0;"></div>
   <div class="kpi-row">
     <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-bar" style="background:#f0c050"></div><div class="kpi-value" id="fin-kpi-rev">—</div><div class="kpi-threshold-hint" id="fin-kpi-rev-sub"></div></div>
     <div class="kpi-card"><div class="kpi-label">Labor cost (Costs2)</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="fin-kpi-lab">—</div><div class="kpi-threshold-hint" id="fin-kpi-lab-sub"></div></div>
@@ -2782,6 +2783,7 @@ function renderFinance(){
   const priceMap=finBuildPriceMap();
 
   // 1) weekly aggregation per location
+  window._finFallback=new Set();
   const wk={}; // key: loc|weekKey -> {gkey, dirRev[5], rev, pallets, costs2, price}
   rawData.forEach(r=>{
     if(!f.locs.includes(r._location))return;
@@ -2793,7 +2795,7 @@ function renderFinance(){
     if(!wk[id]){
       const price=finPriceFor(priceMap,r._location,wkKey);
       const cdv=(window._finCdRev[r._location]||{})[wkKey];
-      wk[id]={gkey,price,dirPal:[0,0,0,0,0],pallets:0,costs2:0,cdRev:cdv===undefined?null:cdv};
+      wk[id]={gkey,price,dirPal:[0,0,0,0,0],pallets:0,costs2:0,cdRev:(cdv===undefined||!(cdv>0))?null:cdv,wkKey};
     }
     const o=wk[id];
     DIR_FIELD.forEach((fld,i)=>{o.dirPal[i]+=toNum(r[fld]);});
@@ -2808,6 +2810,7 @@ function renderFinance(){
     const b=g[o.gkey];
     const price=o.price||0;
     // Cross Dock (index 2): money from sheet column; other directions: pallets x price
+    if(o.cdRev===null&&o.dirPal[2]>0)(window._finFallback=window._finFallback||new Set()).add(o.wkKey);
     const dirRevs=o.dirPal.map((v,i)=>(i===2&&o.cdRev!==null)?o.cdRev:v*price);
     const rev=dirRevs.reduce((a,v)=>a+v,0);
     const palAll=o.dirPal.reduce((a,v)=>a+v,0);
@@ -2816,6 +2819,10 @@ function renderFinance(){
     if(palAll>0&&rev>0){b.priceW+=rev;b.priceP+=palAll;}
     if(o.costs2>0){b.revOk+=rev;b.palOk+=o.pallets;b.lab+=o.costs2;} // complete weeks only
   });
+  const fbk=[...(window._finFallback||[])].sort();
+  const warn=document.getElementById('fin-warn');
+  if(fbk.length){warn.style.display='block';warn.textContent='⚠ Немає грошей Cross Dock (колонка Restack revenue порожня або 0) за: '+fbk.map(k=>'CW'+k.slice(4)).join(', ')+'. Для них Cross Dock = палети × ціна Reload.';}
+  else warn.style.display='none';
   const keys=Object.keys(g).sort();
   const hasPrice=keys.some(k=>g[k].rev>0);
   document.getElementById('fin-empty').style.display=hasPrice?'none':'block';
