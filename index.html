@@ -1542,13 +1542,17 @@ function getDisplayLabel(key,gran){
 }
 function resizeCanvas(el,wrap,count,scroll,h){
   const BAR_W=42;
+  // destroy the old chart first: Chart.js restores the canvas' ORIGINAL size on destroy(), which would undo the resize below
+  try{const old=window.Chart&&Chart.getChart(el);if(old)old.destroy();}catch(e){}
+  // collapse the canvas so an old wide canvas can't inflate the wrapper width
+  el.style.width='0px';
   const wrapW = wrap.clientWidth || 800;
-  // If few data points or not scrollable mode - use full width
   if(scroll && count > 20){
     const w=Math.max(wrapW, count*BAR_W+100);
     el.style.width=w+'px';el.style.height=h+'px';el.width=w;el.height=h;
   } else {
-    el.style.width='100%';el.style.height=h+'px';el.width=wrapW;el.height=h;
+    // few data points: fill the full card width, evenly spread, no scrolling
+    el.style.width=wrapW+'px';el.style.height=h+'px';el.width=wrapW;el.height=h;wrap.scrollLeft=0;
   }
 }
 function isSummaryRow(r){return String(r[COL.day]||'').trim()==='Sunday';}
