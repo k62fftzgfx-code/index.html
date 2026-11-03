@@ -633,6 +633,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .region-seg button.on{color:#06150f;font-weight:600}
 .region-seg .rs-ind{position:absolute;top:3px;bottom:3px;left:0;width:0;border-radius:9px;background:linear-gradient(135deg,var(--g-acc-2),var(--g-acc));box-shadow:0 4px 14px rgba(120,195,165,.35);transition:transform .38s cubic-bezier(.34,1.35,.5,1),width .38s cubic-bezier(.34,1.35,.5,1);opacity:0}
 .region-seg.none button.on{color:#8a9dba;font-weight:500}
+.dropdown-item[hidden]{display:none!important}
+#schedule-search:focus{border-color:rgba(120,195,165,.5);box-shadow:0 0 0 3px rgba(120,195,165,.12)}
+#schedule-search::placeholder{color:#6a7d9a}
 </style>
 </head>
 <body>
@@ -1103,8 +1106,11 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
   <!-- Daily Schedule (per-employee hours by day) -->
   <div class="chart-card" style="margin-top:14px;">
-    <div class="card-title">Daily Schedule — hours per employee</div>
-    <div class="table-scroll" id="schedule-scroll" style="max-height:480px;overflow:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
+      <div class="card-title" style="margin:0">Daily Schedule — hours per employee</div>
+      <input type="text" id="schedule-search" placeholder="Search employee..." oninput="applyScheduleSearch()" autocomplete="off" style="width:230px;padding:7px 12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#e6eefc;font-size:12px;outline:none;">
+    </div>
+    <div class="table-scroll" id="schedule-scroll" style="max-height:max(560px,calc(100vh - 150px));overflow:auto;">
       <table class="staff-table" id="schedule-table" style="white-space:nowrap;">
         <thead><tr id="schedule-thead"></tr></thead>
         <tbody id="schedule-tbody"></tbody>
@@ -1401,21 +1407,26 @@ document.addEventListener('click', e => {
     });
   }
 });
-function toggleAll(name){
-  const allCb=document.getElementById(name+'-all');
-  document.querySelectorAll('.'+name+'-cb').forEach(c=>c.checked=allCb.checked);
-  updateDropdownLabel(name);if(name==='loc')syncRegionUI();renderAll();
-}
-
 const REGIONS={west:['Markham, IL West','Reno, NV','Stockton, CA','San Bernardino, CA','Denver, CO'],east:['Markham, IL East','Columbus, OH','Greenville, SC']};
+let curRegion='all';
+function visLocCbs(){return Array.from(document.querySelectorAll('.loc-cb')).filter(c=>!c.closest('label').hidden);}
 function syncRegionUI(){
   const seg=document.getElementById('region-seg');if(!seg)return;
   const cbs=Array.from(document.querySelectorAll('.loc-cb'));
-  const sel=cbs.filter(c=>c.checked).map(c=>c.value).sort().join('|');
+  const checked=cbs.filter(c=>c.checked);
+  const sel=checked.map(c=>c.value).sort().join('|');
   let r='none';
   if(cbs.every(c=>c.checked))r='all';
   else if(sel===REGIONS.west.slice().sort().join('|'))r='west';
   else if(sel===REGIONS.east.slice().sort().join('|'))r='east';
+  // keep the region on while the user only narrows inside it
+  if((curRegion==='west'||curRegion==='east')&&r!=='all'&&checked.length&&checked.every(c=>REGIONS[curRegion].includes(c.value)))r=curRegion;
+  else curRegion=(r==='west'||r==='east')?r:'all';
+  cbs.forEach(c=>{c.closest('label').hidden=!(curRegion==='all'||REGIONS[curRegion].includes(c.value));});
+  const allLbl=document.querySelector('#loc-menu .all-item');
+  if(allLbl)allLbl.lastChild.textContent=' '+(curRegion==='west'?'All West':curRegion==='east'?'All East':'All locations');
+  const vis=visLocCbs();const allCb=document.getElementById('loc-all');if(allCb)allCb.checked=vis.length>0&&vis.every(c=>c.checked);
+  updateDropdownLabel('loc');
   seg.classList.toggle('none',r==='none');
   let on=null;
   seg.querySelectorAll('button').forEach(b=>{const a=b.dataset.r===r;b.classList.toggle('on',a);if(a)on=b;});
@@ -1424,15 +1435,22 @@ function syncRegionUI(){
   else ind.style.opacity=0;
 }
 function setRegion(r){
+  curRegion=r;
   const set=r==='all'?null:REGIONS[r];
   document.querySelectorAll('.loc-cb').forEach(c=>{c.checked=!set||set.includes(c.value);});
-  const allCb=document.getElementById('loc-all');if(allCb)allCb.checked=!set;
-  updateDropdownLabel('loc');syncRegionUI();renderAll();
+  syncRegionUI();renderAll();
 }
 window.addEventListener('load',()=>{syncRegionUI();setTimeout(syncRegionUI,300);});
 window.addEventListener('resize',syncRegionUI);
+function toggleAll(name){
+  const allCb=document.getElementById(name+'-all');
+  const list=name==='loc'?visLocCbs():Array.from(document.querySelectorAll('.'+name+'-cb'));
+  list.forEach(c=>c.checked=allCb.checked);
+  if(name==='loc'&&!allCb.checked&&curRegion!=='all'){/* none in region */}
+  updateDropdownLabel(name);if(name==='loc')syncRegionUI();renderAll();
+}
 function onCbChange(name){
-  const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked);
+  const all=name==='loc'?visLocCbs():Array.from(document.querySelectorAll('.'+name+'-cb')),checked=all.filter(c=>c.checked);
   const allCb=document.getElementById(name+'-all');
   if(allCb) allCb.checked=checked.length===all.length;
   updateDropdownLabel(name);if(name==='loc')syncRegionUI();renderAll();
@@ -1452,7 +1470,8 @@ function updateDropdownLabel(name){
     }).join(', ');
     else t.textContent=checked.length+' periods';
   } else if(name==='loc'){
-    t.textContent=checked.length===0?'None':checked.length===all.length?'All locations':checked.length===1?checked[0].value:checked.length+' locations';
+    const vis=visLocCbs();const rg=curRegion==='west'?'West':curRegion==='east'?'East':null;
+    t.textContent=checked.length===0?'None':(checked.length===vis.length&&rg)?'All '+rg:checked.length===all.length?'All locations':checked.length===1?checked[0].value:checked.length+' locations';
   }
 }// legacy alias
 
@@ -4271,6 +4290,10 @@ function renderCorrMatrix(){
 }
 
 // ===================== DAILY SCHEDULE TABLE =====================
+function applyScheduleSearch(){
+  const q=(document.getElementById('schedule-search')?.value||'').trim().toLowerCase();
+  document.querySelectorAll('#schedule-tbody tr').forEach(tr=>{const n=(tr.cells[0]?.textContent||'').toLowerCase();tr.style.display=(!q||n.includes(q))?'':'none';});
+}
 function renderDailySchedule(filtered){
   const thead=document.getElementById('schedule-thead');
   const tbody=document.getElementById('schedule-tbody');
@@ -4506,7 +4529,7 @@ function renderStaff(){
       <td style="text-align:right">${x.days}</td><td style="text-align:right;color:${sc}">${x.best}</td></tr>`;
   }).join('');
 
-  renderDailySchedule(filtered);
+  renderDailySchedule(filtered);applyScheduleSearch();
 }
 
 // Error toast
