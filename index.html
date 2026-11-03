@@ -38,10 +38,18 @@ if(window.Chart){
       const bg=ds.backgroundColor;
       if(typeof bg!=='string'&&!Array.isArray(bg))return;
       const solid=Array.isArray(bg)?bg.map(c=>toRGBA(c,1)):toRGBA(bg,1);
-      ds.backgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.25)):toRGBA(bg,0.25);
-      if(!ds.borderWidth){ds.borderColor=Array.isArray(solid)?solid.map(c=>c.replace(/,1\)$/,',0.85)')):String(solid).replace(/,1\)$/,',0.85)');ds.borderWidth=1.2;}
-      ds.hoverBackgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.5)):toRGBA(bg,0.5);
-      ds.hoverBorderColor=solid;ds.hoverBorderWidth=1.6;
+      // bright colours get lower opacity so neighbouring segments blend smoothly
+      const lum=c=>{const m=String(toRGBA(c,1)).match(/(\d+),\s*(\d+),\s*(\d+)/);return m?(0.299*m[1]+0.587*m[2]+0.114*m[3])/255:0.5;};
+      const al=(c,k)=>toRGBA(c,+(k*(1-0.55*Math.max(0,lum(c)-0.35))).toFixed(3));
+      const sc=chart.options.scales||{};
+      const stacked=!!(ds.stack||(sc.x&&sc.x.stacked)||(sc.y&&sc.y.stacked)||Object.values(sc).some(v=>v&&v.stacked));
+      ds.backgroundColor=Array.isArray(bg)?bg.map(c=>al(c,0.26)):al(bg,0.26);
+      if(!ds.borderWidth){
+        const ba=stacked?0.28:0.8;
+        const bc=c=>String(c).replace(/,1\)$/,','+ba+')');
+        ds.borderColor=Array.isArray(solid)?solid.map(bc):bc(solid);ds.borderWidth=stacked?0.8:1.2;}
+      ds.hoverBackgroundColor=Array.isArray(bg)?bg.map(c=>al(c,0.5)):al(bg,0.5);
+      ds.hoverBorderColor=solid;ds.hoverBorderWidth=1.4;
       ds._glassDone=true;
     });
   }});
@@ -113,7 +121,7 @@ if(window.Chart){
         const top=Math.min(y,base),h=Math.abs(base-y);
         if(!(h>3)||!(width>3)||isNaN(x))return;
         const g=ctx.createLinearGradient(0,top,0,top+h);
-        g.addColorStop(0,'rgba(255,255,255,0.16)');g.addColorStop(0.55,'rgba(255,255,255,0.02)');g.addColorStop(1,'rgba(255,255,255,0.0)');
+        g.addColorStop(0,'rgba(255,255,255,0.07)');g.addColorStop(0.55,'rgba(255,255,255,0.01)');g.addColorStop(1,'rgba(255,255,255,0.0)');
         const br=bar.options&&bar.options.borderRadius;const r0=(br&&typeof br==='object')?(br.topLeft||0):(typeof br==='number'?br:6);const r=Math.min(r0,width/2,h/2);
         ctx.save();ctx.beginPath();
         const l=x-width/2,rt=x+width/2,b=top+h;
