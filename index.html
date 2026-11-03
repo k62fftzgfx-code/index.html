@@ -33,16 +33,75 @@ if(window.Chart){
   C.register({id:'glassBars',beforeUpdate(chart){
     chart.data.datasets.forEach(ds=>{
       if((ds.type||chart.config.type)!=='bar')return;
+      if((ds.type||chart.config.type)==='bar'&&chart.options.indexAxis!=='y'){ds.maxBarThickness=Math.min(ds.maxBarThickness||999,38);ds.barPercentage=0.68;ds.categoryPercentage=0.8;}
       if(ds._glassDone)return;
       const bg=ds.backgroundColor;
       if(typeof bg!=='string'&&!Array.isArray(bg))return;
       const solid=Array.isArray(bg)?bg.map(c=>toRGBA(c,1)):toRGBA(bg,1);
-      ds.backgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.50)):toRGBA(bg,0.50);
+      ds.backgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.25)):toRGBA(bg,0.25);
       if(!ds.borderWidth){ds.borderColor=Array.isArray(solid)?solid.map(c=>c.replace(/,1\)$/,',0.85)')):String(solid).replace(/,1\)$/,',0.85)');ds.borderWidth=1.2;}
+      ds.hoverBackgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.5)):toRGBA(bg,0.5);
+      ds.hoverBorderColor=solid;ds.hoverBorderWidth=1.6;
       ds._glassDone=true;
     });
   }});
   // glass gloss on vertical bars
+  // stacked bars: one flat column, rounded only at the very top of the whole stack
+  C.register({id:'stackRound',beforeDatasetsDraw(chart){
+    if(chart.options.indexAxis==='y')return;
+    const groups={};
+    chart.data.datasets.forEach((ds,i)=>{
+      if((ds.type||chart.config.type)!=='bar')return;
+      const sc=chart.scales[ds.yAxisID||'y']; const xs=chart.scales[ds.xAxisID||'x'];
+      const stacked=(sc&&sc.options&&sc.options.stacked)||(xs&&xs.options&&xs.options.stacked)||ds.stack;
+      if(!stacked)return;
+      const key=(ds.yAxisID||'y')+'|'+(ds.stack||'');
+      (groups[key]=groups[key]||[]).push(i);
+    });
+    Object.values(groups).forEach(idxs=>{
+      const n=Math.max(...idxs.map(i=>chart.data.datasets[i].data.length));
+      for(let k=0;k<n;k++){
+        let top=-1;
+        idxs.forEach(i=>{const m=chart.getDatasetMeta(i);if(m.hidden)return;const v=+chart.data.datasets[i].data[k];if(v>0)top=i;});
+        idxs.forEach(i=>{
+          const el=chart.getDatasetMeta(i).data[k];if(!el||!el.options)return;
+          el.options.borderRadius=(i===top)?{topLeft:6,topRight:6,bottomLeft:0,bottomRight:0}:0;
+        });
+      }
+    });
+  }});
+  // soft glow in the bar's own colour + gentle hover animation
+  C.defaults.transitions.active.animation.duration=260;
+  C.defaults.transitions.active.animation.easing='easeOutCubic';
+  C.register({id:'barGlow',beforeDatasetDraw(chart,args){
+    if(chart.options.indexAxis==='y')return;
+    const di=args.index,ds=chart.data.datasets[di];
+    if((ds.type||chart.config.type)!=='bar')return;
+    const meta=args.meta; if(meta.hidden)return;
+    const act=new Set(chart.getActiveElements().filter(e=>e.datasetIndex===di).map(e=>e.index));
+    const ctx=chart.ctx,OFF=20000;
+    meta.data.forEach((el,i)=>{
+      if(!el||!el.options)return;
+      const hot=act.has(i);
+      const br=el.options.borderRadius;
+      const isTop=!!(br&&(typeof br==='number'?br>0:(br.topLeft||br.topRight)));
+      if(!hot&&!isTop)return;
+      const {x,y,base,width}=el.getProps(['x','y','base','width'],true);
+      const top=Math.min(y,base),h=Math.abs(base-y);
+      if(!(h>2)||!(width>2)||isNaN(x))return;
+      const col=el.options.borderColor&&typeof el.options.borderColor==='string'&&!/transparent|,0\)/.test(el.options.borderColor)?el.options.borderColor:el.options.backgroundColor;
+      const r=Math.min(6,width/2,h/2);
+      ctx.save();
+      ctx.shadowColor=toRGBA(col,hot?0.75:0.38);
+      ctx.shadowBlur=hot?26:14;
+      ctx.shadowOffsetX=OFF;ctx.shadowOffsetY=0;
+      ctx.fillStyle='#000';
+      ctx.beginPath();
+      const l=x-width/2-OFF,rt=x+width/2-OFF,b=top+h;
+      ctx.moveTo(l,b);ctx.lineTo(l,top+r);ctx.quadraticCurveTo(l,top,l+r,top);ctx.lineTo(rt-r,top);ctx.quadraticCurveTo(rt,top,rt,top+r);ctx.lineTo(rt,b);ctx.closePath();
+      ctx.fill();ctx.restore();
+    });
+  }});
   C.register({id:'glassGloss',afterDatasetsDraw(chart){
     if(chart.options.indexAxis==='y')return;
     const ctx=chart.ctx;
@@ -55,7 +114,7 @@ if(window.Chart){
         if(!(h>3)||!(width>3)||isNaN(x))return;
         const g=ctx.createLinearGradient(0,top,0,top+h);
         g.addColorStop(0,'rgba(255,255,255,0.16)');g.addColorStop(0.55,'rgba(255,255,255,0.02)');g.addColorStop(1,'rgba(255,255,255,0.0)');
-        const r=Math.min(6,width/2,h/2);
+        const br=bar.options&&bar.options.borderRadius;const r0=(br&&typeof br==='object')?(br.topLeft||0):(typeof br==='number'?br:6);const r=Math.min(r0,width/2,h/2);
         ctx.save();ctx.beginPath();
         const l=x-width/2,rt=x+width/2,b=top+h;
         ctx.moveTo(l,b);ctx.lineTo(l,top+r);ctx.quadraticCurveTo(l,top,l+r,top);ctx.lineTo(rt-r,top);ctx.quadraticCurveTo(rt,top,rt,top+r);ctx.lineTo(rt,b);ctx.closePath();
@@ -991,7 +1050,7 @@ const COL = {
 
 const DIR_FIELD  = [COL.highway, COL.intermodal, COL.crossDock, COL.localDelivery, COL.eastCoast];
 const DIR_LABELS = ['Highway','Intermodal','Cross Dock','Local Delivery','East Coast'];
-const DIR_COLORS = ['#4a9fd4','#2d5f8a','#d4e8d0','#d4c06a','#1a3a5c'];
+const DIR_COLORS = ['#4a9fd4','#2d5f8a','#d4e8d0','#6aab90','#1a3a5c'];
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -1338,7 +1397,7 @@ function renderPeriodGroups(filter=''){
         }).join('');
         const monName=MONTH_SHORT[parseInt(mon)-1]||mon;
         const selCount=weeks.filter(o=>selectedPeriods_set===null||selectedPeriods_set.has(o.key)).length;
-        const cc=selCount===0?'#e07070':selCount===weeks.length?'#6aab90':'#f0a050';
+        const cc=selCount===0?'#e07070':selCount===weeks.length?'#5bbf8a':'#f0a050';
         return`<div class="wf-month"><div class="wf-month-header" onclick="togglePeriodMonthOpen('${monKey}')"><span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span><span class="wf-month-label">${monName} <span style="color:${cc};font-size:10px;font-weight:500">${selCount}/${weeks.length}</span></span><span class="wf-month-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',false)">None</span></span></div><div class="wf-month-body ${isMonOpen?'open':''}" id="pmon-${monKey}">${weeksHtml}</div></div>`;
       }).join('');
       return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${yrSel}/${yrOpts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${monthsHtml}</div></div>`;
@@ -1728,12 +1787,17 @@ function renderOpsMap() {
 
   // Color gradient green → yellow → red
   const getColor = (val) => {
-    if(val === 0) return 'rgba(255,255,255,0.16)';
+    if(val === 0) return '#3a5080';
     const t = Math.min(1, Math.max(0, (val - minVal) / (maxVal - minVal || 1)));
-    const lerp=(c1,c2,k)=>c1.map((v,i)=>Math.round(v+(c2[i]-v)*k));
-    const G=[52,211,153],Y=[251,191,36],R=[248,113,113];
-    const c=t<0.5?lerp(G,Y,t*2):lerp(Y,R,(t-0.5)*2);
-    return `rgb(${c[0]},${c[1]},${c[2]})`;
+    if(t < 0.5) {
+      const r = Math.round(t*2*231);
+      const g = Math.round(180 + (1-t*2)*75);
+      return `rgb(${r},${g},60)`;
+    } else {
+      const r = 231;
+      const g = Math.round(180*(1-(t-0.5)*2));
+      return `rgb(${r},${g},60)`;
+    }
   };
 
   // Check threshold
@@ -2044,7 +2108,7 @@ function renderOperations(){
   if(chart2Inst){chart2Inst.destroy();chart2Inst=null;}
   chart2Inst=new Chart(c2,{
     data:{labels:disp2,datasets:[
-      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#4a7fa0cc',borderColor:'#4a7fa0',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
+      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#5a8fd4cc',borderColor:'#5a8fd4',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
       {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#f0a050',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
@@ -2103,7 +2167,7 @@ const LOC_COORDS = {
   'Greenville, SC':     [34.85,   -82.39]
 };
 
-const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e07070','#7dd4f0','#a07dd4','#d4c06a','#f08080'];
+const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0','#a07dd4','#d4c06a','#f08080'];
 const locKeys = Object.keys(LOC_COORDS);
 
 window.setMapMode = function setMapMode(mode) {
@@ -2208,7 +2272,7 @@ function renderMap() {
         <div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:180px;">
           <strong style="font-size:13px;">${loc}</strong><br><br>
           <span style="color:#f0a050">&#9632; Amazon:</span> $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>
-          <span style="color:#e07070">&#9632; Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
+          <span style="color:#e06060">&#9632; Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
           ${d.hdShared>0?`<br><span style="color:#999;font-size:10px">incl. shared: $${d.hdShared.toFixed(2)}</span>`:''}
           <br><br><strong>Total: $${(d.amz+d.hd).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </div>
@@ -2302,8 +2366,8 @@ function mapHdLoc(job) {
 }
 
 const CAT_COLORS = [
-  '#4a9fd4','#f0a050','#6aab90','#e07070','#7dd4f0',
-  '#a07dd4','#d4c06a','#5a8fd4','#d47a4a','#8ab0d4',
+  '#4a9fd4','#f0a050','#6aab90','#e06060','#7dd4f0',
+  '#a07dd4','#d4c06a','#5bbf8a','#d47a4a','#8ab0d4',
   '#c8d8f0','#f0d050','#d4506a','#50d4a0','#d49050'
 ];
 
@@ -2390,9 +2454,9 @@ function renderInventory() {
       {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
        backgroundColor:'#f0a050cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (direct)', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e07070cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
+       backgroundColor:'#e06060cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#e0707044', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
+       backgroundColor:'#e0606044', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
@@ -2578,7 +2642,7 @@ function renderWeekGroups(filter=''){
       const monName = MONTH_SHORT[parseInt(mon)-1];
       const selectedInMonth = weeks.filter(yw=>selectedWeeks.has(yw)).length;
       const totalInMonth = weeks.length;
-      const counterColor = selectedInMonth===0?'#e07070':selectedInMonth===totalInMonth?'#6aab90':'#f0a050';
+      const counterColor = selectedInMonth===0?'#e07070':selectedInMonth===totalInMonth?'#5bbf8a':'#f0a050';
       return `<div class="wf-month">
         <div class="wf-month-header" onclick="toggleMonthOpen('${monKey}')">
           <span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span>
@@ -2921,7 +2985,7 @@ function getProdThreshold(loc){
 }
 // ===================== FINANCE TAB =====================
 let finInst1=null, finInst2=null;
-const FIN_DIR_COLORS=['#4a9fd4','#2d5f8a','#d4e8d0','#d4c06a','#1a3a5c'];
+const FIN_DIR_COLORS=['#4a9fd4','#2d5f8a','#d4e8d0','#6aab90','#1a3a5c'];
 
 // price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
 function finBuildPriceMap(){
