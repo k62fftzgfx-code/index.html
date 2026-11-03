@@ -20,6 +20,28 @@ if(window.Chart){
   tt.backgroundColor='rgba(11,17,33,0.94)';tt.borderColor='rgba(255,255,255,0.14)';tt.borderWidth=1;
   tt.cornerRadius=12;tt.padding=12;tt.titleColor='#fff';tt.bodyColor='#cfd9ee';tt.boxPadding=4;
   tt.titleFont={weight:'600',size:12};tt.bodyFont={size:11.5};
+
+  // translucent "glass" bars: keep original hues, lower fill opacity, thin bright edge
+  const toRGBA=(c,a)=>{
+    if(typeof c!=='string')return c;
+    let m=c.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+    if(m){const n=parseInt(m[1],16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+    m=c.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if(m)return `rgba(${m[1]},${m[2]},${m[3]},${a})`;
+    return c;
+  };
+  C.register({id:'glassBars',beforeUpdate(chart){
+    chart.data.datasets.forEach(ds=>{
+      if((ds.type||chart.config.type)!=='bar')return;
+      if(ds._glassDone)return;
+      const bg=ds.backgroundColor;
+      if(typeof bg!=='string'&&!Array.isArray(bg))return;
+      const solid=Array.isArray(bg)?bg.map(c=>toRGBA(c,1)):toRGBA(bg,1);
+      ds.backgroundColor=Array.isArray(bg)?bg.map(c=>toRGBA(c,0.50)):toRGBA(bg,0.50);
+      if(!ds.borderWidth){ds.borderColor=Array.isArray(solid)?solid.map(c=>c.replace(/,1\)$/,',0.85)')):String(solid).replace(/,1\)$/,',0.85)');ds.borderWidth=1.2;}
+      ds._glassDone=true;
+    });
+  }});
   // glass gloss on vertical bars
   C.register({id:'glassGloss',afterDatasetsDraw(chart){
     if(chart.options.indexAxis==='y')return;
@@ -32,7 +54,7 @@ if(window.Chart){
         const top=Math.min(y,base),h=Math.abs(base-y);
         if(!(h>3)||!(width>3)||isNaN(x))return;
         const g=ctx.createLinearGradient(0,top,0,top+h);
-        g.addColorStop(0,'rgba(255,255,255,0.18)');g.addColorStop(0.5,'rgba(255,255,255,0.03)');g.addColorStop(1,'rgba(0,0,0,0.18)');
+        g.addColorStop(0,'rgba(255,255,255,0.16)');g.addColorStop(0.55,'rgba(255,255,255,0.02)');g.addColorStop(1,'rgba(255,255,255,0.0)');
         const r=Math.min(6,width/2,h/2);
         ctx.save();ctx.beginPath();
         const l=x-width/2,rt=x+width/2,b=top+h;
@@ -68,13 +90,13 @@ if(window.Chart){
   .custom-dropdown { position: relative; min-width: 140px; }
   .dropdown-trigger { font-size: 12px; padding: 5px 26px 5px 9px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: #0c1424; color: #c8d8f0; cursor: pointer; user-select: none; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .dropdown-trigger::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #7a8daa; font-size: 10px; }
-  .dropdown-trigger.open { border-color: #5b8def; border-radius: 8px 8px 0 0; }
-  .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #0f1729; border: 1px solid #5b8def; border-top: none; border-radius: 0 0 8px 8px; z-index: 100; overflow-y: auto; min-width: 180px; }
+  .dropdown-trigger.open { border-color: #4a7ab0; border-radius: 8px 8px 0 0; }
+  .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #0f1729; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 100; overflow-y: auto; min-width: 180px; }
   .dropdown-menu.open { display: block; }
   .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 7px 11px; cursor: pointer; font-size: 12px; color: #c8d8f0; transition: background 0.1s; }
   .dropdown-item:hover { background: rgba(255,255,255,0.08); }
-  .dropdown-item.all-item { border-bottom: 0.5px solid rgba(255,255,255,0.12); color: #22d3ee; font-size: 11px; }
-  .dropdown-item input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: #38bdf8; flex-shrink: 0; }
+  .dropdown-item.all-item { border-bottom: 0.5px solid rgba(255,255,255,0.12); color: #7dd4f0; font-size: 11px; }
+  .dropdown-item input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
 
   .date-range { display: none; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; background: #101a2e; padding: 10px 16px; border-radius: 10px; border: 0.5px solid rgba(255,255,255,0.16); }
   .date-range.visible { display: flex; }
@@ -83,82 +105,82 @@ if(window.Chart){
 
   .btn-refresh { font-size: 12px; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: rgba(255,255,255,0.08); color: #a0c4f0; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .btn-refresh:hover { background: rgba(255,255,255,0.10); }
-  .btn-threshold { font-size: 12px; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: rgba(255,255,255,0.08); color: #fb923c; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
+  .btn-threshold { font-size: 12px; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: rgba(255,255,255,0.08); color: #f0a050; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   .btn-threshold:hover { background: rgba(255,255,255,0.10); }
-  .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: rgba(255,255,255,0.08); color: #34d399; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
+  .btn-workforce { font-size: 12px; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: rgba(255,255,255,0.08); color: #6aab90; cursor: pointer; transition: background 0.15s; align-self: flex-end; }
   /* AI Insight Tooltip */
 
   .chart-scroll-wrap canvas { cursor: pointer; }
   /* Worker count strip */
   .worker-cell { display:flex; flex-direction:column; align-items:center; gap:1px; }
   .wc-bar { height:13px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; min-width:16px; background:transparent!important; border:none!important; }
-  .wc-green { color:#34d399; }
-  .wc-yellow { color:#fb923c; }
-  .wc-blue { color:#60a5fa; }
+  .wc-green { color:#6aab90; }
+  .wc-yellow { color:#f0a050; }
+  .wc-blue { color:#4a7fa0; }
   #prod-detail-table th { background:#0f1729; color:#6a7d9a; font-weight:500; padding:5px 10px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.12); white-space:nowrap; }
   #prod-detail-table th:first-child { text-align:left; min-width:90px; }
   #prod-detail-table td { padding:4px 10px; text-align:center; border-bottom:1px solid #0f1729; color:#c8d8f0; white-space:nowrap; }
   #prod-detail-table td:first-child { text-align:left; color:#6a7d9a; font-weight:500; }
   #prod-detail-table tr:hover td { background:rgba(255,255,255,0.03); }
-  #prod-detail-table .val-red { color:#f87171!important; font-weight:600; }
-  #prod-detail-table .val-green { color:#34d399!important; font-weight:600; }
+  #prod-detail-table .val-red { color:#e07070!important; font-weight:600; }
+  #prod-detail-table .val-green { color:#6aab90!important; font-weight:600; }
   /* Workforce panel */
-  .workforce-panel { display: none; background: #101a2e; border-radius: 12px; border: 0.5px solid #34d39960; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:460px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .workforce-panel { display: none; background: #101a2e; border-radius: 12px; border: 0.5px solid #6aab9060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:460px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
   .workforce-panel.visible { display: block; }
   .workforce-panel.visible { display: block; }
-  .workforce-panel-title { font-size: 11px; color: #34d399; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+  .workforce-panel-title { font-size: 11px; color: #6aab90; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
 
   .status { font-size: 11px; color: #7a8daa; margin-bottom: 12px; padding: 6px 12px; background: #101a2e; border-radius: 8px; border: 0.5px solid rgba(255,255,255,0.12); }
-  .status.ok  { color: #34d399; border-color: #2a4a3a; }
-  .status.err { color: #f87171; border-color: #4a2a2a; }
+  .status.ok  { color: #6aab90; border-color: #2a4a3a; }
+  .status.err { color: #e07070; border-color: #4a2a2a; }
 
   /* Threshold panel */
-  .threshold-panel { display: none; background: #101a2e; border-radius: 12px; border: 0.5px solid #fb923c60; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:560px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .threshold-panel { display: none; background: #101a2e; border-radius: 12px; border: 0.5px solid #f0a05060; padding: 14px 18px; position:absolute; top:calc(100% + 6px); left:0; z-index:300; min-width:560px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
   .threshold-panel.visible { display: block; }
   /* Capacity panel */
   .capacity-loc-block { border-top:1px solid rgba(255,255,255,0.12); padding-top:8px; margin-top:8px; }
   .capacity-loc-block:first-child { border-top:none; margin-top:0; padding-top:0; }
-  .capacity-loc-title { font-size:11px; color:#a78bfa; font-weight:600; margin-bottom:6px; }
+  .capacity-loc-title { font-size:11px; color:#a07dd4; font-weight:600; margin-bottom:6px; }
   .capacity-fields { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:5px 12px; }
   .capacity-field { display:flex; align-items:center; gap:6px; }
   .capacity-field label { font-size:9px; color:#7a8daa; white-space:nowrap; min-width:130px; }
   .capacity-field input { font-size:11px; padding:3px 6px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; background:#0c1424; color:#c8d8f0; outline:none; width:64px; }
-  .capacity-field input:focus { border-color:#a78bfa; }
+  .capacity-field input:focus { border-color:#a07dd4; }
   /* Shift plan grid */
   .shift-grid { display:grid; grid-template-columns: 140px repeat(4,72px) 60px; gap:4px 8px; align-items:center; margin-top:4px; }
   .shift-grid-header { font-size:9px; color:#6a7d9a; text-align:center; text-transform:uppercase; letter-spacing:0.4px; padding-bottom:2px; border-bottom:1px solid rgba(255,255,255,0.12); }
   .shift-grid-label { font-size:10px; color:#8a9dba; }
   .shift-time-input { font-size:11px; padding:3px 4px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; background:#0c1424; color:#c8d8f0; outline:none; width:68px; text-align:center; }
-  .shift-time-input:focus { border-color:#34d399; }
-  .shift-fo-input { font-size:11px; padding:3px 4px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; background:#0c1424; color:#a78bfa; outline:none; width:52px; text-align:center; }
-  .shift-fo-input:focus { border-color:#a78bfa; }
-  .threshold-panel-title { font-size: 11px; color: #fb923c; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+  .shift-time-input:focus { border-color:#6aab90; }
+  .shift-fo-input { font-size:11px; padding:3px 4px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; background:#0c1424; color:#a07dd4; outline:none; width:52px; text-align:center; }
+  .shift-fo-input:focus { border-color:#a07dd4; }
+  .threshold-panel-title { font-size: 11px; color: #f0a050; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
   .threshold-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 12px; }
   .threshold-item { display: flex; align-items: center; gap: 6px; }
   .threshold-item label { font-size: 10px; color: #7a8daa; white-space: nowrap; min-width: 110px; }
   .threshold-item input[type=number] { font-size: 11px; padding: 3px 6px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #0c1424; color: #c8d8f0; outline: none; width: 64px; }
-  .threshold-item input[type=number]:focus { border-color: #fb923c; }
+  .threshold-item input[type=number]:focus { border-color: #f0a050; }
 
   /* KPI Cards */
   .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
   .kpi-card { background: #0f1729; border-radius: 12px; border: 0.5px solid rgba(255,255,255,0.12); padding: 10px 14px; transition: border-color 0.3s; }
-  .kpi-card.alert { border-color: #fb7185; background: rgba(248,113,113,0.10); }
+  .kpi-card.alert { border-color: #e24b4a; background: rgba(248,113,113,0.10); }
   .kpi-label { font-size: 9px; color: #7a8daa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .kpi-bar { height: 3px; background: #38bdf8; border-radius: 2px; margin-bottom: 8px; width: 60%; }
+  .kpi-bar { height: 3px; background: #4a9fd4; border-radius: 2px; margin-bottom: 8px; width: 60%; }
   .kpi-value { font-size: 20px; font-weight: 500; color: #e0e8f8; }
-  .kpi-value.highlight { color: #22d3ee; }
-  .kpi-value.alert-val { color: #fb7185; }
+  .kpi-value.highlight { color: #7dd4f0; }
+  .kpi-value.alert-val { color: #e24b4a; }
   /* KPI formula tooltip */
   .kpi-card { position: relative; cursor: default; }
   .kpi-formula-tip { display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); z-index:500;
-    background:#0f1729; border:1px solid #5b8def; border-radius:10px; padding:10px 14px;
+    background:#0f1729; border:1px solid #4a7ab0; border-radius:10px; padding:10px 14px;
     font-size:11px; line-height:1.7; color:#c8d8f0; white-space:nowrap;
     box-shadow:0 8px 24px rgba(0,0,0,0.5); pointer-events:none; }
   .kpi-formula-tip .tip-title { font-size:10px; color:#6a7d9a; margin-bottom:4px; }
-  .kpi-formula-tip .tip-formula { color:#22d3ee; font-weight:600; }
+  .kpi-formula-tip .tip-formula { color:#7dd4f0; font-weight:600; }
   .kpi-card:hover .kpi-formula-tip { display:block; }
   .kpi-threshold-hint { font-size: 10px; color: #7a8daa; margin-top: 4px; }
-  .kpi-threshold-hint.over { color: #fb7185; }
+  .kpi-threshold-hint.over { color: #e24b4a; }
 
   .charts-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
   .chart-card { background: #0f1729; border-radius: 14px; border: 0.5px solid rgba(255,255,255,0.12); padding: 14px 18px; }
@@ -187,8 +209,8 @@ if(window.Chart){
   .staff-table th { text-align: left; padding: 6px 10px; color: #7a8daa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 0.5px solid rgba(255,255,255,0.12); }
   .staff-table td { padding: 7px 10px; border-bottom: 0.5px solid #0c1424; color: #c8d8f0; }
   .staff-table tr:hover td { background: rgba(255,255,255,0.08); }
-  .badge-active   { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #EAF3DE; color: #27500A; font-weight: 500; }
-  .badge-inactive { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #FCEBEB; color: #A32D2D; font-weight: 500; }
+  .badge-active   { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #eaf3de; color: #27500a; font-weight: 500; }
+  .badge-inactive { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #fcebeb; color: #a32d2d; font-weight: 500; }
   .table-scroll { max-height: 320px; overflow-y: auto; }
   .table-scroll::-webkit-scrollbar { width: 4px; }
   .table-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 2px; }
@@ -201,11 +223,11 @@ if(window.Chart){
   #schedule-table td:nth-child(1) { text-align:left; }
   #schedule-table td:nth-child(2) { text-align:left; font-size:10px; }
   /* Error toast */
-  .error-toast { position:fixed; bottom:20px; right:20px; background:rgba(248,113,113,0.10); border:1px solid #fb7185; border-radius:10px; padding:10px 16px; font-size:11px; color:#f87171; z-index:999; display:none; max-width:280px; line-height:1.5; box-shadow:0 4px 16px rgba(0,0,0,0.4); }
+  .error-toast { position:fixed; bottom:20px; right:20px; background:rgba(248,113,113,0.10); border:1px solid #e24b4a; border-radius:10px; padding:10px 16px; font-size:11px; color:#e07070; z-index:999; display:none; max-width:280px; line-height:1.5; box-shadow:0 4px 16px rgba(0,0,0,0.4); }
   .error-toast.visible { display:block; }
   .error-toast-close { float:right; cursor:pointer; color:#7a8daa; margin-left:10px; font-size:13px; }
   .map-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid rgba(255,255,255,0.12); background: #0c1424; color: #7a8daa; cursor: pointer; transition: all 0.15s; }
-  .map-btn.active { background: rgba(255,255,255,0.08); border-color: #5b8def; color: #c8d8f0; }
+  .map-btn.active { background: rgba(255,255,255,0.08); border-color: #4a7ab0; color: #c8d8f0; }
   .map-btn:hover { color: #c8d8f0; }
   .map-tooltip { position:absolute; pointer-events:none; background:#0f1729; border:1px solid rgba(255,255,255,0.16); border-radius:8px; padding:10px 14px; font-size:11px; color:#c8d8f0; line-height:1.8; z-index:100; display:none; min-width:160px; }
   .leaflet-popup-dark .leaflet-popup-content-wrapper { background:#0f1729; color:#c8d8f0; border:1px solid rgba(255,255,255,0.16); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
@@ -217,12 +239,12 @@ if(window.Chart){
   .week-dropdown { position: relative; min-width: 160px; }
   .week-dropdown .dropdown-trigger { font-size: 12px; padding: 5px 26px 5px 9px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: #0c1424; color: #c8d8f0; cursor: pointer; user-select: none; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .week-dropdown .dropdown-trigger::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #7a8daa; font-size: 10px; }
-  .week-dropdown .dropdown-trigger.open { border-color: #5b8def; border-radius: 8px 8px 0 0; }
-  .week-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1729; border: 1px solid #5b8def; border-top: none; border-radius: 0 0 8px 8px; z-index: 200; width: 240px; }
+  .week-dropdown .dropdown-trigger.open { border-color: #4a7ab0; border-radius: 8px 8px 0 0; }
+  .week-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: #0f1729; border: 1px solid #4a7ab0; border-top: none; border-radius: 0 0 8px 8px; z-index: 200; width: 240px; }
   .week-dropdown-menu.open { display: block; }
   .week-search { padding: 7px 10px; border-bottom: 0.5px solid rgba(255,255,255,0.12); }
   .week-search input { width: 100%; font-size: 11px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #0c1424; color: #c8d8f0; outline: none; }
-  .week-search input:focus { border-color: #5b8def; }
+  .week-search input:focus { border-color: #4a7ab0; }
   .week-groups { max-height: 300px; overflow-y: auto; }
   .week-groups::-webkit-scrollbar { width: 4px; }
   .week-groups::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 2px; }
@@ -232,9 +254,9 @@ if(window.Chart){
   .wf-year-header:hover { background: rgba(255,255,255,0.08); }
   .wf-year-arrow { font-size: 9px; color: #7a8daa; width: 12px; transition: transform 0.15s; }
   .wf-year-arrow.open { transform: rotate(90deg); }
-  .wf-year-label { font-size: 11px; font-weight: 500; color: #22d3ee; flex: 1; }
+  .wf-year-label { font-size: 11px; font-weight: 500; color: #7dd4f0; flex: 1; }
   .wf-year-actions { display: flex; gap: 8px; }
-  .wf-action { font-size: 10px; color: #38bdf8; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .wf-action { font-size: 10px; color: #4a9fd4; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
   .wf-action:hover { background: rgba(255,255,255,0.10); }
   .wf-year-body { display: none; }
   .wf-year-body.open { display: block; }
@@ -251,7 +273,7 @@ if(window.Chart){
   /* Week level */
   .wf-week { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 34px; cursor: pointer; font-size: 11px; color: #c8d8f0; border-bottom: 0.5px solid #0c1424; }
   .wf-week:hover { background: #101a2e; }
-  .wf-week input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; accent-color: #38bdf8; flex-shrink: 0; }
+  .wf-week input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; accent-color: #4a9fd4; flex-shrink: 0; }
   .wf-week.hidden { display: none; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -260,13 +282,13 @@ if(window.Chart){
 :root{
   --g-bg:#04070d; --g-panel:rgba(255,255,255,.035); --g-panel-solid:linear-gradient(165deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,.02) 45%,rgba(3,7,16,.5) 100%);
   --g-line:rgba(255,255,255,.09); --g-line-2:rgba(255,255,255,.14);
-  --g-text:#e8eefb; --g-mute:#8493b3; --g-acc:#34d399; --g-acc-2:#6ee7b7; --g-warn:#fb923c;
+  --g-text:#e8eefb; --g-mute:#8493b3; --g-acc:#6aab90; --g-acc-2:#7fd0b0; --g-warn:#f0a050;
   --g-r:20px; --g-nav:88px;
 }
 html{background:var(--g-bg);}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--g-text);
   background:
-    radial-gradient(900px 640px at 6% -4%,rgba(52,211,153,.11),transparent 62%),
+    radial-gradient(900px 640px at 6% -4%,rgba(106,171,144,.11),transparent 62%),
     radial-gradient(900px 700px at 102% 14%,rgba(99,102,241,.14),transparent 60%),
     radial-gradient(1000px 760px at 88% 118%,rgba(251,146,60,.06),transparent 62%),
     linear-gradient(140deg,#14243b 0%,#0d192b 30%,#070e1b 62%,#03060c 100%);
@@ -312,7 +334,7 @@ select.simple-select,.dropdown-trigger,.week-dropdown .dropdown-trigger,.date-ra
 .btn-refresh,.btn-threshold,.btn-workforce,.map-btn{border-radius:12px;border:1px solid var(--g-line);background:rgba(255,255,255,.06);font-family:inherit;padding:7px 14px;transition:all .15s;}
 .btn-refresh:hover,.btn-threshold:hover,.btn-workforce:hover,.map-btn:hover{background:rgba(255,255,255,.12);}
 .btn-refresh{color:#cfe0ff;}
-.map-btn.active{background:rgba(52,211,153,.18);border-color:var(--g-acc);color:#fff;}
+.map-btn.active{background:rgba(106,171,144,.18);border-color:var(--g-acc);color:#fff;}
 .date-range{background:var(--g-panel);border:1px solid var(--g-line);border-radius:16px;}
 .status{background:var(--g-panel);border:1px solid var(--g-line);border-radius:14px;}
 .status.ok{color:#6fe0a8;border-color:rgba(111,224,168,.25);}
@@ -330,7 +352,7 @@ select.simple-select,.dropdown-trigger,.week-dropdown .dropdown-trigger,.date-ra
 .threshold-panel-title:first-child,.workforce-panel-title:first-child{margin-top:0!important;padding-top:0;border-top:none;}
 .threshold-panel-title::before,.workforce-panel-title::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor;}
 .threshold-item label,.capacity-field label{color:var(--g-mute);}
-.threshold-item input[type=number]:focus,.capacity-field input:focus,.shift-time-input:focus,.shift-fo-input:focus{border-color:var(--g-acc);box-shadow:0 0 0 3px rgba(52,211,153,.18);}
+.threshold-item input[type=number]:focus,.capacity-field input:focus,.shift-time-input:focus,.shift-fo-input:focus{border-color:var(--g-acc);box-shadow:0 0 0 3px rgba(106,171,144,.18);}
 .threshold-panel input[type=date],.workforce-panel input[type=date],.threshold-panel select,.workforce-panel select{background:rgba(255,255,255,.06);border:1px solid var(--g-line);border-radius:10px;color:var(--g-text);color-scheme:dark;font-family:inherit;padding:5px 10px;}
 .capacity-loc-block{border-top:1px solid var(--g-line);}
 .shift-grid-header{border-bottom:1px solid var(--g-line);}
@@ -371,10 +393,10 @@ select.simple-select,.dropdown-trigger,.week-dropdown .dropdown-trigger,.date-ra
 /* ---- Dropdown menus (period / location) — glass ---- */
 .dropdown-menu,.week-dropdown-menu{top:calc(100% + 8px)!important;background:rgba(12,19,35,.97)!important;border:1px solid var(--g-line-2)!important;border-radius:18px!important;overflow:hidden;
   -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 24px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);animation:gPanelIn .14s ease-out;}
-.dropdown-trigger.open,.week-dropdown .dropdown-trigger.open{border-radius:12px!important;border-color:rgba(52,211,153,.55)!important;box-shadow:0 0 0 3px rgba(52,211,153,.12);}
+.dropdown-trigger.open,.week-dropdown .dropdown-trigger.open{border-radius:12px!important;border-color:rgba(106,171,144,.55)!important;box-shadow:0 0 0 3px rgba(106,171,144,.12);}
 .week-search{padding:12px 12px 8px!important;border-bottom:none!important;}
 .week-search input{border-radius:12px!important;padding:8px 12px!important;background:rgba(255,255,255,.05)!important;border:1px solid var(--g-line)!important;color:var(--g-text);}
-.week-search input:focus{border-color:rgba(52,211,153,.55)!important;box-shadow:0 0 0 3px rgba(52,211,153,.12);}
+.week-search input:focus{border-color:rgba(106,171,144,.55)!important;box-shadow:0 0 0 3px rgba(106,171,144,.12);}
 .week-groups{padding:4px 8px 10px;}
 .wf-year{margin-bottom:2px;}
 .wf-year-header{background:transparent!important;border-bottom:none!important;border-radius:12px;padding:9px 10px!important;}
@@ -386,15 +408,15 @@ select.simple-select,.dropdown-trigger,.week-dropdown .dropdown-trigger,.date-ra
 .wf-week{border-bottom:none!important;border-radius:8px;padding:6px 10px 6px 38px!important;color:var(--g-text);}
 .wf-year-arrow,.wf-month-arrow{color:var(--g-mute)!important;}
 .wf-action{font-size:10.5px!important;font-weight:500;color:var(--g-mute)!important;background:rgba(255,255,255,.05);border:1px solid var(--g-line);border-radius:999px;padding:2px 10px!important;transition:all .12s;}
-.wf-action:hover{background:rgba(52,211,153,.16)!important;border-color:rgba(52,211,153,.4);color:var(--g-acc-2)!important;}
+.wf-action:hover{background:rgba(106,171,144,.16)!important;border-color:rgba(106,171,144,.4);color:var(--g-acc-2)!important;}
 .dropdown-menu{padding:6px;}
 .dropdown-item{border-radius:10px;padding:8px 10px!important;}
 .dropdown-item.all-item{border-bottom:1px solid var(--g-line)!important;border-radius:10px 10px 0 0;margin-bottom:4px;color:var(--g-acc-2)!important;}
-.dropdown-item input[type=checkbox],.wf-week input[type=checkbox]{accent-color:#34d399!important;}
+.dropdown-item input[type=checkbox],.wf-week input[type=checkbox]{accent-color:#6aab90!important;}
 select.simple-select,#capacity-loc-select{-webkit-appearance:none;appearance:none;padding-right:30px!important;cursor:pointer;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238493b3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   background-repeat:no-repeat;background-position:right 11px center;}
-select.simple-select:focus,#capacity-loc-select:focus{outline:none;border-color:rgba(52,211,153,.55);box-shadow:0 0 0 3px rgba(52,211,153,.12);}
+select.simple-select:focus,#capacity-loc-select:focus{outline:none;border-color:rgba(106,171,144,.55);box-shadow:0 0 0 3px rgba(106,171,144,.12);}
 select.simple-select option{background:#0f1729;color:#e8eefb;}
 #capacity-loc-select{background-color:rgba(255,255,255,.06)!important;border:1px solid var(--g-line)!important;border-radius:12px!important;color:var(--g-text)!important;font-family:inherit;padding:7px 30px 7px 12px!important;}
 /* Leaflet controls in glass style */
@@ -515,14 +537,14 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
   </div>
 
   <!-- SHIFT PLAN -->
-  <div class="threshold-panel-title" style="margin-top:14px;color:#34d399;">Shift Plan — by location</div>
+  <div class="threshold-panel-title" style="margin-top:14px;color:#6aab90;">Shift Plan — by location</div>
   <div class="shift-grid">
     <div class="shift-grid-header">Location</div>
     <div class="shift-grid-header">Day start</div>
     <div class="shift-grid-header">Day end</div>
     <div class="shift-grid-header">Night start</div>
     <div class="shift-grid-header">Night end</div>
-    <div class="shift-grid-header" style="color:#fb923c;border-left:1px solid rgba(255,255,255,0.12);padding-left:8px;">🔬 Sim FO</div>
+    <div class="shift-grid-header" style="color:#f0a050;border-left:1px solid rgba(255,255,255,0.12);padding-left:8px;">🔬 Sim FO</div>
 
     <div class="shift-grid-label">Markham, IL West</div>
     <input type="time" class="shift-time-input" id="sh-mrk-ds" value="06:00" onchange="saveSettings();renderOperations()">
@@ -580,7 +602,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     <input type="time" class="shift-time-input" id="sh-grv-ne" value="" onchange="saveSettings();renderOperations()">
     <input type="number" class="shift-fo-input" id="sh-grv-sim" placeholder="auto" min="0" step="1" onchange="renderOperations()" style="border-left:1px solid rgba(255,255,255,0.12);margin-left:4px;">
   </div>
-  <div style="font-size:9px;color:#64748b;margin-top:6px;">
+  <div style="font-size:9px;color:#1a3a5c;margin-top:6px;">
     Порожній Sim FO = автоматично з Deputy даних · Заповни для симуляції · Ніч через північ враховується автоматично
   </div>
 </div>
@@ -631,7 +653,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       </div>
     </div>
     <div class="kpi-card" id="kpi-card-lcp">
-      <div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#22d3ee"></div>
+      <div class="kpi-label">Labor cost per pallet</div><div class="kpi-bar" style="background:#7dd4f0"></div>
       <div class="kpi-value highlight" id="kpi-lcp">—</div>
       <div class="kpi-threshold-hint" id="kpi-lcp-hint"></div>
       <div class="kpi-formula-tip">
@@ -641,7 +663,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       </div>
     </div>
     <div class="kpi-card" id="kpi-card-hourly">
-      <div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#fb923c"></div>
+      <div class="kpi-label">Avg hourly price</div><div class="kpi-bar" style="background:#f0a050"></div>
       <div class="kpi-value" id="kpi-hourly">—</div>
       <div class="kpi-formula-tip">
         <div class="tip-title">AVG HOURLY PRICE</div>
@@ -650,7 +672,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       </div>
     </div>
     <div class="kpi-card" id="kpi-card-cost">
-      <div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#34d399"></div>
+      <div class="kpi-label">Total cost</div><div class="kpi-bar" style="background:#6aab90"></div>
       <div class="kpi-value" id="kpi-cost">—</div>
       <div class="kpi-formula-tip">
         <div class="tip-title">TOTAL COST</div>
@@ -659,7 +681,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       </div>
     </div>
     <div class="kpi-card" id="kpi-card-util">
-      <div class="kpi-label">Utilization Rate</div><div class="kpi-bar" style="background:#a78bfa"></div>
+      <div class="kpi-label">Utilization Rate</div><div class="kpi-bar" style="background:#a07dd4"></div>
       <div class="kpi-value" id="kpi-util">—</div>
       <div class="kpi-threshold-hint" id="kpi-util-hint"></div>
       <div class="kpi-formula-tip">
@@ -686,25 +708,25 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
       <div class="chart-scroll-wrap" id="scroll2"><canvas id="chart2" role="img" aria-label="Operating cost"></canvas></div>
       <div class="legend">
-        <span class="leg-item"><span class="leg-box" style="background:#60a5fa"></span>Operating Cost</span>
-        <span class="leg-item"><span class="leg-line" style="background:#fb923c"></span>Avg hourly rate</span>
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Operating Cost</span>
+        <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly rate</span>
       </div>
     </div>
     <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Labor Productivity (pallets / hr)</div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <div id="prod-kpi" style="font-size:13px;font-weight:500;color:#34d399;"></div>
+          <div id="prod-kpi" style="font-size:13px;font-weight:500;color:#6aab90;"></div>
           <button id="prod-table-toggle" onclick="toggleProdTable()" style="font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.16);border-radius:6px;background:#0f1729;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Details</button>
         </div>
       </div>
       <div class="chart-scroll-wrap" id="scroll-prod"><canvas id="prodChart" role="img" aria-label="Labor productivity"></canvas></div>
       <div class="legend" id="prod-legend" style="margin-top:6px;"></div>
       <div class="legend" style="margin-top:2px;">
-        <span class="leg-item"><span class="leg-box" style="background:#34d399"></span>Productive (FO)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#fb923c"></span>New FO (adapting)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#a78bfa"></span>Supervisor/LM (FO duty)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#60a5fa"></span>Non-prod</span>
+        <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive (FO)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>New FO (adapting)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#a07dd4"></span>Supervisor/LM (FO duty)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Non-prod</span>
       </div>
       <!-- Collapsible productivity details table -->
       <div id="prod-table-wrap" style="display:none;margin-top:12px;overflow-x:auto;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;">
@@ -757,11 +779,11 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
   <!-- KPI row -->
   <div class="kpi-row" style="grid-template-columns: repeat(5,1fr);">
-    <div class="kpi-card"><div class="kpi-label">Amazon spend</div><div class="kpi-bar" style="background:#fb923c"></div><div class="kpi-value" id="inv-amz-total">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Amazon orders</div><div class="kpi-bar" style="background:#fb923c;width:40%"></div><div class="kpi-value" id="inv-amz-orders">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Home Depot spend</div><div class="kpi-bar" style="background:#f87171"></div><div class="kpi-value" id="inv-hd-total">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Home Depot transactions</div><div class="kpi-bar" style="background:#f87171;width:40%"></div><div class="kpi-value" id="inv-hd-txns">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total Procurement</div><div class="kpi-bar" style="background:#22d3ee"></div><div class="kpi-value" id="inv-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Amazon spend</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="inv-amz-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Amazon orders</div><div class="kpi-bar" style="background:#f0a050;width:40%"></div><div class="kpi-value" id="inv-amz-orders">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Home Depot spend</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="inv-hd-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Home Depot transactions</div><div class="kpi-bar" style="background:#e07070;width:40%"></div><div class="kpi-value" id="inv-hd-txns">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Procurement</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="inv-total">—</div></div>
   </div>
 
   <!-- Amazon + HD spend over time -->
@@ -772,9 +794,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <canvas id="invTimeChart" role="img" aria-label="Inventory spend over time"></canvas>
       </div>
       <div class="legend">
-        <span class="leg-item"><span class="leg-box" style="background:#fb923c"></span>Amazon</span>
-        <span class="leg-item"><span class="leg-box" style="background:#f87171cc"></span>Home Depot (direct)</span>
-        <span class="leg-item"><span class="leg-box" style="background:#f8717155;border:1px solid #f87171"></span>Home Depot (shared/ALL)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Amazon</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e07070cc"></span>Home Depot (direct)</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e0707055;border:1px solid #e07070"></span>Home Depot (shared/ALL)</span>
       </div>
     </div>
   </div>
@@ -810,17 +832,17 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
   <!-- Staff KPI -->
   <div class="kpi-row">
     <div class="kpi-card">
-      <div class="kpi-label">Active employees — <span id="s-active" style="color:#34d399;font-weight:500">—</span></div>
-      <div class="kpi-bar" style="background:#34d399"></div>
+      <div class="kpi-label">Active employees — <span id="s-active" style="color:#6aab90;font-weight:500">—</span></div>
+      <div class="kpi-bar" style="background:#6aab90"></div>
       <div id="s-active-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Inactive (3+ weeks) — <span id="s-inactive" style="color:#f87171;font-weight:500">—</span></div>
-      <div class="kpi-bar" style="background:#f87171"></div>
+      <div class="kpi-label">Inactive (3+ weeks) — <span id="s-inactive" style="color:#e07070;font-weight:500">—</span></div>
+      <div class="kpi-bar" style="background:#e07070"></div>
       <div id="s-inactive-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
     </div>
-    <div class="kpi-card"><div class="kpi-label">Total hours</div><div class="kpi-bar" style="background:#22d3ee"></div><div class="kpi-value" id="s-hours">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#fb923c"></div><div class="kpi-value" id="s-shift">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total hours</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="s-hours">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#f0a050"></div><div class="kpi-value" id="s-shift">—</div></div>
   </div>
 
   <!-- 4 columns: Top ALL + Hours by day + Donut loc + Inactive -->
@@ -866,9 +888,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       </table>
     </div>
     <div class="legend" style="margin-top:8px;">
-      <span class="leg-item"><span class="leg-box" style="background:#34d399"></span>Forklift Operator</span>
-      <span class="leg-item"><span class="leg-box" style="background:#fb923c"></span>Supervisor/LM/FO</span>
-      <span class="leg-item"><span class="leg-box" style="background:#60a5fa"></span>Other roles</span>
+      <span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Forklift Operator</span>
+      <span class="leg-item"><span class="leg-box" style="background:#f0a050"></span>Supervisor/LM/FO</span>
+      <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Other roles</span>
     </div>
   </div>
 
@@ -876,16 +898,16 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <!-- ===================== FINANCE TAB ===================== -->
 <div class="tab-content" id="tab-finance">
-  <div style="background:#2a2618;border:1px solid #fbbf2460;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#f0d890;">
+  <div style="background:#2a2618;border:1px solid #f0c05060;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#f0d890;">
     💰 <b>Finance (етап 1).</b> Виручка Cross Dock береться з листа Cross Dock (колонки «&lt;Loc&gt; Restack revenue ($)» = загальна виручка); Highway/Intermodal/Local/East Coast = палети × ціна Reload. Прибуток поки <b>після ЗП</b> (виручка − Costs2). Газ, обслуговування навантажувачів і витрати складу ще не підключені. Тижні без Costs2 у прибуток не входять. Для Daily показується по тижнях. Markham East (немає колонки) і тижні без рядка в листі: Cross Dock = палети × ціна Markham West.
   </div>
-  <div id="fin-warn" style="display:none;background:rgba(248,113,113,0.10);border:1px solid #fb718560;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#f0b0b0;"></div>
+  <div id="fin-warn" style="display:none;background:rgba(248,113,113,0.10);border:1px solid #e24b4a60;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#f0b0b0;"></div>
   <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-bar" style="background:#fbbf24"></div><div class="kpi-value" id="fin-kpi-rev">—</div><div class="kpi-threshold-hint" id="fin-kpi-rev-sub"></div></div>
-    <div class="kpi-card"><div class="kpi-label">Labor cost (Costs2)</div><div class="kpi-bar" style="background:#f87171"></div><div class="kpi-value" id="fin-kpi-lab">—</div><div class="kpi-threshold-hint" id="fin-kpi-lab-sub"></div></div>
-    <div class="kpi-card"><div class="kpi-label">Profit after labor</div><div class="kpi-bar" style="background:#34d399"></div><div class="kpi-value" id="fin-kpi-profit">—</div><div class="kpi-threshold-hint">виручка − ЗП</div></div>
-    <div class="kpi-card"><div class="kpi-label">Margin %</div><div class="kpi-bar" style="background:#22d3ee"></div><div class="kpi-value" id="fin-kpi-margin">—</div><div class="kpi-threshold-hint">прибуток ÷ виручка</div></div>
-    <div class="kpi-card"><div class="kpi-label">Profit / pallet</div><div class="kpi-bar" style="background:#a78bfa"></div><div class="kpi-value" id="fin-kpi-ppp">—</div><div class="kpi-threshold-hint" id="fin-kpi-ppp-sub"></div></div>
+    <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-bar" style="background:#f0c050"></div><div class="kpi-value" id="fin-kpi-rev">—</div><div class="kpi-threshold-hint" id="fin-kpi-rev-sub"></div></div>
+    <div class="kpi-card"><div class="kpi-label">Labor cost (Costs2)</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="fin-kpi-lab">—</div><div class="kpi-threshold-hint" id="fin-kpi-lab-sub"></div></div>
+    <div class="kpi-card"><div class="kpi-label">Profit after labor</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="fin-kpi-profit">—</div><div class="kpi-threshold-hint">виручка − ЗП</div></div>
+    <div class="kpi-card"><div class="kpi-label">Margin %</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="fin-kpi-margin">—</div><div class="kpi-threshold-hint">прибуток ÷ виручка</div></div>
+    <div class="kpi-card"><div class="kpi-label">Profit / pallet</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="fin-kpi-ppp">—</div><div class="kpi-threshold-hint" id="fin-kpi-ppp-sub"></div></div>
   </div>
   <div class="chart-card" style="margin-bottom:14px;">
     <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Avg revenue / pallet</div>
@@ -902,15 +924,15 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <!-- ===================== CAPACITY TAB (TEST) ===================== -->
 <div class="tab-content" id="tab-capacity">
-  <div style="background:#2a2040;border:1px solid #a78bfa60;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#c4b5fd;">
+  <div style="background:#2a2040;border:1px solid #a07dd460;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#c8b0f0;">
     🧪 <b>Тестова вкладка.</b> Розрахунки пропускної здатності на основі кількості людей, обладнання, доків та поточної продуктивності. Дані вводяться вручну по кожній локації нижче.
   </div>
 
   <!-- Capacity Panel -->
   <div style="position:relative;display:inline-block;margin-bottom:14px;">
-    <button class="btn-threshold" onclick="toggleCapacityPanel()" style="border-color:#a78bfa60;color:#c4b5fd;">⚙ Capacity Settings</button>
-    <div class="threshold-panel" id="capacity-panel" style="border-color:#a78bfa60;">
-      <div class="threshold-panel-title" style="color:#a78bfa;">Capacity inputs — by location</div>
+    <button class="btn-threshold" onclick="toggleCapacityPanel()" style="border-color:#a07dd460;color:#c8b0f0;">⚙ Capacity Settings</button>
+    <div class="threshold-panel" id="capacity-panel" style="border-color:#a07dd460;">
+      <div class="threshold-panel-title" style="color:#a07dd4;">Capacity inputs — by location</div>
       <div id="capacity-inputs"></div>
     </div>
   </div>
@@ -932,15 +954,15 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
   <!-- KPI row -->
   <div class="kpi-row" id="capacity-kpi-row" style="grid-template-columns:repeat(4,1fr);">
-    <div class="kpi-card"><div class="kpi-label">Load State (поточний тиждень)</div><div class="kpi-bar" style="background:#a78bfa"></div><div class="kpi-value" id="cap-loadstate">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Лімітуючий фактор</div><div class="kpi-bar" style="background:#f87171"></div><div class="kpi-value" id="cap-bottleneck" style="font-size:15px;">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Запас росту (палет/тиждень)</div><div class="kpi-bar" style="background:#34d399"></div><div class="kpi-value" id="cap-headroom">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Стеля при повній адаптації</div><div class="kpi-bar" style="background:#22d3ee"></div><div class="kpi-value" id="cap-maxpotential">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Load State (поточний тиждень)</div><div class="kpi-bar" style="background:#a07dd4"></div><div class="kpi-value" id="cap-loadstate">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Лімітуючий фактор</div><div class="kpi-bar" style="background:#e07070"></div><div class="kpi-value" id="cap-bottleneck" style="font-size:15px;">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Запас росту (палет/тиждень)</div><div class="kpi-bar" style="background:#6aab90"></div><div class="kpi-value" id="cap-headroom">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Стеля при повній адаптації</div><div class="kpi-bar" style="background:#7dd4f0"></div><div class="kpi-value" id="cap-maxpotential">—</div></div>
   </div>
 
   <!-- Main chart -->
   <div class="chart-card main" style="margin-top:14px;">
-    <div class="card-title">Пропускна здатність по тижнях — <span id="cap-chart-loc" style="color:#a78bfa"></span></div>
+    <div class="card-title">Пропускна здатність по тижнях — <span id="cap-chart-loc" style="color:#a07dd4"></span></div>
     <div class="chart-scroll-wrap" id="scroll-capacity"><canvas id="capacityChart" role="img" aria-label="Capacity chart"></canvas></div>
     <div class="legend" id="capacity-legend"></div>
   </div>
@@ -969,7 +991,7 @@ const COL = {
 
 const DIR_FIELD  = [COL.highway, COL.intermodal, COL.crossDock, COL.localDelivery, COL.eastCoast];
 const DIR_LABELS = ['Highway','Intermodal','Cross Dock','Local Delivery','East Coast'];
-const DIR_COLORS = ['#38bdf8','#6366f1','#2dd4bf','#f472b6','#64748b'];
+const DIR_COLORS = ['#4a9fd4','#2d5f8a','#d4e8d0','#d4c06a','#1a3a5c'];
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -1316,7 +1338,7 @@ function renderPeriodGroups(filter=''){
         }).join('');
         const monName=MONTH_SHORT[parseInt(mon)-1]||mon;
         const selCount=weeks.filter(o=>selectedPeriods_set===null||selectedPeriods_set.has(o.key)).length;
-        const cc=selCount===0?'#f87171':selCount===weeks.length?'#34d399':'#fb923c';
+        const cc=selCount===0?'#e07070':selCount===weeks.length?'#6aab90':'#f0a050';
         return`<div class="wf-month"><div class="wf-month-header" onclick="togglePeriodMonthOpen('${monKey}')"><span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span><span class="wf-month-label">${monName} <span style="color:${cc};font-size:10px;font-weight:500">${selCount}/${weeks.length}</span></span><span class="wf-month-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodMonth('${yr}','${mon}',false)">None</span></span></div><div class="wf-month-body ${isMonOpen?'open':''}" id="pmon-${monKey}">${weeksHtml}</div></div>`;
       }).join('');
       return`<div class="wf-year"><div class="wf-year-header" onclick="togglePeriodYearOpen('${yr}')"><span class="wf-year-arrow ${isYrOpen?'open':''}">▶</span><span class="wf-year-label">${yr} <span style="color:#6a7d9a;font-size:10px">${yrSel}/${yrOpts.length}</span></span><span class="wf-year-actions"><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',true)">All</span><span class="wf-action" onclick="event.stopPropagation();selectPeriodYear('${yr}',false)">None</span></span></div><div class="wf-year-body ${isYrOpen?'open':''}" id="pyr-${yr}">${monthsHtml}</div></div>`;
@@ -1559,18 +1581,18 @@ function renderProdTable(){
 
   const numFmt=v=>v===null?'—':Number(v).toLocaleString();
   const rows=[
-    {label:'All hrs',         data:allHrsRow,         color:'#22d3ee', fmt:numFmt},
-    {label:'Prod hrs (act.)', data:prodHrsRow,         color:'#34d399', fmt:numFmt},
-    {label:'Prod hrs (plan)', data:plannedProdHrsRow,  color:'#a78bfa', fmt:numFmt},
-    {label:'Adapt. coef',     data:adaptRow,           color:'#fb923c', fmt:v=>v===null?'—':v},
+    {label:'All hrs',         data:allHrsRow,         color:'#7dd4f0', fmt:numFmt},
+    {label:'Prod hrs (act.)', data:prodHrsRow,         color:'#6aab90', fmt:numFmt},
+    {label:'Prod hrs (plan)', data:plannedProdHrsRow,  color:'#a07dd4', fmt:numFmt},
+    {label:'Adapt. coef',     data:adaptRow,           color:'#f0a050', fmt:v=>v===null?'—':v},
     {label:'Actual pallets',  data:actualPltRow,       color:'#c8d8f0', fmt:numFmt},
   ];
   if(targetPltRow) rows.push({label:'Target pallets', data:targetPltRow, color:'#8a9dba', fmt:numFmt});
   rows.push(
-    {label:'All plt/hr',   data:allPphRow,    color:'#22d3ee',   fmt:v=>v===null?'—':v},
-    {label:'Prod plt/hr',  data:prodPphRow,   color:'#34d399',   fmt:v=>v===null?'—':v},
+    {label:'All plt/hr',   data:allPphRow,    color:'#7dd4f0',   fmt:v=>v===null?'—':v},
+    {label:'Prod plt/hr',  data:prodPphRow,   color:'#6aab90',   fmt:v=>v===null?'—':v},
   );
-  if(targetPphRow) rows.push({label:'Target plt/hr', data:targetPphRow, color:'#fb7185', fmt:v=>v===null?'—':v});
+  if(targetPphRow) rows.push({label:'Target plt/hr', data:targetPphRow, color:'#e24b4a', fmt:v=>v===null?'—':v});
   if(lostRow) rows.push({label:'Lost pallets', data:lostRow, color:'', isLost:true,
     fmt:v=>v===null?'—':(v>0?'+':'')+Number(v).toLocaleString()});
 
@@ -1586,7 +1608,7 @@ function renderProdTable(){
       return totalRevenue>0?Math.round(totalEquiv):null;
     });
     if(restackRow.some(v=>v!==null&&v>0)){
-      rows.push({label:'Restack equiv. (plt)', data:restackRow, color:'#fbbf24', fmt:v=>v===null||v===0?'—':'+'+Number(v).toLocaleString()});
+      rows.push({label:'Restack equiv. (plt)', data:restackRow, color:'#f0c050', fmt:v=>v===null||v===0?'—':'+'+Number(v).toLocaleString()});
     }
   }
 
@@ -1601,13 +1623,13 @@ function renderProdTable(){
     fmt:v=>v===null?'—':v});
   // Saturday workers
   const satRow=keys.map(k=>bkts[k].satWorkers?bkts[k].satWorkers.size:null);
-  if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#f87171', fmt:v=>v===null||v===0?'—':v});
+  if(satRow.some(v=>v>0)) rows.push({label:'Sat workers', data:satRow, color:'#e07070', fmt:v=>v===null||v===0?'—':v});
 
   // Worker type counts — already computed in buildProdBuckets
-  rows.push({label:'🟢 Productive (FO)',  data:keys.map(k=>bkts[k].workers.green.size||0), color:'#34d399', fmt:v=>v||'—'});
-  rows.push({label:'🟡 New FO (adapt.)',  data:keys.map(k=>bkts[k].workers.yellow.size||0), color:'#fb923c', fmt:v=>v||'—'});
-  rows.push({label:'🟣 Sup/LM (FO duty)', data:keys.map(k=>bkts[k].workers.purple?bkts[k].workers.purple.size:0||0), color:'#a78bfa', fmt:v=>v||'—'});
-  rows.push({label:'🔵 Non-prod',         data:keys.map(k=>bkts[k].workers.blue.size||0),  color:'#60a5fa', fmt:v=>v||'—'});
+  rows.push({label:'🟢 Productive (FO)',  data:keys.map(k=>bkts[k].workers.green.size||0), color:'#6aab90', fmt:v=>v||'—'});
+  rows.push({label:'🟡 New FO (adapt.)',  data:keys.map(k=>bkts[k].workers.yellow.size||0), color:'#f0a050', fmt:v=>v||'—'});
+  rows.push({label:'🟣 Sup/LM (FO duty)', data:keys.map(k=>bkts[k].workers.purple?bkts[k].workers.purple.size:0||0), color:'#a07dd4', fmt:v=>v||'—'});
+  rows.push({label:'🔵 Non-prod',         data:keys.map(k=>bkts[k].workers.blue.size||0),  color:'#4a7fa0', fmt:v=>v||'—'});
 
   tbody.innerHTML=rows.map(row=>`
     <tr>
@@ -1617,7 +1639,7 @@ function renderProdTable(){
         if(row.isLost&&v!==null){cls=v>0?'val-red':'val-green';}
         else if(row.isUtil&&v!==null){
           const pct=parseFloat(v);
-          style=`color:${pct>=90?'#34d399':pct>=75?'#fb923c':'#f87171'}`;
+          style=`color:${pct>=90?'#6aab90':pct>=75?'#f0a050':'#e07070'}`;
         }
         else if(!row.isLost&&row.color){style=`color:${row.color}`;}
         return`<td class="${cls}" style="${style}">${row.fmt(v)}</td>`;
@@ -1625,25 +1647,25 @@ function renderProdTable(){
     </tr>`).join('')
   +`<tr><td colspan="${keys.length+1}" style="padding:8px 0 4px;border-top:1px solid rgba(255,255,255,0.12);font-size:10px;color:#6a7d9a;line-height:1.8;">
     <b style="color:#8a9dba">Prod hrs coefficients:</b>
-    FO experienced <span style="color:#34d399">100%</span> &nbsp;·&nbsp;
-    Supervisor/FO <span style="color:#34d399">75%</span> &nbsp;·&nbsp;
-    LM/FO <span style="color:#34d399">75%</span> &nbsp;·&nbsp;
-    Supervisor / Spotter / Consolidator / Fleet <span style="color:#f87171">0%</span><br>
+    FO experienced <span style="color:#6aab90">100%</span> &nbsp;·&nbsp;
+    Supervisor/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
+    LM/FO <span style="color:#6aab90">75%</span> &nbsp;·&nbsp;
+    Supervisor / Spotter / Consolidator / Fleet <span style="color:#e07070">0%</span><br>
     New FO (after ${document.getElementById('wf-hire-date')?.value||'2026-03-01'}):
-    Wk1 <span style="color:#fb923c">${document.getElementById('wf-w1')?.value||40}%</span>
-    Wk2 <span style="color:#fb923c">${document.getElementById('wf-w2')?.value||50}%</span>
-    Wk3 <span style="color:#fb923c">${document.getElementById('wf-w3')?.value||58}%</span>
-    Wk4 <span style="color:#fb923c">${document.getElementById('wf-w4')?.value||64}%</span>
-    Wk5-6 <span style="color:#fb923c">${document.getElementById('wf-w56')?.value||68}%</span>
-    Wk7-8 <span style="color:#fb923c">${document.getElementById('wf-w78')?.value||74}%</span>
-    Wk9-10 <span style="color:#fb923c">${document.getElementById('wf-w910')?.value||82}%</span>
-    Wk11-12 <span style="color:#fb923c">${document.getElementById('wf-w1112')?.value||90}%</span>
-    Wk13+ <span style="color:#34d399">100%</span><br>
+    Wk1 <span style="color:#f0a050">${document.getElementById('wf-w1')?.value||40}%</span>
+    Wk2 <span style="color:#f0a050">${document.getElementById('wf-w2')?.value||50}%</span>
+    Wk3 <span style="color:#f0a050">${document.getElementById('wf-w3')?.value||58}%</span>
+    Wk4 <span style="color:#f0a050">${document.getElementById('wf-w4')?.value||64}%</span>
+    Wk5-6 <span style="color:#f0a050">${document.getElementById('wf-w56')?.value||68}%</span>
+    Wk7-8 <span style="color:#f0a050">${document.getElementById('wf-w78')?.value||74}%</span>
+    Wk9-10 <span style="color:#f0a050">${document.getElementById('wf-w910')?.value||82}%</span>
+    Wk11-12 <span style="color:#f0a050">${document.getElementById('wf-w1112')?.value||90}%</span>
+    Wk13+ <span style="color:#6aab90">100%</span><br>
     <b style="color:#8a9dba">Adapt. coef</b> = weighted prod hrs ÷ raw prod hrs &nbsp;·&nbsp;
     <b style="color:#8a9dba">Target pallets</b> = Target plt/hr × Prod hrs &nbsp;·&nbsp;
     <b style="color:#8a9dba">Lost pallets</b> = (Target − Prod plt/hr) × Prod hrs
-    ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#fb7185">${activeThr.toFixed(1)} plt/hr</span>`:''}
-    ${crossDockData.length?`<br><b style="color:#fbbf24">Restack equiv.</b> = Restack revenue ÷ Reload price — extra pallets reprocessed (not in Actual pallets, explains lower plt/hr this week)`:''}
+    ${activeThr?`&nbsp;·&nbsp; Target: <span style="color:#e24b4a">${activeThr.toFixed(1)} plt/hr</span>`:''}
+    ${crossDockData.length?`<br><b style="color:#f0c050">Restack equiv.</b> = Restack revenue ÷ Reload price — extra pallets reprocessed (not in Actual pallets, explains lower plt/hr this week)`:''}
   </td></tr>`;
 }
 
@@ -1746,7 +1768,7 @@ function renderOpsMap() {
     const abbr = LOC_ABBR[loc]||loc;
     const thr = getThresholdForLoc(loc);
     const isOver = currentOpsMapMode==='lcp' && thr>0 && val>thr;
-    const borderColor = isOver ? '#fb7185' : color;
+    const borderColor = isOver ? '#e24b4a' : color;
 
     const icon = L.divIcon({
       className:'',
@@ -1757,7 +1779,7 @@ function renderOpsMap() {
         font-size:9px;font-weight:bold;color:#fff;
         font-family:-apple-system,sans-serif;
         box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;
-        ${isOver?'box-shadow:0 0 12px #fb718588;':''}
+        ${isOver?'box-shadow:0 0 12px #e24b4a88;':''}
       ">${r>16?formatVal(d):''}</div>`,
       iconSize:[r*2,r*2], iconAnchor:[r,r]
     });
@@ -1767,9 +1789,9 @@ function renderOpsMap() {
         <div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:190px;">
           <strong style="font-size:13px;">${loc}</strong><br><br>
           <span style="color:#8a9dba">Pallets:</span> ${(d.pallets||0).toLocaleString()}<br>
-          <span style="color:#22d3ee">LCP:</span> $${(d.lcp||0).toFixed(2)}${thr>0&&d.lcp>thr?' <span style="color:#fb7185">▲ above threshold</span>':''}<br>
-          <span style="color:#fb923c">Avg hourly:</span> $${(d.hourly||0).toFixed(2)}<br>
-          <span style="color:#34d399">Total cost:</span> $${(d.cost||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+          <span style="color:#7dd4f0">LCP:</span> $${(d.lcp||0).toFixed(2)}${thr>0&&d.lcp>thr?' <span style="color:#e24b4a">▲ above threshold</span>':''}<br>
+          <span style="color:#f0a050">Avg hourly:</span> $${(d.hourly||0).toFixed(2)}<br>
+          <span style="color:#6aab90">Total cost:</span> $${(d.cost||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
       `,{className:'leaflet-popup-dark'})
       .addTo(opsLeafletMap);
@@ -1793,7 +1815,7 @@ function renderOpsMap() {
       const color = getColor(val);
       const thr = getThresholdForLoc(loc);
       const isOver = currentOpsMapMode==='lcp' && thr>0 && val>thr;
-      return `<span class="dl-item"><span class="dl-box" style="background:${color};${isOver?'border:1px solid #fb7185':''}"></span>${LOC_ABBR[loc]||loc}: ${formatVal(d)}${isOver?' ▲':''}</span>`;
+      return `<span class="dl-item"><span class="dl-box" style="background:${color};${isOver?'border:1px solid #e24b4a':''}"></span>${LOC_ABBR[loc]||loc}: ${formatVal(d)}${isOver?' ▲':''}</span>`;
     }).join('');
   }
 
@@ -1895,7 +1917,7 @@ function renderOperations(){
     });
     const utilRate=totalTargetPallets>0?kpiSumPallets/totalTargetPallets*100:null;
     if(utilRate!==null){
-      const utilColor=utilRate>=90?'#34d399':utilRate>=75?'#fb923c':'#f87171';
+      const utilColor=utilRate>=90?'#6aab90':utilRate>=75?'#f0a050':'#e07070';
       utilEl.textContent=utilRate.toFixed(1)+'%';
       utilEl.style.color=utilColor;
       if(utilCard) utilCard.querySelector('.kpi-bar').style.background=utilColor;
@@ -1918,10 +1940,10 @@ function renderOperations(){
   const c1=document.getElementById('comboChart'),sw1=document.getElementById('scroll1');
   resizeCanvas(c1,sw1,keys.length,isScroll,H.h1);
   const barDS=dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return{type:'bar',label:DIR_LABELS[i],data:keys.map(k=>buckets[k][f]||0),backgroundColor:DIR_COLORS[i]+'dd',borderColor:DIR_COLORS[i],borderWidth:0,stack:'p',yAxisID:'yP',order:2,maxBarThickness:60};});
-  const lineDS={type:'line',label:'Labor cost/pallet',data:lcpVals,borderColor:'#22d3ee',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#22d3ee',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yL',order:1};
-  const thrDS=activeThreshold?{type:'line',label:'Threshold',data:keys.map(()=>activeThreshold),borderColor:'#fb7185',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:0,yAxisID:'yL',order:0}:null;
+  const lineDS={type:'line',label:'Labor cost/pallet',data:lcpVals,borderColor:'#7dd4f0',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#7dd4f0',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yL',order:1};
+  const thrDS=activeThreshold?{type:'line',label:'Threshold',data:keys.map(()=>activeThreshold),borderColor:'#e24b4a',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:0,yAxisID:'yL',order:0}:null;
 
-  document.getElementById('combo-legend').innerHTML=dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return`<span class="leg-item"><span class="leg-box" style="background:${DIR_COLORS[i]}"></span>${DIR_LABELS[i]}</span>`;}).join('')+`<span class="leg-item"><span class="leg-line" style="background:#22d3ee"></span>Labor cost/pallet</span>`+(activeThreshold?`<span class="leg-item"><span class="leg-line" style="background:#fb7185"></span>Threshold</span>`:'');
+  document.getElementById('combo-legend').innerHTML=dirs.map(f=>{const i=DIR_FIELD.indexOf(f);return`<span class="leg-item"><span class="leg-box" style="background:${DIR_COLORS[i]}"></span>${DIR_LABELS[i]}</span>`;}).join('')+`<span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost/pallet</span>`+(activeThreshold?`<span class="leg-item"><span class="leg-line" style="background:#e24b4a"></span>Threshold</span>`:'');
 
   if(comboInst){comboInst.destroy();comboInst=null;}
   const datasets=[...barDS,lineDS];if(thrDS)datasets.push(thrDS);
@@ -1935,7 +1957,7 @@ function renderOperations(){
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yP:{type:'linear',position:'left',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
         yPR:{type:'linear',position:'right',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{drawOnChartArea:false},border:{color:'transparent'}},
-        yL:{type:'linear',position:'right',min:lcpMin,ticks:{color:'#22d3ee',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
+        yL:{type:'linear',position:'right',min:lcpMin,ticks:{color:'#7dd4f0',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
       }},
   plugins:[{id:'tl',afterDatasetsDraw(chart){
     if(isDaily)return;
@@ -1958,7 +1980,7 @@ function renderOperations(){
     lm.data.forEach((pt,i)=>{
       const val=ld[i];if(val===null||val===undefined)return;
       const bw=32,bh=18,br=4,bx=pt.x-bw/2,by=pt.y+7;
-      ctx.save();ctx.fillStyle='rgba(14,22,40,0.92)';ctx.strokeStyle='#22d3ee';ctx.lineWidth=1;
+      ctx.save();ctx.fillStyle='rgba(14,22,40,0.92)';ctx.strokeStyle='#7dd4f0';ctx.lineWidth=1;
       ctx.beginPath();ctx.roundRect(bx,by,bw,bh,br);ctx.fill();ctx.stroke();
       ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(val.toFixed(1),pt.x,by+bh/2);ctx.restore();
@@ -1972,7 +1994,7 @@ function renderOperations(){
       const k=keys[i];if(!k)return;
       const cnt=satCanvasData&&satCanvasData[k]||0;
       if(!cnt)return;
-      ctx.fillStyle='#f87171';
+      ctx.fillStyle='#e07070';
       ctx.fillText(cnt,bar.x,bottom+10);
     });
     ctx.restore();
@@ -2022,8 +2044,8 @@ function renderOperations(){
   if(chart2Inst){chart2Inst.destroy();chart2Inst=null;}
   chart2Inst=new Chart(c2,{
     data:{labels:disp2,datasets:[
-      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#60a5facc',borderColor:'#60a5fa',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
-      {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#fb923c',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#fb923c',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
+      {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#4a7fa0cc',borderColor:'#4a7fa0',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
+      {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#f0a050',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys2[i]);}},
@@ -2033,7 +2055,7 @@ function renderOperations(){
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yC:{type:'linear',position:'left',ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
         yCR:{type:'linear',position:'right',ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{drawOnChartArea:false},border:{color:'transparent'}},
-        yH:{type:'linear',position:'right',min:hMin,ticks:{color:'#fb923c',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
+        yH:{type:'linear',position:'right',min:hMin,ticks:{color:'#f0a050',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'}}
       }},
     plugins:[{id:'tl2',afterDatasetsDraw(chart){
       if(isDaily)return;
@@ -2046,7 +2068,7 @@ function renderOperations(){
       lm.data.forEach((pt,i)=>{
         const val=hv[i];if(val===null||val===undefined)return;
         const bw=36,bh=18,br=4,bx=pt.x-bw/2,by=pt.y+7;
-        ctx.save();ctx.fillStyle='rgba(14,22,40,0.92)';ctx.strokeStyle='#fb923c';ctx.lineWidth=1;
+        ctx.save();ctx.fillStyle='rgba(14,22,40,0.92)';ctx.strokeStyle='#f0a050';ctx.lineWidth=1;
         ctx.beginPath();ctx.roundRect(bx,by,bw,bh,br);ctx.fill();ctx.stroke();
         ctx.font='bold 9px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillText('$'+val.toFixed(1),pt.x,by+bh/2);ctx.restore();
@@ -2081,7 +2103,7 @@ const LOC_COORDS = {
   'Greenville, SC':     [34.85,   -82.39]
 };
 
-const LOC_COLORS_MAP = ['#38bdf8','#fb923c','#34d399','#f87171','#22d3ee','#a78bfa','#f472b6','#f08080'];
+const LOC_COLORS_MAP = ['#4a9fd4','#f0a050','#6aab90','#e07070','#7dd4f0','#a07dd4','#d4c06a','#f08080'];
 const locKeys = Object.keys(LOC_COORDS);
 
 window.setMapMode = function setMapMode(mode) {
@@ -2185,8 +2207,8 @@ function renderMap() {
       .bindPopup(`
         <div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:180px;">
           <strong style="font-size:13px;">${loc}</strong><br><br>
-          <span style="color:#fb923c">&#9632; Amazon:</span> $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>
-          <span style="color:#f87171">&#9632; Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
+          <span style="color:#f0a050">&#9632; Amazon:</span> $${d.amz.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${amzPct}%)<br>
+          <span style="color:#e07070">&#9632; Home Depot:</span> $${d.hd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${hdPct}%)
           ${d.hdShared>0?`<br><span style="color:#999;font-size:10px">incl. shared: $${d.hdShared.toFixed(2)}</span>`:''}
           <br><br><strong>Total: $${(d.amz+d.hd).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </div>
@@ -2280,9 +2302,9 @@ function mapHdLoc(job) {
 }
 
 const CAT_COLORS = [
-  '#38bdf8','#fb923c','#34d399','#f87171','#22d3ee',
-  '#a78bfa','#f472b6','#fbbf24','#6366f1','#2dd4bf',
-  '#e879f9','#84cc16','#fb7185','#60a5fa','#94a3b8'
+  '#4a9fd4','#f0a050','#6aab90','#e07070','#7dd4f0',
+  '#a07dd4','#d4c06a','#5a8fd4','#d47a4a','#8ab0d4',
+  '#c8d8f0','#f0d050','#d4506a','#50d4a0','#d49050'
 ];
 
 function renderInventory() {
@@ -2366,11 +2388,11 @@ function renderInventory() {
     type: 'bar',
     data: {labels: dispLabels, datasets: [
       {label:'Amazon', data: allKeys.map(k=>parseFloat((amzBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#fb923ccc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
+       backgroundColor:'#f0a050cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (direct)', data: allKeys.map(k=>parseFloat((hdBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#f87171cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
+       backgroundColor:'#e07070cc', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80},
       {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
-       backgroundColor:'#f8717144', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
+       backgroundColor:'#e0707044', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
@@ -2556,7 +2578,7 @@ function renderWeekGroups(filter=''){
       const monName = MONTH_SHORT[parseInt(mon)-1];
       const selectedInMonth = weeks.filter(yw=>selectedWeeks.has(yw)).length;
       const totalInMonth = weeks.length;
-      const counterColor = selectedInMonth===0?'#f87171':selectedInMonth===totalInMonth?'#34d399':'#fb923c';
+      const counterColor = selectedInMonth===0?'#e07070':selectedInMonth===totalInMonth?'#6aab90':'#f0a050';
       return `<div class="wf-month">
         <div class="wf-month-header" onclick="toggleMonthOpen('${monKey}')">
           <span class="wf-month-arrow ${isMonOpen?'open':''}">▶</span>
@@ -2899,7 +2921,7 @@ function getProdThreshold(loc){
 }
 // ===================== FINANCE TAB =====================
 let finInst1=null, finInst2=null;
-const FIN_DIR_COLORS=['#38bdf8','#6366f1','#2dd4bf','#f472b6','#64748b'];
+const FIN_DIR_COLORS=['#4a9fd4','#2d5f8a','#d4e8d0','#d4c06a','#1a3a5c'];
 
 // price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
 function finBuildPriceMap(){
@@ -2975,7 +2997,7 @@ function finLabelsPlugin(opts){
       const meta=chart.getDatasetMeta(0);
       meta.data.forEach((bar,i)=>{
         const v=chart.data.datasets[0].data[i];if(v===null||v===undefined)return;
-        ctx.fillStyle=v<0?'#f87171':'#9fd4b8';ctx.font='bold 10px sans-serif';
+        ctx.fillStyle=v<0?'#e07070':'#9fd4b8';ctx.font='bold 10px sans-serif';
         ctx.textBaseline=v<0?'top':'bottom';
         ctx.fillText(opts.barValues(v),bar.x,v<0?bar.y+4:bar.y-4);
       });
@@ -3046,7 +3068,7 @@ function renderFinance(){
   document.getElementById('fin-kpi-lab').textContent=finMoney(T.lab);
   document.getElementById('fin-kpi-lab-sub').textContent=T.palOk>0?'LCP $'+(T.lab/T.palOk).toFixed(2):'';
   const pe=document.getElementById('fin-kpi-profit');
-  pe.textContent=T.lab>0?finMoney(profit):'—';pe.style.color=profit<0?'#f87171':'#34d399';
+  pe.textContent=T.lab>0?finMoney(profit):'—';pe.style.color=profit<0?'#e07070':'#6aab90';
   document.getElementById('fin-kpi-margin').textContent=T.revOk>0&&T.lab>0?(profit/T.revOk*100).toFixed(1)+'%':'—';
   document.getElementById('fin-kpi-ppp').textContent=T.palOk>0&&T.lab>0?'$'+(profit/T.palOk).toFixed(2):'—';
   document.getElementById('fin-kpi-ppp-sub').textContent=T.palOk>0&&T.lab>0?'ціна $'+(T.revOk/Math.max(T.palOk,1)).toFixed(2)+' − LCP':'';
@@ -3072,8 +3094,8 @@ function renderFinance(){
   const dsBars=DIR_LABELS.map((lbl,i)=>({type:'bar',label:lbl,data:keys.map(k=>+g[k].dirRev[i].toFixed(0)),backgroundColor:FIN_DIR_COLORS[i]+'dd',stack:'r',yAxisID:'yR',order:2,maxBarThickness:60})).filter(d=>d.data.some(v=>v>0));
   finInst1=draw('scroll-fin1','finChart1',finInst1,{
     data:{labels,datasets:[...dsBars,
-      {type:'line',label:'Avg revenue / pallet',data:price,borderColor:'#fbbf24',backgroundColor:'#fbbf24',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
-      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#22d3ee',backgroundColor:'#22d3ee',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'below',_fmt:v=>'$'+v.toFixed(2)}]},
+      {type:'line',label:'Avg revenue / pallet',data:price,borderColor:'#f0c050',backgroundColor:'#f0c050',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
+      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7dd4f0',backgroundColor:'#7dd4f0',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'below',_fmt:v=>'$'+v.toFixed(2)}]},
     plugins:[finLabelsPlugin({totals:keys.map(k=>g[k].rev),totalAxis:'yR',fmtTotal:finMoney})],
     options:{...baseOpts,scales:{...baseOpts.scales,
       yR:{stacked:true,grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'rgba(255,255,255,0.06)'}},
@@ -3081,19 +3103,19 @@ function renderFinance(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?`${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`:`${c.dataset.label}: $${c.parsed.y}`}}}}
   });
   document.getElementById('fin-legend1').innerHTML=dsBars.map(d=>{const i=DIR_LABELS.indexOf(d.label);return`<span class="leg-item"><span class="leg-box" style="background:${FIN_DIR_COLORS[i]}"></span>${d.label}</span>`;}).join('')+
-    '<span class="leg-item"><span class="leg-line" style="background:#fbbf24"></span>Avg revenue / pallet</span><span class="leg-item"><span class="leg-line" style="background:#22d3ee"></span>Labor cost / pallet</span>';
+    '<span class="leg-item"><span class="leg-line" style="background:#f0c050"></span>Avg revenue / pallet</span><span class="leg-item"><span class="leg-line" style="background:#7dd4f0"></span>Labor cost / pallet</span>';
 
   finInst2=draw('scroll-fin2','finChart2',finInst2,{
     data:{labels,datasets:[
-      {type:'bar',label:'Profit after labor ($)',data:profits,backgroundColor:profits.map(v=>v!==null&&v<0?'#f87171cc':'#34d399cc'),yAxisID:'yP',order:2,maxBarThickness:60},
-      {type:'line',label:'Margin %',data:margins,borderColor:'#fb923c',backgroundColor:'#fb923c',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>v+'%'}]},
+      {type:'bar',label:'Profit after labor ($)',data:profits,backgroundColor:profits.map(v=>v!==null&&v<0?'#e07070cc':'#6aab90cc'),yAxisID:'yP',order:2,maxBarThickness:60},
+      {type:'line',label:'Margin %',data:margins,borderColor:'#f0a050',backgroundColor:'#f0a050',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>v+'%'}]},
     plugins:[finLabelsPlugin({barValues:finMoney})],
     options:{...baseOpts,scales:{...baseOpts.scales,
       yP:{grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'rgba(255,255,255,0.06)'}},
       yM:{grace:'10%',position:'right',ticks:{color:'#7a8daa',callback:v=>v+'%'},grid:{display:false}}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yP'?`Profit: ${finMoney(c.parsed.y)}`:`Margin: ${c.parsed.y}%`}}}}
   });
-  document.getElementById('fin-legend2').innerHTML='<span class="leg-item"><span class="leg-box" style="background:#34d399"></span>Profit</span><span class="leg-item"><span class="leg-box" style="background:#f87171"></span>Loss</span><span class="leg-item"><span class="leg-line" style="background:#fb923c"></span>Margin %</span>';
+  document.getElementById('fin-legend2').innerHTML='<span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Profit</span><span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Loss</span><span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Margin %</span>';
 }
 
 // ===================== RESTACK / RELOAD (Cross Dock sheet) =====================
@@ -3185,8 +3207,8 @@ function renderProductivity(){
   const kpiEl=document.getElementById('prod-kpi');
   if(kpiEl){
     kpiEl.innerHTML=
-      (kpiAll!==null?`<span style="color:#8a9dba;margin-right:8px;">All: <b style="color:#22d3ee">${kpiAll.toFixed(2)}</b></span>`:'')
-      +(kpiProd!==null?`<span>Prod: <b style="color:#34d399">${kpiProd.toFixed(2)}</b></span> <span style="color:#6a7d9a;font-size:11px;">plt/hr</span>`:'plt/hr');
+      (kpiAll!==null?`<span style="color:#8a9dba;margin-right:8px;">All: <b style="color:#7dd4f0">${kpiAll.toFixed(2)}</b></span>`:'')
+      +(kpiProd!==null?`<span>Prod: <b style="color:#6aab90">${kpiProd.toFixed(2)}</b></span> <span style="color:#6a7d9a;font-size:11px;">plt/hr</span>`:'plt/hr');
   }
 
   // Threshold line
@@ -3201,21 +3223,21 @@ function renderProductivity(){
   // Bar 1 — All Hours (приглушений)
   datasets.push({
     type:'bar',label:'All Hours',data:allVals,
-    backgroundColor:'#60a5fa55',borderColor:'#60a5fa',borderWidth:1,borderRadius:4,
+    backgroundColor:'#4a7fa055',borderColor:'#4a7fa0',borderWidth:1,borderRadius:4,
     yAxisID:'yP',order:3,maxBarThickness:56
   });
 
   // Bar 2 — Productive Hours — color by efficiency %
   if(prodVals){
     const barColors=keys.map((k,i)=>{
-      if(!activeProdThr||!prodVals[i])return'#34d399cc';
+      if(!activeProdThr||!prodVals[i])return'#6aab90cc';
       const eff=prodVals[i]/activeProdThr*100;
-      return eff>=90?'#34d399cc':eff>=75?'#fb923ccc':'#f87171cc';
+      return eff>=90?'#6aab90cc':eff>=75?'#f0a050cc':'#e07070cc';
     });
     const barBorders=keys.map((k,i)=>{
-      if(!activeProdThr||!prodVals[i])return'#34d399';
+      if(!activeProdThr||!prodVals[i])return'#6aab90';
       const eff=prodVals[i]/activeProdThr*100;
-      return eff>=90?'#34d399':eff>=75?'#fb923c':'#f87171';
+      return eff>=90?'#6aab90':eff>=75?'#f0a050':'#e07070';
     });
     const prodDs={
       type:'bar',label:'Productive Hours',data:prodVals,
@@ -3231,7 +3253,7 @@ function renderProductivity(){
   if(activeProdThr){
     datasets.push({
       type:'line',label:'Target',data:keys.map(()=>activeProdThr),
-      borderColor:'#fb7185',backgroundColor:'transparent',borderWidth:1.5,
+      borderColor:'#e24b4a',backgroundColor:'transparent',borderWidth:1.5,
       borderDash:[6,4],pointRadius:0,yAxisID:'yP',order:1
     });
   }
@@ -3240,10 +3262,10 @@ function renderProductivity(){
   const legendEl=document.getElementById('prod-legend');
   if(legendEl){
     legendEl.innerHTML=
-      `<span class="leg-item"><span class="leg-box" style="background:#60a5fa;opacity:0.6"></span>All hrs plt/hr</span>`+
-      (prodVals?`<span class="leg-item"><span class="leg-box" style="background:#34d399"></span>Productive hrs plt/hr</span>`:
+      `<span class="leg-item"><span class="leg-box" style="background:#4a7fa0;opacity:0.6"></span>All hrs plt/hr</span>`+
+      (prodVals?`<span class="leg-item"><span class="leg-box" style="background:#6aab90"></span>Productive hrs plt/hr</span>`:
         `<span style="font-size:10px;color:#6a7d9a;margin-left:8px;">* додайте колонку Role для продуктивних годин</span>`)+
-      (activeProdThr?`<span class="leg-item"><span class="leg-line" style="background:#fb7185"></span>Target ${activeProdThr.toFixed(1)} plt/hr</span>`:'');
+      (activeProdThr?`<span class="leg-item"><span class="leg-line" style="background:#e24b4a"></span>Target ${activeProdThr.toFixed(1)} plt/hr</span>`:'');
   }
 
   const c=document.getElementById('prodChart'),sw=document.getElementById('scroll-prod');
@@ -3276,9 +3298,9 @@ function renderProductivity(){
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yP:{type:'linear',position:'left',
-          ticks:{color:'#34d399',font:{size:10},callback:v=>v.toFixed(1)},
+          ticks:{color:'#6aab90',font:{size:10},callback:v=>v.toFixed(1)},
           grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'},
-          title:{display:true,text:'plt/hr',color:'#34d399',font:{size:9}}}
+          title:{display:true,text:'plt/hr',color:'#6aab90',font:{size:9}}}
       }},
     plugins:[{id:'prodLabels',afterDatasetsDraw(chart){
       const{ctx}=chart;
@@ -3286,7 +3308,7 @@ function renderProductivity(){
       if(!barDS.length)return;
       barDS.forEach(ds=>{
         const isProd=ds.label==='Productive Hours';
-        const color=isProd?'#34d399':'#22d3ee';
+        const color=isProd?'#6aab90':'#7dd4f0';
         const mi=chart.data.datasets.indexOf(ds);
         const meta=chart.getDatasetMeta(mi);
         ctx.save();
@@ -3301,7 +3323,7 @@ function renderProductivity(){
             if(bkt&&bkt.prodHours>0){
               // Efficiency % — above plt/hr value
               const effPct=v/activeProdThr*100;
-              const effColor=effPct>=90?'#34d399':effPct>=75?'#fb923c':'#f87171';
+              const effColor=effPct>=90?'#6aab90':effPct>=75?'#f0a050':'#e07070';
               ctx.save();
               ctx.font='bold 9px -apple-system,sans-serif';
               ctx.fillStyle=effColor;
@@ -3318,7 +3340,7 @@ function renderProductivity(){
               const usePH=plannedPH>0?plannedPH:bkt.prodHours;
               const lost=Math.round((activeProdThr-v)*usePH);
               const lostStr=(lost>0?'+':'')+lost;
-              const lostColor=lost>0?'#f87171':'#34d399';
+              const lostColor=lost>0?'#e07070':'#6aab90';
               ctx.save();
               ctx.font='bold 8px -apple-system,sans-serif';
               ctx.fillStyle=lostColor;
@@ -3364,10 +3386,10 @@ function renderProductivity(){
         ctx.save();
         ctx.font='bold 9px -apple-system,sans-serif';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillStyle=g?'#34d399':'#334155'; ctx.fillText(g||'·',x,startY+rowH*0);
-        ctx.fillStyle=y?'#fb923c':'#334155'; ctx.fillText(y||'·',x,startY+rowH*1);
-        ctx.fillStyle=p?'#a78bfa':'#334155'; ctx.fillText(p||'·',x,startY+rowH*2);
-        ctx.fillStyle=b?'#60a5fa':'#334155'; ctx.fillText(b||'·',x,startY+rowH*3);
+        ctx.fillStyle=g?'#6aab90':'#334155'; ctx.fillText(g||'·',x,startY+rowH*0);
+        ctx.fillStyle=y?'#f0a050':'#334155'; ctx.fillText(y||'·',x,startY+rowH*1);
+        ctx.fillStyle=p?'#a07dd4':'#334155'; ctx.fillText(p||'·',x,startY+rowH*2);
+        ctx.fillStyle=b?'#4a7fa0':'#334155'; ctx.fillText(b||'·',x,startY+rowH*3);
         ctx.restore();
         // Store hit zone for each row (for hover tooltip with names)
         const refDt=bucketRefDate(k);
@@ -3379,10 +3401,10 @@ function renderProductivity(){
           }
           return name;
         });
-        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*0-rowH/2, yBot:startY+rowH*0+rowH/2, names:[...wc.green], label:'🟢 Productive', color:'#34d399'});
-        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*1-rowH/2, yBot:startY+rowH*1+rowH/2, names:yellowNames, label:'🟡 New FO (adapting)', color:'#fb923c'});
-        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*2-rowH/2, yBot:startY+rowH*2+rowH/2, names:wc.purple?[...wc.purple]:[], label:'🟣 Sup/LM (FO duty)', color:'#a78bfa'});
-        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*3-rowH/2, yBot:startY+rowH*3+rowH/2, names:[...wc.blue], label:'🔵 Non-prod', color:'#60a5fa'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*0-rowH/2, yBot:startY+rowH*0+rowH/2, names:[...wc.green], label:'🟢 Productive', color:'#6aab90'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*1-rowH/2, yBot:startY+rowH*1+rowH/2, names:yellowNames, label:'🟡 New FO (adapting)', color:'#f0a050'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*2-rowH/2, yBot:startY+rowH*2+rowH/2, names:wc.purple?[...wc.purple]:[], label:'🟣 Sup/LM (FO duty)', color:'#a07dd4'});
+        hitZones.push({x:x-barW/2, w:barW, yTop:startY+rowH*3-rowH/2, yBot:startY+rowH*3+rowH/2, names:[...wc.blue], label:'🔵 Non-prod', color:'#4a7fa0'});
       });
       chart._workerStripHitZones=hitZones;
     }}]
@@ -3440,7 +3462,7 @@ function getOrCreateTooltip(){
   if(!insightTooltip){
     insightTooltip=document.createElement('div');
     insightTooltip.id='insight-tooltip';
-    insightTooltip.style.cssText='position:fixed;z-index:9999;max-width:300px;padding:10px 14px;background:#0f1729;border:1px solid #5b8def;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;font-size:11px;line-height:1.6;color:#c8d8f0;pointer-events:none;';
+    insightTooltip.style.cssText='position:fixed;z-index:9999;max-width:300px;padding:10px 14px;background:#0f1729;border:1px solid #4a7ab0;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;font-size:11px;line-height:1.6;color:#c8d8f0;pointer-events:none;';
     document.body.appendChild(insightTooltip);
   }
   return insightTooltip;
@@ -3488,11 +3510,11 @@ function showInsightTooltip(e, key, gran, d, trendBkts){
 
   const trendLabel=trendBkts&&trendBkts.length>=2?`vs ${trendBkts.length}-week trend`:trendBkts&&trendBkts.length===1?'vs prev week':'';
 
-  tt.innerHTML=`<div style="font-size:10px;color:#6a7d9a;margin-bottom:6px;">📊 <span style="color:#22d3ee;font-weight:600">${label}</span>${trendLabel?` <span style="color:#64748b;font-size:9px">${trendLabel}</span>`:''}</div>`
+  tt.innerHTML=`<div style="font-size:10px;color:#6a7d9a;margin-bottom:6px;">📊 <span style="color:#7dd4f0;font-weight:600">${label}</span>${trendLabel?` <span style="color:#1a3a5c;font-size:9px">${trendLabel}</span>`:''}</div>`
     +`<div style="margin-bottom:6px;display:flex;gap:12px;font-size:10px;">`
-    +(pph?`<span style="color:#34d399">plt/hr: <b>${pph.toFixed(1)}</b>${pphD?` <span style="color:${pphD>0?'#34d399':'#f87171'}">${pphD>0?'▲':'▼'}${Math.abs(pphD).toFixed(0)}%</span>`:''}</span>`:'')
-    +(lcp?`<span style="color:#22d3ee">LCP: <b>$${lcp.toFixed(2)}</b>${lcpD?` <span style="color:${lcpD>0?'#f87171':'#34d399'}">${lcpD>0?'▲':'▼'}${Math.abs(lcpD).toFixed(0)}%</span>`:''}</span>`:'')
-    +(satW?`<span style="color:#f87171">Sat: <b>${satW}</b></span>`:'')
+    +(pph?`<span style="color:#6aab90">plt/hr: <b>${pph.toFixed(1)}</b>${pphD?` <span style="color:${pphD>0?'#6aab90':'#e07070'}">${pphD>0?'▲':'▼'}${Math.abs(pphD).toFixed(0)}%</span>`:''}</span>`:'')
+    +(lcp?`<span style="color:#7dd4f0">LCP: <b>$${lcp.toFixed(2)}</b>${lcpD?` <span style="color:${lcpD>0?'#e07070':'#6aab90'}">${lcpD>0?'▲':'▼'}${Math.abs(lcpD).toFixed(0)}%</span>`:''}</span>`:'')
+    +(satW?`<span style="color:#e07070">Sat: <b>${satW}</b></span>`:'')
     +'</div>'
     +`<div style="color:#c8d8f0">${insight.uk}</div>`
     +`<div style="color:#6a7d9a;font-size:10px;margin-top:4px;font-style:italic">${insight.en}</div>`;
@@ -3685,14 +3707,14 @@ function renderSatStrip(keys, bkts){
   strip.innerHTML=keys.map((k,i)=>{
     const cnt=bkts[k]?.satWorkers?.size||0;
     return`<div style="width:${cellW}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-      ${cnt?`<span style="font-size:9px;font-weight:700;color:#f87171;">${cnt}</span>`
+      ${cnt?`<span style="font-size:9px;font-weight:700;color:#e07070;">${cnt}</span>`
            :`<span style="font-size:9px;color:#334155">·</span>`}
     </div>`;
   }).join('');
 
   const legEnd=document.getElementById('combo-legend');
   if(legEnd&&!legEnd.innerHTML.includes('Saturday')){
-    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#f87171"></span>Sat workers</span>`;
+    legEnd.innerHTML+=`<span class="leg-item"><span class="leg-box" style="background:#e07070"></span>Sat workers</span>`;
   }
 }
 
@@ -3722,9 +3744,9 @@ function renderWorkerStrip(keys, bkts, gran){
     const wc=bkts[k]?.workers||{green:new Set(),yellow:new Set(),blue:new Set()};
     const g=wc.green.size, y=wc.yellow.size, b=wc.blue.size;
     return`<div style="width:${cellW}px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;">
-      <span style="font-size:9px;font-weight:700;color:${g?'#34d399':'#334155'};line-height:1.3">${g||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${y?'#fb923c':'#334155'};line-height:1.3">${y||'·'}</span>
-      <span style="font-size:9px;font-weight:700;color:${b?'#60a5fa':'#334155'};line-height:1.3">${b||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${g?'#6aab90':'#334155'};line-height:1.3">${g||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${y?'#f0a050':'#334155'};line-height:1.3">${y||'·'}</span>
+      <span style="font-size:9px;font-weight:700;color:${b?'#4a7fa0':'#334155'};line-height:1.3">${b||'·'}</span>
     </div>`;
   }).join('');
 }
@@ -3748,9 +3770,9 @@ function renderCorrChart(){
 
   corrInst=new Chart(c,{
     data:{labels,datasets:[
-      {type:'line',label:'Prod plt/hr',data:pphVals,borderColor:'#34d399',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#34d399',tension:0.3,yAxisID:'yL',order:1},
-      {type:'line',label:'LCP $',data:lcpVals,borderColor:'#fb7185',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#fb7185',tension:0.3,yAxisID:'yR',order:2},
-      {type:'line',label:'Avg hourly rate $',data:hrVals,borderColor:'#fb923c',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#fb923c',tension:0.3,yAxisID:'yR',order:3,borderDash:[4,3]},
+      {type:'line',label:'Prod plt/hr',data:pphVals,borderColor:'#6aab90',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#6aab90',tension:0.3,yAxisID:'yL',order:1},
+      {type:'line',label:'LCP $',data:lcpVals,borderColor:'#e24b4a',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e24b4a',tension:0.3,yAxisID:'yR',order:2},
+      {type:'line',label:'Avg hourly rate $',data:hrVals,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f0a050',tension:0.3,yAxisID:'yR',order:3,borderDash:[4,3]},
     ]},
     options:{responsive:false,maintainAspectRatio:false,animation:false,
       interaction:{mode:'index',intersect:false},
@@ -3764,8 +3786,8 @@ function renderCorrChart(){
           }}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
-        yL:{type:'linear',position:'left',ticks:{color:'#34d399',font:{size:10},callback:v=>v.toFixed(1)},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'},title:{display:true,text:'plt/hr',color:'#34d399',font:{size:9}}},
-        yR:{type:'linear',position:'right',ticks:{color:'#fb923c',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'},title:{display:true,text:'$',color:'#fb923c',font:{size:9}}}
+        yL:{type:'linear',position:'left',ticks:{color:'#6aab90',font:{size:10},callback:v=>v.toFixed(1)},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'},title:{display:true,text:'plt/hr',color:'#6aab90',font:{size:9}}},
+        yR:{type:'linear',position:'right',ticks:{color:'#f0a050',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false},border:{color:'transparent'},title:{display:true,text:'$',color:'#f0a050',font:{size:9}}}
       }}
   });
 
@@ -3790,9 +3812,9 @@ function renderCorrChart(){
 
   const leg=document.getElementById('corr-legend');
   if(leg) leg.innerHTML=`
-    <span class="leg-item"><span class="leg-line" style="background:#34d399"></span>Prod plt/hr</span>
-    <span class="leg-item"><span class="leg-line" style="background:#fb7185"></span>LCP $</span>
-    <span class="leg-item"><span class="leg-line" style="background:#fb923c"></span>Avg hourly $</span>`;
+    <span class="leg-item"><span class="leg-line" style="background:#6aab90"></span>Prod plt/hr</span>
+    <span class="leg-item"><span class="leg-line" style="background:#e24b4a"></span>LCP $</span>
+    <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Avg hourly $</span>`;
 
   if(corrMatrixOpen) renderCorrMatrix();
   renderRestackChart();
@@ -3884,8 +3906,8 @@ function renderRestackChart(){
     data:{
       labels,
       datasets:[
-        {type:'bar',label:'Restack equiv. (pallets)',data:equivVals,backgroundColor:'#fbbf24cc',borderColor:'#fbbf24',borderWidth:0,borderRadius:4,yAxisID:'yP',order:2,maxBarThickness:40},
-        {type:'line',label:'Restack revenue ($)',data:revenueVals,borderColor:'#f87171',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f87171',tension:0.2,yAxisID:'yR',order:1},
+        {type:'bar',label:'Restack equiv. (pallets)',data:equivVals,backgroundColor:'#f0c050cc',borderColor:'#f0c050',borderWidth:0,borderRadius:4,yAxisID:'yP',order:2,maxBarThickness:40},
+        {type:'line',label:'Restack revenue ($)',data:revenueVals,borderColor:'#e07070',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e07070',tension:0.2,yAxisID:'yR',order:1},
       ]
     },
     options:{
@@ -3899,16 +3921,16 @@ function renderRestackChart(){
           }}}},
       scales:{
         x:{ticks:{color:'#6a7d9a',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}},
-        yP:{position:'left',ticks:{color:'#fbbf24',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'},title:{display:true,text:'Equiv. pallets',color:'#fbbf24',font:{size:10}}},
-        yR:{position:'right',ticks:{color:'#f87171',font:{size:10}},grid:{display:false},title:{display:true,text:'Revenue ($)',color:'#f87171',font:{size:10}}},
+        yP:{position:'left',ticks:{color:'#f0c050',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'},title:{display:true,text:'Equiv. pallets',color:'#f0c050',font:{size:10}}},
+        yR:{position:'right',ticks:{color:'#e07070',font:{size:10}},grid:{display:false},title:{display:true,text:'Revenue ($)',color:'#e07070',font:{size:10}}},
       }
     }
   });
 
   const legEl=document.getElementById('restack-legend');
   if(legEl)legEl.innerHTML=`
-    <span class="leg-item"><span class="leg-box" style="background:#fbbf24"></span>Restack equiv. (pallets)</span>
-    <span class="leg-item"><span class="leg-line" style="background:#f87171"></span>Restack revenue ($)</span>`;
+    <span class="leg-item"><span class="leg-box" style="background:#f0c050"></span>Restack equiv. (pallets)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#e07070"></span>Restack revenue ($)</span>`;
 }
 
 function showRestackEmptyState(msg){
@@ -4023,9 +4045,9 @@ function renderDailySchedule(filtered){
 
   // Sort employees by role group then name
   const roleColor=(role)=>{
-    if(role==='Forklift Operator')return'#34d399';
-    if(role==='Supervisor / Forklift Operator'||role==='Local Manager / Forklift Operator')return'#fb923c';
-    return'#60a5fa';
+    if(role==='Forklift Operator')return'#6aab90';
+    if(role==='Supervisor / Forklift Operator'||role==='Local Manager / Forklift Operator')return'#f0a050';
+    return'#4a7fa0';
   };
   const roleShort=(role)=>{
     if(role==='Forklift Operator')return'FO';
@@ -4125,13 +4147,13 @@ function renderStaff(){
   const activeLocCount = {};
   active.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); activeLocCount[abbr]=(activeLocCount[abbr]||0)+1; });
   document.getElementById('s-active-locs').innerHTML = Object.entries(activeLocCount).sort((a,b)=>b[1]-a[1])
-    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#1a3a2a;color:#34d399;font-weight:500">${abbr}:${cnt}</span>`).join('');
+    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#1a3a2a;color:#6aab90;font-weight:500">${abbr}:${cnt}</span>`).join('');
 
   // Inactive loc badges
   const inactiveLocCount = {};
   inactive.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); inactiveLocCount[abbr]=(inactiveLocCount[abbr]||0)+1; });
   document.getElementById('s-inactive-locs').innerHTML = Object.entries(inactiveLocCount).sort((a,b)=>b[1]-a[1])
-    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#3a1a1a;color:#f87171;font-weight:500">${abbr}:${cnt}</span>`).join('');
+    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#3a1a1a;color:#e07070;font-weight:500">${abbr}:${cnt}</span>`).join('');
 
   // ---- Top 10 by hours - progress bar table ----
   const topEmp=[...active,...inactive].sort((a,b)=>b.hours-a.hours);
@@ -4142,12 +4164,12 @@ function renderStaff(){
     const isInactive = inactive.includes(e);
     return `<tr>
       <td style="color:#7a8daa;width:28px">${i+1}</td>
-      <td style="color:${isInactive?'#f87171':'#c8d8f0'}">${e.name}</td>
+      <td style="color:${isInactive?'#e07070':'#c8d8f0'}">${e.name}</td>
       <td style="color:#7a8daa;font-size:10px">${abbr}</td>
-      <td style="text-align:right;font-weight:500;color:#22d3ee">${e.hours.toFixed(0)}h</td>
+      <td style="text-align:right;font-weight:500;color:#7dd4f0">${e.hours.toFixed(0)}h</td>
       <td style="padding:0 8px;">
         <div style="background:#0f1729;border-radius:3px;height:6px;width:100%;">
-          <div style="background:#38bdf8;border-radius:3px;height:6px;width:${pct}%;transition:width 0.3s;"></div>
+          <div style="background:#4a9fd4;border-radius:3px;height:6px;width:${pct}%;transition:width 0.3s;"></div>
         </div>
       </td>
     </tr>`;
@@ -4163,7 +4185,7 @@ function renderStaff(){
   if(dowInst){dowInst.destroy();dowInst=null;}
   dowInst=new Chart(document.getElementById('dowChart'),{
     type:'bar',
-    data:{labels:DOW_LABELS,datasets:[{data:dowHours.map(v=>parseFloat(v.toFixed(1))),backgroundColor:dowHours.map((_,i)=>i<5?'#38bdf8cc':'#fb923ccc'),borderColor:dowHours.map((_,i)=>i<5?'#38bdf8':'#fb923c'),borderWidth:0,borderRadius:4}]},
+    data:{labels:DOW_LABELS,datasets:[{data:dowHours.map(v=>parseFloat(v.toFixed(1))),backgroundColor:dowHours.map((_,i)=>i<5?'#4a9fd4cc':'#f0a050cc'),borderColor:dowHours.map((_,i)=>i<5?'#4a9fd4':'#f0a050'),borderWidth:0,borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{ticks:{color:'#8a9dba',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},y:{ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}}}}
   });
 
@@ -4178,7 +4200,7 @@ function renderStaff(){
   const locHoursLabels = locHoursSorted.map(([k])=>k);
   const locHoursVals   = locHoursSorted.map(([,v])=>parseFloat(v.toFixed(1)));
   const locHoursTotal  = locHoursVals.reduce((a,b)=>a+b,0);
-  const LOC_COLORS = ['#38bdf8','#fb923c','#34d399','#f87171','#22d3ee','#a78bfa','#f472b6'];
+  const LOC_COLORS = ['#4a9fd4','#f0a050','#6aab90','#e07070','#7dd4f0','#a07dd4','#d4c06a'];
 
   if(window.locHoursDonutInst){window.locHoursDonutInst.destroy();}
   window.locHoursDonutInst = new Chart(document.getElementById('locHoursDonut'),{
@@ -4204,7 +4226,7 @@ function renderStaff(){
   document.getElementById('inactive-tbody').innerHTML=inactive.map(e=>{
     const dtStr = e.lastDt instanceof Date ? `${e.lastDt.getMonth()+1}/${e.lastDt.getDate()}/${e.lastDt.getFullYear()}` : '—';
     const abbr = LOC_ABBR[e.loc]||e.loc;
-    return `<tr><td>${e.name}</td><td style="color:#7a8daa">${abbr}</td><td>${dtStr}</td><td style="color:#f87171">${e.diffDays}d</td></tr>`;
+    return `<tr><td>${e.name}</td><td style="color:#7a8daa">${abbr}</td><td>${dtStr}</td><td style="color:#e07070">${e.diffDays}d</td></tr>`;
   }).join('');
 }
 
@@ -4358,10 +4380,10 @@ function renderCapacity(){
     data:{
       labels:weeklyLabels,
       datasets:[
-        {type:'bar',label:'Факт палет',data:actualPallets,backgroundColor:'#38bdf8cc',borderColor:'#38bdf8',borderWidth:0,borderRadius:4,order:3,maxBarThickness:44},
-        {type:'line',label:'Стеля (поточна команда+ефект.)',data:ceilingCurrentEff,borderColor:'#fb923c',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#fb923c',tension:0.2,order:2},
-        {type:'line',label:'Стеля (комфортна команда, поточна ефект.)',data:ceilingMaxComf,borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'#a78bfa',tension:0.2,order:1},
-        {type:'line',label:'Потенціал (комфортна команда, повна адаптація)',data:ceilingMaxPotential,borderColor:'#34d399',backgroundColor:'transparent',borderWidth:2,borderDash:[2,3],pointRadius:2,pointBackgroundColor:'#34d399',tension:0.2,order:0},
+        {type:'bar',label:'Факт палет',data:actualPallets,backgroundColor:'#4a9fd4cc',borderColor:'#4a9fd4',borderWidth:0,borderRadius:4,order:3,maxBarThickness:44},
+        {type:'line',label:'Стеля (поточна команда+ефект.)',data:ceilingCurrentEff,borderColor:'#f0a050',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f0a050',tension:0.2,order:2},
+        {type:'line',label:'Стеля (комфортна команда, поточна ефект.)',data:ceilingMaxComf,borderColor:'#a07dd4',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'#a07dd4',tension:0.2,order:1},
+        {type:'line',label:'Потенціал (комфортна команда, повна адаптація)',data:ceilingMaxPotential,borderColor:'#6aab90',backgroundColor:'transparent',borderWidth:2,borderDash:[2,3],pointRadius:2,pointBackgroundColor:'#6aab90',tension:0.2,order:0},
       ]
     },
     options:{
@@ -4379,19 +4401,19 @@ function renderCapacity(){
 
   const legEl=document.getElementById('capacity-legend');
   if(legEl) legEl.innerHTML=`
-    <span class="leg-item"><span class="leg-box" style="background:#38bdf8"></span>Факт палет</span>
-    <span class="leg-item"><span class="leg-line" style="background:#fb923c"></span>Стеля (поточна команда)</span>
-    <span class="leg-item"><span class="leg-line" style="background:#a78bfa;border-style:dashed"></span>Стеля (комфортна команда)</span>
-    <span class="leg-item"><span class="leg-line" style="background:#34d399;border-style:dashed"></span>Потенціал (повна адаптація)</span>`;
+    <span class="leg-item"><span class="leg-box" style="background:#4a9fd4"></span>Факт палет</span>
+    <span class="leg-item"><span class="leg-line" style="background:#f0a050"></span>Стеля (поточна команда)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#a07dd4;border-style:dashed"></span>Стеля (комфортна команда)</span>
+    <span class="leg-item"><span class="leg-line" style="background:#6aab90;border-style:dashed"></span>Потенціал (повна адаптація)</span>`;
 
   // Bottleneck ladder visualization
   const ladderEl=document.getElementById('capacity-ladder');
   if(ladderEl){
     const rungs=[
-      {label:'Комфортно',val:cap.comf,color:'#34d399'},
-      {label:'Незручність',val:cap.uncomf,color:'#fb923c'},
-      {label:'Стеля доків',val:cap.dock,color:'#f87171'},
-      {label:'Обладнання',val:cap.equip,color:'#22d3ee'},
+      {label:'Комфортно',val:cap.comf,color:'#6aab90'},
+      {label:'Незручність',val:cap.uncomf,color:'#f0a050'},
+      {label:'Стеля доків',val:cap.dock,color:'#e07070'},
+      {label:'Обладнання',val:cap.equip,color:'#7dd4f0'},
     ].filter(r=>r.val!==null).sort((a,b)=>a.val-b.val);
     const maxVal=Math.max(...rungs.map(r=>r.val),1);
     ladderEl.innerHTML=rungs.map(r=>`
