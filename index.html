@@ -616,7 +616,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .tab-content.active{animation:tabIn .35s ease}
 </style>
 <style id="staff-compact-region">
-#tab-staff .kpi-row{margin-bottom:12px;}
+#tab-staff .kpi-row{margin-bottom:12px;grid-template-columns:repeat(4,1fr);}
 #tab-staff .kpi-card{padding:10px 16px!important;}
 #tab-staff .kpi-label{margin-bottom:4px;}
 #tab-staff .kpi-bar{margin-bottom:6px;}
@@ -1056,7 +1056,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
   <!-- Headcount + hires/leavers by week -->
   <div class="charts-row">
-    <div class="chart-card" style="flex:2;min-width:0;overflow:hidden;">
+    <div class="chart-card" style="flex:1;min-width:0;overflow:hidden;">
       <div class="card-title">Headcount by week — people who worked, by location</div>
       <div class="chart-scroll-wrap" id="st-scroll-head"><canvas id="stHeadChart" role="img" aria-label="Headcount by week"></canvas></div>
       <div class="legend" id="st-head-legend"></div>
@@ -3575,7 +3575,7 @@ function renderProductivity(){
             const g=wc.green?.size||0, y=wc.yellow?.size||0, b=wc.blue?.size||0, p=wc.purple?.size||0;
             const total=g+y+p+b;
             if(!total)return[];
-            return[` 👥 Total: ${total}  🟢${g} 🟡${y} 🟣${p} 🔵${b}`];
+            return[` 👥 ${window.tr?tr('Total'):'Total'}: ${total}  🟢${g} 🟡${y} 🟣${p} 🔵${b}`];
           }}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -4476,7 +4476,7 @@ function renderStaff(){
   if(window.stHeadInst){window.stHeadInst.destroy();window.stHeadInst=null;}
   window.stHeadInst=new Chart(cHead,{data:{labels,datasets:dsHead},plugins:[totalsPlugin],
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:22,right:10}},interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{footer:items=>' Total: '+totals[items[0].dataIndex]}}},
+      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{footer:items=>' '+(window.tr?tr('Total'):'Total')+': '+totals[items[0].dataIndex]}}},
       scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,beginAtZero:true,ticks:{...ax.ticks,precision:0}}}}});
   document.getElementById('st-head-legend').innerHTML=locOrder.map((l,i)=>`<span class="leg-item"><span class="leg-box" style="background:${ST_COLORS[i%ST_COLORS.length]}"></span>${abbr(l)}</span>`).join('');
 
@@ -4809,6 +4809,170 @@ enhanceSelects();
   const sync=()=>{st.dataset.tip=st.textContent;};
   new MutationObserver(sync).observe(st,{childList:true,characterData:true,subtree:true});sync();})();
 loadData();
+</script>
+<script id="i18n">
+(function(){
+const D={
+'Warehouse Operations Dashboard':'Дашборд складських операцій',
+'Operations':'Операції','Time & Staff':'Час і персонал','Procurement':'Закупівлі','Capacity':'Потужність','(test)':'(тест)','Capacity (test)':'Потужність (тест)','Finance':'Фінанси',
+'Granularity':'Деталізація','Weekly':'По тижнях','Monthly':'По місяцях','Quarterly':'По кварталах','Yearly':'По роках',
+'Week':'Тиждень','Month':'Місяць','Quarter':'Квартал','Year':'Рік','All weeks':'Усі тижні','All months':'Усі місяці','All quarters':'Усі квартали','All years':'Усі роки','All periods':'Усі періоди',
+'All':'Усі','None':'Жодної','Region':'Регіон','West':'Захід','East':'Схід','All West':'Усі West','All East':'Усі East',
+'Location':'Локація','All locations':'Усі локації','Direction':'Напрямок','All directions':'Усі напрямки',
+'Highway':'Highway','Intermodal':'Intermodal','East Coast':'East Coast','Local Delivery':'Local Delivery','Cross Dock':'Cross Dock',
+'⚙ Thresholds':'⚙ Порогові значення','👥 Workforce':'👥 Персонал','↻ Refresh':'↻ Оновити',
+'Labor cost per pallet — threshold by location':'Вартість праці на палету — поріг по локаціях',
+'Labor Productivity — pallets/hr target by location':'Продуктивність праці — ціль палет/год по локаціях',
+'Shift Plan — by location':'План змін — по локаціях','Day start':'Початок дня','Day end':'Кінець дня','Night start':'Початок ночі','Night end':'Кінець ночі',
+'New Employee Adaptation — Forklift Operator productivity coefficient by weeks since start':'Адаптація нових працівників — коефіцієнт продуктивності навантажувача за тижнями від початку',
+'Apply adaptation to employees hired after:':'Застосувати адаптацію до працівників, прийнятих після:',
+'From':'Від','To':'До',
+'Total HWY/IMD':'Усього HWY/IMD','TOTAL HWY/IMD':'УСЬОГО HWY/IMD',
+'Sum of Highway + Intermodal pallets':'Сума палет Highway + Intermodal','from Sunday summary rows':'із недільних підсумкових рядків',
+'Labor cost per pallet':'Вартість праці на палету','LABOR COST PER PALLET':'ВАРТІСТЬ ПРАЦІ НА ПАЛЕТУ','Total costs ÷ Total pallets':'Усі витрати ÷ усі палети',
+'Avg hourly price':'Середня погодинна ціна','AVG HOURLY PRICE':'СЕРЕДНЯ ПОГОДИННА ЦІНА','Total costs ÷ Total hours worked':'Усі витрати ÷ усі відпрацьовані години',
+'Total cost':'Загальні витрати','TOTAL COST':'ЗАГАЛЬНІ ВИТРАТИ','Sum of Costs2 from Sunday summary rows':'Сума Costs2 із недільних підсумкових рядків','(weekly labor cost totals)':'(тижневі підсумки витрат на працю)',
+'Utilization Rate':'Рівень завантаження','UTILIZATION RATE':'РІВЕНЬ ЗАВАНТАЖЕННЯ','Actual pallets ÷ Target pallets × 100%':'Фактичні палети ÷ цільові палети × 100%','Target = Labor Productivity target × Prod hrs':'Ціль = ціль продуктивності × продуктивні години',
+'Pallets by direction & Labor cost per pallet':'Палети за напрямком і вартість праці на палету',
+'Labor cost/pallet':'Вартість праці/палета','Threshold':'Поріг',
+'Labor Productivity (pallets / hr)':'Продуктивність праці (палет / год)','All:':'Усі:','Prod:':'Прод.:','plt/hr':'пал/год',
+'▶ Details':'▶ Деталі','▼ Details':'▼ Деталі','▶ Matrix':'▶ Матриця','▼ Matrix':'▼ Матриця',
+'All hrs plt/hr':'Усі год. пал/год','Productive hrs plt/hr':'Продуктивні год. пал/год','Productive (FO)':'Продуктивні (FO)','New FO (adapting)':'Нові FO (адаптація)','Supervisor/LM (FO duty)':'Супервайзер/LM (робота FO)','Non-prod':'Непродуктивні',
+'Operating Cost & Avg hourly rate':'Операційні витрати і середня погодинна ставка','Operating Cost':'Операційні витрати','Avg hourly rate':'Середня погодинна ставка',
+'Proportion of each direction':'Частка кожного напрямку',
+'Correlation: plt/hr · LCP · Hourly rate':'Кореляція: пал/год · LCP · Погодинна ставка','Prod plt/hr':'Прод. пал/год','LCP $':'LCP $','Avg hourly $':'Сер. погодинна $',
+'Active now':'Зараз активні','ACTIVE NOW':'ЗАРАЗ АКТИВНІ','Left recently':'Нещодавно звільнені','LEFT RECENTLY':'НЕЩОДАВНО ЗВІЛЬНЕНІ',
+'Avg hours / person / week':'Сер. годин / людина / тиждень','AVG HOURS / PERSON / WEEK':'СЕР. ГОДИН / ЛЮДИНА / ТИЖДЕНЬ',
+'Headcount by week — people who worked, by location':'Чисельність по тижнях — люди, що працювали, за локаціями',
+'New hires vs leavers by week':'Новачки та звільнені по тижнях','New hires':'Новачки','Leavers':'Звільнені',
+'Name':'Ім’я','Loc':'Лок.','Started':'Початок','Adapt':'Адапт.','Hrs/wk':'Год/тиж','Recent leavers':'Нещодавно звільнені',
+'Last shift':'Остання зміна','Ago':'Тому','Tenure':'Стаж','Hours':'Години','Days':'Дні','Streak':'Серія',
+'Streak = most days worked in a row.':'Серія = найбільше днів підряд.',
+'Daily Schedule — hours per employee':'Щоденний графік — години на працівника','Role':'Роль',
+'Forklift Operator':'Оператор навантажувача','Supervisor/LM/FO':'Супервайзер/LM/FO','Other roles':'Інші ролі',
+'Mon':'Пн','Tue':'Вт','Wed':'Ср','Thu':'Чт','Fri':'Пт','Sat':'Сб','Sun':'Нд',
+'Jan':'Січ','Feb':'Лют','Mar':'Бер','Apr':'Кві','May':'Тра','Jun':'Чер','Jul':'Лип','Aug':'Сер','Sep':'Вер','Oct':'Жов','Nov':'Лис','Dec':'Гру',
+'Week 1':'Тиждень 1','Week 2':'Тиждень 2','Week 3':'Тиждень 3','Week 4':'Тиждень 4','Weeks 5–6':'Тижні 5–6','Weeks 7–8':'Тижні 7–8','Weeks 9–10':'Тижні 9–10','Weeks 11–12':'Тижні 11–12','Week 13+':'Тиждень 13+',
+'Revenue':'Виручка','Profit after labor':'Прибуток після ЗП','Margin %':'Маржа %','Profit / pallet':'Прибуток / палета',
+'Revenue by direction ($) & Labor cost / pallet vs Avg revenue / pallet':'Виручка за напрямком ($) і вартість праці / палета проти середньої виручки / палета',
+'Profit after labor ($) & Margin %':'Прибуток після ЗП ($) і маржа %','Labor cost (Costs2)':'Витрати на працю (Costs2)',
+'KPI by location':'KPI по локаціях','Total Cost':'Загальні витрати','Avg Hourly':'Сер. погодинна',
+'Search...':'Пошук...','Search employee...':'Пошук працівника...','Zoom in':'Збільшити','Zoom out':'Зменшити',
+'Total':'Усього','Details':'Деталі','Matrix':'Матриця','Target':'Ціль','Actual pallets':'Фактичні палети','Target pallets':'Цільові палети','Lost pallets':'Втрачені палети',
+'All hrs plt/hr ':'Усі год. пал/год','Prod hrs (act.)':'Прод. год. (факт)','Prod hrs (plan)':'Прод. год. (план)','Adapt. coef':'Коеф. адапт.','Sat workers':'Працівники в суботу','Utilization %':'Завантаження %',
+'Headcount by week':'Чисельність по тижнях','Hires and leavers':'Новачки та звільнені','All Hours':'Усі години','Productive Hours':'Продуктивні години',
+'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
+};
+const RX=[
+[/^New hires \(last (\d+) weeks\)$/i,'Новачки (останні $1 тижн.)'],
+[/^NEW HIRES \(LAST (\d+) WEEKS\)$/,'НОВАЧКИ (ОСТАННІ $1 ТИЖН.)'],
+[/^last shift (\d+)–(\d+) weeks ago$/,'остання зміна $1–$2 тижн. тому'],
+[/^active staff, last (\d+) weeks$/,'активний персонал, останні $1 тижн.'],
+[/^(\d+) in the last (\d+) weeks$/,'$1 за останні $2 тижн.'],
+[/^New hires — first (\d+) weeks$/,'Новачки — перші $1 тижнів'],
+[/^Workload — last (\d+) weeks$/,'Навантаження — останні $1 тижні'],
+[/^\+ (\d+) earlier \(last shift more than (\d+) weeks ago\)$/,'+ ще $1 раніше (остання зміна понад $2 тижнів тому)'],
+[/^No new hires in the last (\d+) weeks$/,'Немає новачків за останні $1 тижнів'],
+[/^Nobody left in the last (\d+) weeks$/,'За останні $1 тижнів ніхто не звільнився'],
+[/^Threshold (\$[\d.,]+)$/,'Поріг $1'],
+[/^Target: ([\d,]+) pallets$/,'Ціль: $1 палет'],
+[/^Target ([\d.]+) plt\/hr$/,'Ціль $1 пал/год'],
+[/^([\d.,]+) pallets$/,'$1 палет'],
+[/^(.*) hrs$/,'$1 год'],
+[/^▲ Above threshold (.*)$/,'▲ Вище порогу $1'],
+[/^▼ Below threshold (.*)$/,'▼ Нижче порогу $1'],
+[/^(\d+) locations$/,'$1 локацій'],[/^(\d+) periods$/,'$1 періодів'],
+[/^(\d+)d$/,'$1д'],[/^(\d+)w$/,'$1т'],[/^([\d.,]+)h$/,'$1г'],
+[/^✓ Loaded (\d+) ops rows \+ (\d+) time \+ (\d+) restack \+ (\d+) amz \+ (\d+) hd · Updated: (.*)$/,'✓ Завантажено $1 рядків операцій + $2 часу + $3 restack + $4 amz + $5 hd · Оновлено: $6'],
+[/^Updated: (.*)$/,'Оновлено: $1'],
+[/^(Highway|Intermodal|Cross Dock|Local Delivery|East Coast): (.*)$/,(m,a,b)=>(D[a]||a)+': '+b]
+];
+let LANG='en';try{LANG=localStorage.getItem('dash-lang')||'en';}catch(e){}
+function tr(s){
+  if(LANG!=='uk'||typeof s!=='string')return s;
+  const m=s.match(/^(\s*)([\s\S]*?)(\s*)$/);const core=m[2];if(!core)return s;
+  let r=D[core];
+  if(r===undefined){for(const [re,rep] of RX){if(re.test(core)){r=core.replace(re,rep);break;}}}
+  return r===undefined?s:m[1]+r+m[3];
+}
+window.tr=tr;window.getLang=()=>LANG;
+const nodeMap=new WeakMap(),attrMap=new WeakMap();
+const ATTRS=['title','placeholder','aria-label'];
+function doText(n){
+  const rec=nodeMap.get(n);
+  if(rec&&n.nodeValue===rec.shown){ if(LANG==='uk'){return;} n.nodeValue=rec.orig;nodeMap.delete(n);return; }
+  const orig=n.nodeValue;
+  if(LANG==='en')return;
+  const t=tr(orig);
+  if(t!==orig){nodeMap.set(n,{orig,shown:t});n.nodeValue=t;}
+}
+function doAttrs(el){
+  for(const a of ATTRS){
+    if(!el.hasAttribute||!el.hasAttribute(a))continue;
+    let rec=attrMap.get(el);rec=rec||{};
+    const cur=el.getAttribute(a);
+    if(rec[a]&&cur===rec[a].shown){ if(LANG==='en'){el.setAttribute(a,rec[a].orig);delete rec[a];} continue; }
+    if(LANG==='en')continue;
+    const t=tr(cur);if(t!==cur){rec[a]={orig:cur,shown:t};el.setAttribute(a,t);attrMap.set(el,rec);}
+  }
+}
+function walk(root){
+  if(!root)return;
+  if(root.nodeType===3){doText(root);return;}
+  if(root.nodeType!==1)return;
+  if(['SCRIPT','STYLE'].includes(root.tagName))return;
+  doAttrs(root);
+  const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT,{acceptNode:n=>(n.nodeType===1&&['SCRIPT','STYLE'].includes(n.tagName))?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  let n;while(n=tw.nextNode()){if(n.nodeType===3)doText(n);else doAttrs(n);}
+}
+let busy=false;
+const mo=new MutationObserver(muts=>{
+  if(busy)return;busy=true;
+  try{for(const m of muts){
+    if(m.type==='characterData')doText(m.target);
+    else if(m.type==='attributes')doAttrs(m.target);
+    else m.addedNodes.forEach(walk);
+  }}finally{busy=false;}
+});
+function refreshCharts(){
+  try{Object.values(Chart.instances).forEach(c=>{c.update('none');});}catch(e){}
+}
+function setLang(l){
+  LANG=l;try{localStorage.setItem('dash-lang',l);}catch(e){}
+  busy=true;walk(document.body);busy=false;
+  document.documentElement.lang=l==='uk'?'uk':'en';
+  document.querySelectorAll('.lang-seg button').forEach(b=>b.classList.toggle('on',b.dataset.l===l));
+  syncLangInd();
+  refreshCharts();
+}
+function syncLangInd(){
+  const seg=document.querySelector('.lang-seg');if(!seg)return;
+  const on=seg.querySelector('button.on');const ind=seg.querySelector('.ls-ind');
+  if(on&&ind){ind.style.width=on.offsetWidth+'px';ind.style.transform=`translateX(${on.offsetLeft-3}px)`;ind.style.opacity=1;}
+}
+window.setLang=setLang;
+// chart.js: translate dataset labels without losing originals
+if(window.Chart){Chart.register({id:'i18nLabels',beforeUpdate(chart){
+  (chart.data.datasets||[]).forEach(d=>{
+    if(d._lbl===undefined||(d.label!==d._lblShown&&d.label!==d._lbl)){d._lbl=d.label;}
+    d._lblShown=(LANG==='uk')?tr(d._lbl):d._lbl;d.label=d._lblShown;
+  });
+}});}
+// toggle UI
+const css=document.createElement('style');css.textContent=`
+.lang-seg{position:fixed;top:18px;right:62px;z-index:700;display:flex;padding:3px;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);height:30px;box-sizing:border-box;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.lang-seg button{position:relative;z-index:1;min-width:42px;padding:0 10px;background:none;border:0;color:#8a9dba;font:600 11px -apple-system,sans-serif;cursor:pointer;border-radius:8px;transition:color .25s;letter-spacing:.3px}
+.lang-seg button.on{color:#06150f}
+.lang-seg .ls-ind{position:absolute;top:3px;bottom:3px;left:0;width:0;border-radius:8px;background:linear-gradient(135deg,var(--g-acc-2),var(--g-acc));box-shadow:0 4px 14px rgba(120,195,165,.35);transition:transform .35s cubic-bezier(.34,1.35,.5,1),width .35s cubic-bezier(.34,1.35,.5,1);opacity:0}`;
+document.head.appendChild(css);
+const seg=document.createElement('div');seg.className='lang-seg';
+seg.innerHTML='<span class="ls-ind"></span><button data-l="en" onclick="setLang(\'en\')">EN</button><button data-l="uk" onclick="setLang(\'uk\')">УКР</button>';
+document.body.appendChild(seg);
+mo.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:ATTRS});
+window.addEventListener('resize',syncLangInd);
+function init(){seg.querySelector('button[data-l="'+LANG+'"]').classList.add('on');if(LANG==='uk')setLang('uk');else syncLangInd();setTimeout(syncLangInd,300);}
+if(document.readyState==='complete')init();else window.addEventListener('load',init);
+})();
 </script>
 </body>
 </html>
