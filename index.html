@@ -2256,7 +2256,8 @@ function renderOperations(){
     ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
     meta.data.forEach((bar,i)=>{
       const k=keys[i];if(!k)return;
-      const t=buckets[k]?.sumPallets||0;
+      // one direction selected -> label that direction's value; all directions -> total (incl. Sunday rows)
+      const t=(dirs.length===1)?(buckets[k]?.[dirs[0]]||0):(buckets[k]?.sumPallets||0);
       if(t===0)return;
       ctx.fillText(fmtTop(t),bar.x,bar.y-3);
     });
