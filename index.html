@@ -605,6 +605,16 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .chart-card:hover{border-color:rgba(143,211,182,.32)!important;
   box-shadow:0 0 0 1px rgba(143,211,182,.12),0 0 30px rgba(143,211,182,.10),0 10px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)!important;}
 </style>
+<style id="tab-anim">
+.tabs{overflow:visible}
+.tab-glow{position:absolute;left:0;top:0;width:38px;height:38px;border-radius:13px;pointer-events:none;z-index:0;opacity:0;
+  background:linear-gradient(135deg,var(--g-acc-2),var(--g-acc));box-shadow:0 6px 20px rgba(120,195,165,.38);
+  transition:transform .42s cubic-bezier(.34,1.45,.5,1),opacity .2s;will-change:transform}
+.tab-btn .ti{position:relative;z-index:1}
+.tab-btn.active .ti{background:transparent!important;box-shadow:none!important;color:#06150f}
+@keyframes tabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.tab-content.active{animation:tabIn .35s ease}
+</style>
 </head>
 <body>
 
@@ -612,6 +622,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <!-- TABS -->
 <div class="tabs">
+  <span class="tab-glow" id="tab-glow"></span>
   <button class="tab-btn active" onclick="switchTab('operations')" title="Operations"><span class="ti"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></span><span class="tl">Operations</span></button>
   <button class="tab-btn" onclick="switchTab('staff')" title="Time & Staff"><span class="ti"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.6c2.3.2 4 1.7 4.5 4.4"/></svg></span><span class="tl">Time &amp; Staff</span></button>
   <button class="tab-btn" style="display:none" onclick="switchTab('inventory')" title="Procurement"><span class="ti"><svg viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 0 0 1.5 1.2h8a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg></span><span class="tl">Procurement</span></button>
@@ -990,50 +1001,75 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
   <!-- Staff KPI -->
   <div class="kpi-row">
-    <div class="kpi-card">
-      <div class="kpi-label">Active employees — <span id="s-active" style="color:#78c3a5;font-weight:500">—</span></div>
-      <div class="kpi-bar" style="background:#78c3a5"></div>
-      <div id="s-active-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
+    <div class="kpi-card" id="st-card-active" style="--kc:120,195,165">
+      <div class="kpi-label">Active now</div><div class="kpi-bar" style="background:#78c3a5"></div>
+      <div class="kpi-value" id="st-k-active">—</div>
+      <div id="st-k-active-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;"></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Inactive (3+ weeks) — <span id="s-inactive" style="color:#e08a82;font-weight:500">—</span></div>
-      <div class="kpi-bar" style="background:#e08a82"></div>
-      <div id="s-inactive-locs" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;"></div>
+    <div class="kpi-card" style="--kc:127,200,216">
+      <div class="kpi-label">New hires (last 4 weeks)</div><div class="kpi-bar" style="background:#7fc8d8"></div>
+      <div class="kpi-value" id="st-k-new">—</div>
+      <div class="kpi-threshold-hint" id="st-k-new-sub"></div>
     </div>
-    <div class="kpi-card"><div class="kpi-label">Total hours</div><div class="kpi-bar" style="background:#7fc8d8"></div><div class="kpi-value" id="s-hours">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg shift duration</div><div class="kpi-bar" style="background:#e3ae72"></div><div class="kpi-value" id="s-shift">—</div></div>
+    <div class="kpi-card" style="--kc:224,138,130">
+      <div class="kpi-label">Left recently</div><div class="kpi-bar" style="background:#e08a82"></div>
+      <div class="kpi-value" id="st-k-left">—</div>
+      <div class="kpi-threshold-hint">last shift 3–10 weeks ago</div>
+    </div>
+    <div class="kpi-card" style="--kc:227,174,114">
+      <div class="kpi-label">Avg hours / person / week</div><div class="kpi-bar" style="background:#e3ae72"></div>
+      <div class="kpi-value" id="st-k-avg">—</div>
+      <div class="kpi-threshold-hint">active staff, last 4 weeks</div>
+    </div>
   </div>
 
-  <!-- 4 columns: Top ALL + Hours by day + Donut loc + Inactive -->
+  <!-- Headcount + hires/leavers by week -->
+  <div class="charts-row">
+    <div class="chart-card" style="flex:2;min-width:0;overflow:hidden;">
+      <div class="card-title">Headcount by week — people who worked, by location</div>
+      <div class="chart-scroll-wrap" id="st-scroll-head"><canvas id="stHeadChart" role="img" aria-label="Headcount by week"></canvas></div>
+      <div class="legend" id="st-head-legend"></div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:0;overflow:hidden;">
+      <div class="card-title">New hires vs leavers by week</div>
+      <div class="chart-scroll-wrap" id="st-scroll-flow"><canvas id="stFlowChart" role="img" aria-label="Hires and leavers"></canvas></div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-box" style="background:#78c3a5"></span>New hires</span>
+        <span class="leg-item"><span class="leg-box" style="background:#e08a82"></span>Leavers</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables: new hires / leavers / workload -->
   <div class="charts-row" style="align-items:stretch;">
-    <div class="chart-card" style="flex:1.4; min-width:280px;">
-      <div class="card-title">All employees by hours</div>
-      <div class="table-scroll" style="max-height:360px;">
-        <table class="staff-table" id="top10-table">
-          <thead><tr><th>#</th><th>Name</th><th>Loc</th><th style="text-align:right">Hours</th><th style="width:80px"></th></tr></thead>
-          <tbody id="top10-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="chart-card" style="flex:1; min-width:200px;">
-      <div class="card-title">Hours by day of week</div>
-      <div style="position:relative; width:100%; height:360px;"><canvas id="dowChart" role="img" aria-label="Hours by day of week"></canvas></div>
-    </div>
-    <div class="chart-card" style="flex:1; min-width:200px;">
-      <div class="card-title">Hours by location</div>
-      <div style="position:relative; width:100%; height:180px;">
-        <canvas id="locHoursDonut" role="img" aria-label="Hours by location"></canvas>
-      </div>
-      <div class="donut-legend" id="loc-hours-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;"></div>
-    </div>
-    <div class="chart-card" style="flex:1.4; min-width:280px;">
-      <div class="card-title">Inactive employees (3+ weeks)</div>
-      <div class="table-scroll" style="max-height:360px;">
+    <div class="chart-card" style="flex:1;min-width:0;">
+      <div class="card-title">New hires — first 12 weeks</div>
+      <div class="table-scroll" style="max-height:330px;">
         <table class="staff-table">
-          <thead><tr><th>Name</th><th>Location</th><th>Last shift</th><th>Days ago</th></tr></thead>
-          <tbody id="inactive-tbody"></tbody>
+          <thead><tr><th>Name</th><th>Loc</th><th>Started</th><th style="text-align:right">Week</th><th style="text-align:right">Adapt</th><th style="text-align:right">Hrs/wk</th></tr></thead>
+          <tbody id="st-new-tbody"></tbody>
         </table>
       </div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:0;">
+      <div class="card-title">Recent leavers</div>
+      <div class="table-scroll" style="max-height:330px;">
+        <table class="staff-table">
+          <thead><tr><th>Name</th><th>Loc</th><th>Last shift</th><th style="text-align:right">Ago</th><th style="text-align:right">Tenure</th><th style="text-align:right">Hours</th></tr></thead>
+          <tbody id="st-left-tbody"></tbody>
+        </table>
+      </div>
+      <div id="st-left-older" style="font-size:10.5px;color:#6a7d9a;margin-top:8px;"></div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:0;">
+      <div class="card-title">Workload — last 4 weeks</div>
+      <div class="table-scroll" style="max-height:330px;">
+        <table class="staff-table">
+          <thead><tr><th>Name</th><th>Loc</th><th style="text-align:right">Hrs/wk</th><th style="width:70px"></th><th style="text-align:right">Days</th><th style="text-align:right">Streak</th></tr></thead>
+          <tbody id="st-load-tbody"></tbody>
+        </table>
+      </div>
+      <div style="font-size:10.5px;color:#6a7d9a;margin-top:8px;">Streak = most days worked in a row.</div>
     </div>
   </div>
 
@@ -1200,9 +1236,19 @@ let selectedBucket=null; // globally selected bucket key for cross-chart highlig
 let thresholdPanelOpen=false;
 let currentTab = 'operations';
 
+
+function moveTabGlow(){
+  const g=document.getElementById('tab-glow');const b=document.querySelector('.tab-btn.active .ti');const box=document.querySelector('.tabs');
+  if(!g||!b||!box)return;const r=b.getBoundingClientRect(),c=box.getBoundingClientRect();
+  g.style.width=r.width+'px';g.style.height=r.height+'px';
+  g.style.transform=`translate(${r.left-c.left}px,${r.top-c.top}px)`;g.style.opacity=1;
+}
+window.addEventListener('resize',moveTabGlow);
+window.addEventListener('load',()=>{moveTabGlow();setTimeout(moveTabGlow,300);});
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='operations')||(i===1&&tab==='staff')||(i===2&&tab==='inventory')||(i===3&&tab==='capacity')||(i===4&&tab==='finance')));
+  moveTabGlow();
   document.getElementById('tab-operations').classList.toggle('active', tab==='operations');
   document.getElementById('tab-staff').classList.toggle('active', tab==='staff');
   document.getElementById('tab-inventory').classList.toggle('active', tab==='inventory');
@@ -3610,9 +3656,11 @@ function showWorkerStripTooltip(e, label, names, color){
   tt.innerHTML=`<div style="color:${color};font-weight:600;margin-bottom:4px;">${label} (${names.length})</div>`+names.map(n=>`<div>${n}</div>`).join('');
   const x=e.clientX, y=e.clientY;
   const w=window.innerWidth;
+  tt.style.maxHeight=(window.innerHeight-20)+'px';tt.style.overflowY='auto';
   tt.style.left=(x+14+220>w?x-234:x+14)+'px';
-  tt.style.top=Math.max(10,y-10)+'px';
-  tt.style.display='block';
+  tt.style.top='10px';tt.style.display='block';
+  const hh=tt.offsetHeight;
+  tt.style.top=Math.max(10,Math.min(y-10,window.innerHeight-hh-10))+'px';
 }
 function hideWorkerStripTooltip(){
   if(workerStripTip) workerStripTip.style.display='none';
@@ -4274,124 +4322,138 @@ function renderStaff(){
 
   if(!filtered.length) return;
 
-  // ---- KPI ----
-  const totalHours = filtered.reduce((s,r)=>s+toNum(r.totalHours),0);
-  const avgShift = totalHours / filtered.length;
+  // ---------- helpers ----------
+  const DAY=86400000;
+  const dkey=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const weekStart=dt=>{const d=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());d.setDate(d.getDate()-((d.getDay()+6)%7));return d;};
+  const fmt=dt=>`${dt.getMonth()+1}/${dt.getDate()}/${dt.getFullYear()}`;
+  const ST_COLORS=['#5a9cc4','#e3ae72','#78c3a5','#e08a82','#7fc8d8','#a99bd6','#d9c58a','#e8998f'];
 
-  // Last shift per employee
-  const empLastShift = {};
-  const empHours = {};
-  const empLoc = {};
+  // all shifts of selected locations (whole history) -> employee status; period filter only drives the weekly charts
+  const base=timeData.filter(r=>{const m=mapLocName(r.locationName);return m&&locs.includes(m)&&parseDate(r.date)&&String(r.employeeName||'').trim();});
+  if(!base.length)return;
+  let REF=null,START=null;
+  const emp={};
+  base.forEach(r=>{
+    const name=String(r.employeeName).trim(),pd=parseDate(r.date),h=toNum(r.totalHours);
+    if(!REF||pd.dt>REF)REF=pd.dt;
+    if(!START||pd.dt<START)START=pd.dt;
+    const e=emp[name]||(emp[name]={name,first:pd.dt,last:pd.dt,loc:null,hours:0,days:{}});
+    if(pd.dt<e.first)e.first=pd.dt;
+    if(pd.dt>=e.last){e.last=pd.dt;e.loc=mapLocName(r.locationName);}
+    e.hours+=h;
+    const k=dkey(pd.dt);e.days[k]=(e.days[k]||0)+h;
+  });
+  const list=Object.values(emp);
+  const ago=dt=>Math.round((REF-dt)/DAY);
+  const abbr=l=>LOC_ABBR[l]||(l||'').slice(0,3).toUpperCase();
+  // people present at the very start of the data are not "new hires"
+  const isNewCandidate=e=>(e.first-START)/DAY>14;
+
+  const active=list.filter(e=>ago(e.last)<14);
+  const newHires=list.filter(e=>isNewCandidate(e)&&ago(e.first)<=84).sort((a,b)=>b.first-a.first);
+  const leaversAll=list.filter(e=>ago(e.last)>=INACTIVE_DAYS);
+  const leavers=leaversAll.filter(e=>ago(e.last)<=70).sort((a,b)=>a.last-b.last).reverse();
+
+  // ---------- KPI ----------
+  const startWin=new Date(REF.getTime()-27*DAY);
+  let hrs4=0;
+  active.forEach(e=>{Object.entries(e.days).forEach(([k,h])=>{const d=new Date(k+'T00:00:00');if(d>=startWin)hrs4+=h;});});
+  document.getElementById('st-k-active').textContent=active.length;
+  document.getElementById('st-k-new').textContent=newHires.filter(e=>ago(e.first)<=28).length;
+  document.getElementById('st-k-new-sub').textContent=newHires.length+' in the last 12 weeks';
+  document.getElementById('st-k-left').textContent=leavers.length;
+  document.getElementById('st-k-avg').textContent=active.length?(hrs4/active.length/4).toFixed(1)+'h':'—';
+  const lc={};active.forEach(e=>{const a=abbr(e.loc);lc[a]=(lc[a]||0)+1;});
+  document.getElementById('st-k-active-locs').innerHTML=Object.entries(lc).sort((a,b)=>b[1]-a[1])
+    .map(([a,c])=>`<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(120,195,165,.12);color:#78c3a5;font-weight:500">${a}:${c}</span>`).join('');
+
+  // ---------- weekly headcount (period-filtered) ----------
+  const wkMap={}; // weekStartKey -> {loc:Set}
   filtered.forEach(r=>{
-    const name = r.employeeName;
-    const pd = parseDate(r.date);
-    if(!pd) return;
-    if(!empLastShift[name]||pd.dt>empLastShift[name]){empLastShift[name]=pd.dt;empLoc[name]=r.locationName;}
-    empHours[name]=(empHours[name]||0)+toNum(r.totalHours);
+    const pd=parseDate(r.date);const loc=mapLocName(r.locationName);const name=String(r.employeeName||'').trim();
+    if(!pd||!loc||!name)return;
+    const ws=weekStart(pd.dt),k=dkey(ws);
+    const o=wkMap[k]||(wkMap[k]={ws,sets:{}});
+    (o.sets[loc]||(o.sets[loc]=new Set())).add(name);
   });
+  const wkKeys=Object.keys(wkMap).sort();
+  const wkLabel=k=>'CW'+String(getISOWeek(wkMap[k].ws)).padStart(2,'0');
+  const labels=wkKeys.map(wkLabel);
+  const locOrder=locs.filter(l=>wkKeys.some(k=>wkMap[k].sets[l]));
+  const dsHead=locOrder.map((l,i)=>({type:'bar',label:abbr(l),data:wkKeys.map(k=>wkMap[k].sets[l]?wkMap[k].sets[l].size:0),
+    backgroundColor:ST_COLORS[i%ST_COLORS.length],stack:'h',maxBarThickness:38}));
+  const totals=wkKeys.map(k=>{const all=new Set();Object.values(wkMap[k].sets).forEach(s=>s.forEach(n=>all.add(n)));return all.size;});
+  const totalsPlugin={id:'stTotals',afterDatasetsDraw(chart){
+    const ctx=chart.ctx;const m=chart.getDatasetMeta(chart.data.datasets.length-1);if(!m)return;
+    ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
+    wkKeys.forEach((k,i)=>{
+      let top=Infinity,x=null;
+      chart.data.datasets.forEach((d,di)=>{const el=chart.getDatasetMeta(di).data[i];if(el&&d.data[i]>0){top=Math.min(top,el.y);x=el.x;}});
+      if(x!==null)ctx.fillText(totals[i],x,top-4);});
+    ctx.restore();}};
+  const tt={backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',borderWidth:1,cornerRadius:12,padding:12,titleColor:'#fff',bodyColor:'#c8d8f0'};
+  const ax={ticks:{color:'#8a9dba',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.08)'}};
+  const SH=Math.max(200,Math.round((getHeights().h1)*0.95));
+  const cHead=document.getElementById('stHeadChart'),sHead=document.getElementById('st-scroll-head');
+  resizeCanvas(cHead,sHead,wkKeys.length,true,SH);
+  if(window.stHeadInst){window.stHeadInst.destroy();window.stHeadInst=null;}
+  window.stHeadInst=new Chart(cHead,{data:{labels,datasets:dsHead},plugins:[totalsPlugin],
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:22,right:10}},interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{footer:items=>' Total: '+totals[items[0].dataIndex]}}},
+      scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,beginAtZero:true,ticks:{...ax.ticks,precision:0}}}}});
+  document.getElementById('st-head-legend').innerHTML=locOrder.map((l,i)=>`<span class="leg-item"><span class="leg-box" style="background:${ST_COLORS[i%ST_COLORS.length]}"></span>${abbr(l)}</span>`).join('');
 
-  const active=[], inactive=[];
-  Object.keys(empLastShift).forEach(name=>{
-    const lastDt=empLastShift[name];
-    const diffMs=TODAY-lastDt;
-    const diffDays=Math.floor(diffMs/(1000*60*60*24));
-    const locMapped=mapLocName(empLoc[name])||empLoc[name];
-    if(diffDays>=INACTIVE_DAYS) inactive.push({name,loc:locMapped,lastDt,diffDays,hours:empHours[name]||0});
-    else active.push({name,loc:locMapped,lastDt,diffDays,hours:empHours[name]||0});
+  // ---------- hires vs leavers by week ----------
+  const hireW={},leaveW={};
+  list.forEach(e=>{
+    if(isNewCandidate(e)){const k=dkey(weekStart(e.first));hireW[k]=(hireW[k]||0)+1;}
+    if(ago(e.last)>=INACTIVE_DAYS){const k=dkey(weekStart(e.last));leaveW[k]=(leaveW[k]||0)+1;}
   });
+  const cFlow=document.getElementById('stFlowChart'),sFlow=document.getElementById('st-scroll-flow');
+  resizeCanvas(cFlow,sFlow,wkKeys.length,true,SH);
+  if(window.stFlowInst){window.stFlowInst.destroy();window.stFlowInst=null;}
+  window.stFlowInst=new Chart(cFlow,{data:{labels,datasets:[
+      {type:'bar',label:'New hires',data:wkKeys.map(k=>hireW[k]||0),backgroundColor:'#78c3a5',stack:'f',maxBarThickness:30},
+      {type:'bar',label:'Leavers',data:wkKeys.map(k=>-(leaveW[k]||0)),backgroundColor:'#e08a82',stack:'f',maxBarThickness:30}]},
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw)}`}}},
+      scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,ticks:{...ax.ticks,precision:0,callback:v=>Math.abs(v)}}}}});
 
-  document.getElementById('s-active').textContent=active.length;
-  document.getElementById('s-inactive').textContent=inactive.length;
-  document.getElementById('s-hours').textContent=fmtTop(totalHours);
-  document.getElementById('s-shift').textContent=avgShift.toFixed(1)+'h';
+  // ---------- tables ----------
+  const weeksSince=e=>Math.floor((REF-e.first)/(7*DAY));
+  document.getElementById('st-new-tbody').innerHTML=newHires.length?newHires.map(e=>{
+    const ws=weeksSince(e),ad=Math.round(getAdaptationWeight(ws)*100);
+    const hpw=e.hours/Math.max(1,ws+1);
+    const adc=ad>=90?'#78c3a5':ad>=70?'#e3ae72':'#e08a82';
+    return `<tr><td style="color:#c8d8f0">${e.name}</td><td style="color:#7a8daa">${abbr(e.loc)}</td><td>${fmt(e.first)}</td><td style="text-align:right">${ws+1}</td><td style="text-align:right;color:${adc}">${ad}%</td><td style="text-align:right;color:#7fc8d8">${hpw.toFixed(1)}</td></tr>`;
+  }).join(''):'<tr><td colspan="6" style="color:#6a7d9a;padding:14px 8px;">No new hires in the last 12 weeks</td></tr>';
+
+  document.getElementById('st-left-tbody').innerHTML=leavers.length?leavers.map(e=>{
+    const ten=Math.max(1,Math.round((e.last-e.first)/(7*DAY)));
+    return `<tr><td style="color:#c8d8f0">${e.name}</td><td style="color:#7a8daa">${abbr(e.loc)}</td><td>${fmt(e.last)}</td><td style="text-align:right;color:#e08a82">${ago(e.last)}d</td><td style="text-align:right">${ten}w</td><td style="text-align:right;color:#7fc8d8">${e.hours.toFixed(0)}h</td></tr>`;
+  }).join(''):'<tr><td colspan="6" style="color:#6a7d9a;padding:14px 8px;">Nobody left in the last 10 weeks</td></tr>';
+  const older=leaversAll.length-leavers.length;
+  document.getElementById('st-left-older').textContent=older>0?`+ ${older} earlier (last shift more than 10 weeks ago)`:'';
+
+  // workload: last 28 days
+  const load=active.map(e=>{
+    let tot=0,days=0,streak=0,best=0;
+    for(let i=0;i<28;i++){
+      const d=new Date(startWin.getTime()+i*DAY);const h=e.days[dkey(d)]||0;
+      if(h>0){tot+=h;days++;streak++;best=Math.max(best,streak);}else streak=0;
+    }
+    return {name:e.name,loc:e.loc,hpw:tot/4,days,best};
+  }).sort((a,b)=>b.hpw-a.hpw);
+  const maxH=load.length?load[0].hpw||1:1;
+  document.getElementById('st-load-tbody').innerHTML=load.map(x=>{
+    const sc=x.best>=7?'#e08a82':x.best>=6?'#e3ae72':'#8a9dba';
+    return `<tr><td style="color:#c8d8f0">${x.name}</td><td style="color:#7a8daa">${abbr(x.loc)}</td><td style="text-align:right;color:#7fc8d8;font-weight:500">${x.hpw.toFixed(1)}</td>
+      <td style="padding:0 8px"><div style="background:rgba(255,255,255,.06);border-radius:3px;height:6px"><div style="background:#5a9cc4;border-radius:3px;height:6px;width:${Math.round(x.hpw/maxH*100)}%"></div></div></td>
+      <td style="text-align:right">${x.days}</td><td style="text-align:right;color:${sc}">${x.best}</td></tr>`;
+  }).join('');
 
   renderDailySchedule(filtered);
-
-  // Active loc badges
-  const activeLocCount = {};
-  active.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); activeLocCount[abbr]=(activeLocCount[abbr]||0)+1; });
-  document.getElementById('s-active-locs').innerHTML = Object.entries(activeLocCount).sort((a,b)=>b[1]-a[1])
-    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#1a3a2a;color:#78c3a5;font-weight:500">${abbr}:${cnt}</span>`).join('');
-
-  // Inactive loc badges
-  const inactiveLocCount = {};
-  inactive.forEach(e=>{ const abbr=LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase(); inactiveLocCount[abbr]=(inactiveLocCount[abbr]||0)+1; });
-  document.getElementById('s-inactive-locs').innerHTML = Object.entries(inactiveLocCount).sort((a,b)=>b[1]-a[1])
-    .map(([abbr,cnt])=>`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#3a1a1a;color:#e08a82;font-weight:500">${abbr}:${cnt}</span>`).join('');
-
-  // ---- Top 10 by hours - progress bar table ----
-  const topEmp=[...active,...inactive].sort((a,b)=>b.hours-a.hours);
-  const maxHours = topEmp.length ? topEmp[0].hours : 1;
-  document.getElementById('top10-tbody').innerHTML = topEmp.map((e,i)=>{
-    const pct = Math.round((e.hours/maxHours)*100);
-    const abbr = LOC_ABBR[e.loc]||e.loc.slice(0,3).toUpperCase();
-    const isInactive = inactive.includes(e);
-    return `<tr>
-      <td style="color:#7a8daa;width:28px">${i+1}</td>
-      <td style="color:${isInactive?'#e08a82':'#c8d8f0'}">${e.name}</td>
-      <td style="color:#7a8daa;font-size:10px">${abbr}</td>
-      <td style="text-align:right;font-weight:500;color:#7fc8d8">${e.hours.toFixed(0)}h</td>
-      <td style="padding:0 8px;">
-        <div style="background:#0f1729;border-radius:3px;height:6px;width:100%;">
-          <div style="background:#5a9cc4;border-radius:3px;height:6px;width:${pct}%;transition:width 0.3s;"></div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  // ---- Hours by day of week ----
-  const dowHours=[0,0,0,0,0,0,0]; // Mon=0 ... Sun=6
-  filtered.forEach(r=>{
-    const pd=parseDate(r.date);if(!pd)return;
-    const dow=(pd.dt.getDay()+6)%7; // convert Sun=0 to Mon=0
-    dowHours[dow]+=toNum(r.totalHours);
-  });
-  if(dowInst){dowInst.destroy();dowInst=null;}
-  dowInst=new Chart(document.getElementById('dowChart'),{
-    type:'bar',
-    data:{labels:DOW_LABELS,datasets:[{data:dowHours.map(v=>parseFloat(v.toFixed(1))),backgroundColor:dowHours.map((_,i)=>i<5?'#5a9cc4cc':'#e3ae72cc'),borderColor:dowHours.map((_,i)=>i<5?'#5a9cc4':'#e3ae72'),borderWidth:0,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{ticks:{color:'#8a9dba',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},y:{ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}}}}
-  });
-
-  // ---- Hours by location donut ----
-  const locHoursTotals = {};
-  filtered.forEach(r => {
-    const mapped = mapLocName(r.locationName);
-    if(!mapped) return;
-    locHoursTotals[mapped] = (locHoursTotals[mapped]||0) + toNum(r.totalHours);
-  });
-  const locHoursSorted = Object.entries(locHoursTotals).sort((a,b)=>b[1]-a[1]);
-  const locHoursLabels = locHoursSorted.map(([k])=>k);
-  const locHoursVals   = locHoursSorted.map(([,v])=>parseFloat(v.toFixed(1)));
-  const locHoursTotal  = locHoursVals.reduce((a,b)=>a+b,0);
-  const LOC_COLORS = ['#5a9cc4','#e3ae72','#78c3a5','#e08a82','#7fc8d8','#a99bd6','#d9c58a'];
-
-  if(window.locHoursDonutInst){window.locHoursDonutInst.destroy();}
-  window.locHoursDonutInst = new Chart(document.getElementById('locHoursDonut'),{
-    type:'doughnut',
-    data:{labels:locHoursLabels,datasets:[{data:locHoursVals,backgroundColor:LOC_COLORS.slice(0,locHoursLabels.length).map(c=>c+'ee'),borderColor:'rgba(255,255,255,0.14)',borderWidth:1,hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:92,right:92,top:14,bottom:14}},cutout:'50%',plugins:{legend:{display:false},
-      tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
-        callbacks:{label:ctx=>{const pct=locHoursTotal>0?((ctx.raw/locHoursTotal)*100).toFixed(1):'0';return` ${ctx.raw}h (${pct}%)`;}}}}
-    }
-  });
-  document.getElementById('loc-hours-legend').innerHTML = locHoursSorted.map(([loc,val],i)=>{
-    const pct = locHoursTotal>0?((val/locHoursTotal)*100).toFixed(1):'0';
-    const abbr = LOC_ABBR[loc]||loc;
-    return `<span class="dl-item"><span class="dl-box" style="background:${LOC_COLORS[i]}"></span>${abbr}: ${val.toLocaleString()}h (${pct}%)</span>`;
-  }).join('');
-
-  // ---- Staff tables ----
-  const fmt=dt=>`${dt.getMonth()+1}/${dt.getDate()}/${dt.getFullYear()}`;
-  active.sort((a,b)=>b.hours-a.hours);
-  inactive.sort((a,b)=>b.diffDays-a.diffDays);
-
-
-  document.getElementById('inactive-tbody').innerHTML=inactive.map(e=>{
-    const dtStr = e.lastDt instanceof Date ? `${e.lastDt.getMonth()+1}/${e.lastDt.getDate()}/${e.lastDt.getFullYear()}` : '—';
-    const abbr = LOC_ABBR[e.loc]||e.loc;
-    return `<tr><td>${e.name}</td><td style="color:#7a8daa">${abbr}</td><td>${dtStr}</td><td style="color:#e08a82">${e.diffDays}d</td></tr>`;
-  }).join('');
 }
 
 // Error toast
