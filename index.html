@@ -3020,7 +3020,7 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
     else if(gran==='quarterly'){
       const thuDt=new Date(pd.dt);thuDt.setDate(thuDt.getDate()+(4-thuDt.getDay()+7)%7);
       const q=Math.ceil((thuDt.getMonth()+1)/3);
-      key=String(thuDt.getFullYear())+'Q'+q;
+      key=String(thuDt.getFullYear())+'-Q'+q;
     }
     else if(gran==='yearly'){key=String(pd.y);}
     else{const rr=rawData.find(x=>x._location===loc&&parseDate(x[COL.date])?.str===pd.str);if(rr)key=getBucketKey(rr,gran);}
@@ -3150,7 +3150,7 @@ function getActualFOCount(loc, bucketKey, gran, years, selectedPeriods){
     let key=null;
     if(gran==='weekly'&&yw){const p=yw.split('-');if(p.length===2)key=p[0]+String(p[1]).padStart(2,'0');}
     else if(gran==='monthly'){const th=new Date(pd.dt);th.setDate(th.getDate()+(4-th.getDay()+7)%7);key=String(th.getFullYear())+'-'+String(th.getMonth()+1).padStart(2,'0');}
-    else if(gran==='quarterly'){const th=new Date(pd.dt);th.setDate(th.getDate()+(4-th.getDay()+7)%7);key=String(th.getFullYear())+'Q'+Math.ceil((th.getMonth()+1)/3);}
+    else if(gran==='quarterly'){const th=new Date(pd.dt);th.setDate(th.getDate()+(4-th.getDay()+7)%7);key=String(th.getFullYear())+'-Q'+Math.ceil((th.getMonth()+1)/3);}
     else if(gran==='yearly'){key=String(pd.y);}
     if(key!==bucketKey)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
@@ -4166,7 +4166,7 @@ function renderRestackChart(){
       const thu=new Date(week1Mon);thu.setDate(week1Mon.getDate()+(week-1)*7+3);
       let bucketKey=null;
       if(gran==='monthly')bucketKey=String(thu.getFullYear())+'-'+String(thu.getMonth()+1).padStart(2,'0');
-      else if(gran==='quarterly')bucketKey=String(thu.getFullYear())+'Q'+Math.ceil((thu.getMonth()+1)/3);
+      else if(gran==='quarterly')bucketKey=String(thu.getFullYear())+'-Q'+Math.ceil((thu.getMonth()+1)/3);
       else if(gran==='yearly')bucketKey=String(thu.getFullYear());
       if(!bucketKey)return;
       if(!grouped[bucketKey])grouped[bucketKey]={revenue:0,equiv:0};
@@ -4493,12 +4493,20 @@ function renderStaff(){
   const cFlow=document.getElementById('stFlowChart'),sFlow=document.getElementById('st-scroll-flow');
   resizeCanvas(cFlow,sFlow,wkKeys.length,true,SH);
   if(window.stFlowInst){window.stFlowInst.destroy();window.stFlowInst=null;}
+  const flowLabels={id:'stFlowLabels',afterDatasetsDraw(chart){
+    const ctx=chart.ctx;ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';
+    chart.data.datasets.forEach((d,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;
+      meta.data.forEach((el,i)=>{const v=d.data[i];if(!v)return;
+        if(v>0){ctx.textBaseline='bottom';ctx.fillText(v,el.x,Math.min(el.y,el.base)-4);}
+        else{ctx.textBaseline='top';ctx.fillText(Math.abs(v),el.x,Math.max(el.y,el.base)+4);}});});
+    ctx.restore();}};
   window.stFlowInst=new Chart(cFlow,{data:{labels,datasets:[
       {type:'bar',label:'New hires',data:wkKeys.map(k=>hireW[k]||0),backgroundColor:'#78c3a5',stack:'f',maxBarThickness:30},
       {type:'bar',label:'Leavers',data:wkKeys.map(k=>-(leaveW[k]||0)),backgroundColor:'#e08a82',stack:'f',maxBarThickness:30}]},
-    options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},interaction:{mode:'index',intersect:false},
+    plugins:[flowLabels],
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:18,bottom:16,right:10}},interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw)}`}}},
-      scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,ticks:{...ax.ticks,precision:0,callback:v=>Math.abs(v)}}}}});
+      scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,grace:'18%',ticks:{...ax.ticks,precision:0,callback:v=>Math.abs(v)}}}}});
 
   // ---------- tables ----------
   const weeksSince=e=>Math.floor((REF-e.first)/(7*DAY));
