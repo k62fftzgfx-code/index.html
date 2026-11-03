@@ -615,6 +615,25 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 @keyframes tabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .tab-content.active{animation:tabIn .35s ease}
 </style>
+<style id="staff-compact-region">
+#tab-staff .kpi-row{margin-bottom:12px;}
+#tab-staff .kpi-card{padding:10px 16px!important;}
+#tab-staff .kpi-label{margin-bottom:4px;}
+#tab-staff .kpi-bar{margin-bottom:6px;}
+#tab-staff .kpi-value{font-size:24px;}
+#tab-staff .kpi-threshold-hint{margin-top:2px;font-size:10.5px;}
+#tab-staff .charts-row{margin-bottom:12px;gap:12px;}
+#tab-staff .chart-card{padding:12px 16px!important;}
+#tab-staff .card-title{margin-bottom:8px;font-size:13px;}
+#tab-staff .legend{margin-top:4px;}
+#tab-staff .kpi-card{min-height:0}
+#tab-staff .table-scroll{max-height:200px!important}
+.region-seg{position:relative;display:flex;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);height:34px;box-sizing:border-box}
+.region-seg button{position:relative;z-index:1;flex:1;min-width:54px;padding:0 12px;background:none;border:0;color:#8a9dba;font:500 12px -apple-system,sans-serif;cursor:pointer;border-radius:9px;transition:color .25s}
+.region-seg button.on{color:#06150f;font-weight:600}
+.region-seg .rs-ind{position:absolute;top:3px;bottom:3px;left:0;width:0;border-radius:9px;background:linear-gradient(135deg,var(--g-acc-2),var(--g-acc));box-shadow:0 4px 14px rgba(120,195,165,.35);transition:transform .38s cubic-bezier(.34,1.35,.5,1),width .38s cubic-bezier(.34,1.35,.5,1);opacity:0}
+.region-seg.none button.on{color:#8a9dba;font-weight:500}
+</style>
 </head>
 <body>
 
@@ -649,6 +668,15 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <div class="week-search"><input type="text" id="period-search-input" placeholder="Search..." oninput="filterPeriodSearch()"></div>
         <div class="week-groups" id="period-groups"></div>
       </div>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label class="ctrl-label">Region</label>
+    <div class="region-seg" id="region-seg">
+      <span class="rs-ind" id="rs-ind"></span>
+      <button data-r="all" class="on" onclick="setRegion('all')">All</button>
+      <button data-r="west" onclick="setRegion('west')">West</button>
+      <button data-r="east" onclick="setRegion('east')">East</button>
     </div>
   </div>
   <div class="ctrl-group">
@@ -1044,7 +1072,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
   <div class="charts-row" style="align-items:stretch;">
     <div class="chart-card" style="flex:1;min-width:0;">
       <div class="card-title">New hires — first 12 weeks</div>
-      <div class="table-scroll" style="max-height:330px;">
+      <div class="table-scroll" >
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Loc</th><th>Started</th><th style="text-align:right">Week</th><th style="text-align:right">Adapt</th><th style="text-align:right">Hrs/wk</th></tr></thead>
           <tbody id="st-new-tbody"></tbody>
@@ -1053,7 +1081,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     </div>
     <div class="chart-card" style="flex:1;min-width:0;">
       <div class="card-title">Recent leavers</div>
-      <div class="table-scroll" style="max-height:330px;">
+      <div class="table-scroll" >
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Loc</th><th>Last shift</th><th style="text-align:right">Ago</th><th style="text-align:right">Tenure</th><th style="text-align:right">Hours</th></tr></thead>
           <tbody id="st-left-tbody"></tbody>
@@ -1063,7 +1091,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     </div>
     <div class="chart-card" style="flex:1;min-width:0;">
       <div class="card-title">Workload — last 4 weeks</div>
-      <div class="table-scroll" style="max-height:330px;">
+      <div class="table-scroll" >
         <table class="staff-table">
           <thead><tr><th>Name</th><th>Loc</th><th style="text-align:right">Hrs/wk</th><th style="width:70px"></th><th style="text-align:right">Days</th><th style="text-align:right">Streak</th></tr></thead>
           <tbody id="st-load-tbody"></tbody>
@@ -1376,13 +1404,38 @@ document.addEventListener('click', e => {
 function toggleAll(name){
   const allCb=document.getElementById(name+'-all');
   document.querySelectorAll('.'+name+'-cb').forEach(c=>c.checked=allCb.checked);
-  updateDropdownLabel(name);renderAll();
+  updateDropdownLabel(name);if(name==='loc')syncRegionUI();renderAll();
 }
+
+const REGIONS={west:['Markham, IL West','Reno, NV','Stockton, CA','San Bernardino, CA','Denver, CO'],east:['Markham, IL East','Columbus, OH','Greenville, SC']};
+function syncRegionUI(){
+  const seg=document.getElementById('region-seg');if(!seg)return;
+  const cbs=Array.from(document.querySelectorAll('.loc-cb'));
+  const sel=cbs.filter(c=>c.checked).map(c=>c.value).sort().join('|');
+  let r='none';
+  if(cbs.every(c=>c.checked))r='all';
+  else if(sel===REGIONS.west.slice().sort().join('|'))r='west';
+  else if(sel===REGIONS.east.slice().sort().join('|'))r='east';
+  seg.classList.toggle('none',r==='none');
+  let on=null;
+  seg.querySelectorAll('button').forEach(b=>{const a=b.dataset.r===r;b.classList.toggle('on',a);if(a)on=b;});
+  const ind=document.getElementById('rs-ind');
+  if(on){ind.style.width=on.offsetWidth+'px';ind.style.transform=`translateX(${on.offsetLeft-3}px)`;ind.style.opacity=1;}
+  else ind.style.opacity=0;
+}
+function setRegion(r){
+  const set=r==='all'?null:REGIONS[r];
+  document.querySelectorAll('.loc-cb').forEach(c=>{c.checked=!set||set.includes(c.value);});
+  const allCb=document.getElementById('loc-all');if(allCb)allCb.checked=!set;
+  updateDropdownLabel('loc');syncRegionUI();renderAll();
+}
+window.addEventListener('load',()=>{syncRegionUI();setTimeout(syncRegionUI,300);});
+window.addEventListener('resize',syncRegionUI);
 function onCbChange(name){
   const all=document.querySelectorAll('.'+name+'-cb'),checked=Array.from(all).filter(c=>c.checked);
   const allCb=document.getElementById(name+'-all');
   if(allCb) allCb.checked=checked.length===all.length;
-  updateDropdownLabel(name);renderAll();
+  updateDropdownLabel(name);if(name==='loc')syncRegionUI();renderAll();
 }
 function updateDropdownLabel(name){
   const all=document.querySelectorAll('.'+name+'-cb');
@@ -2159,7 +2212,7 @@ function renderOperations(){
   const datasets=[...barDS,lineDS];if(thrDS)datasets.push(thrDS);
   comboInst=new Chart(c1,{
     data:{labels:dispLabels,datasets},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
       layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:20}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if(ctx.dataset.label==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
@@ -2257,7 +2310,7 @@ function renderOperations(){
       {type:'bar',label:'Operating Cost',data:c2v,backgroundColor:'#4a7fa0',borderColor:'#4a7fa0',borderWidth:0,yAxisID:'yC',order:2,maxBarThickness:60},
       {type:'line',label:'Avg hourly rate',data:hv,borderColor:'#e3ae72',backgroundColor:'transparent',borderWidth:2,pointRadius:isDaily?2:4,pointBackgroundColor:'#e3ae72',pointBorderColor:'#0f1729',pointBorderWidth:2,tension:0.3,spanGaps:true,yAxisID:'yH',order:1}
     ]},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys2[i]);}},
       layout:{padding:{top:isDaily?6:28,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>ctx.dataset.yAxisID==='yH'?` Avg hourly rate: $${Number(ctx.raw).toFixed(2)}`:` Operating Cost: $${Number(ctx.raw).toLocaleString()}`}}},
@@ -2604,7 +2657,7 @@ function renderInventory() {
       {label:'Home Depot (shared)', data: allKeys.map(k=>parseFloat((hdSharedBuckets[k]||0).toFixed(2))),
        backgroundColor:'#e08a8244', borderWidth:0, borderRadius:0, stack:'s', maxBarThickness:80}
     ]},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},
       interaction:{mode:'index',intersect:false},
       layout:{padding:{top:28,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
@@ -3297,7 +3350,7 @@ function renderFinance(){
     cv.style.width=w+'px';cv.style.height='340px';cv.width=w;cv.height=340;
     return new Chart(cv,cfg);
   };
-  const baseOpts={responsive:false,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+  const baseOpts={responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
     plugins:{legend:{display:false}},
     scales:{x:{ticks:{color:'#7a8daa',font:{size:10}},grid:{display:false}}}};
 
@@ -3483,7 +3536,7 @@ function renderProductivity(){
   if(prodInst){prodInst.destroy();prodInst=null;}
   prodInst=new Chart(c,{
     data:{labels:dispLabels,datasets},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},
       interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
       layout:{padding:{top:36,right:14,left:6,bottom:52}},
@@ -3986,7 +4039,7 @@ function renderCorrChart(){
       {type:'line',label:'LCP $',data:lcpVals,borderColor:'#e08a82',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e08a82',tension:0.3,yAxisID:'yR',order:2},
       {type:'line',label:'Avg hourly rate $',data:hrVals,borderColor:'#e3ae72',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e3ae72',tension:0.3,yAxisID:'yR',order:3,borderDash:[4,3]},
     ]},
-    options:{responsive:false,maintainAspectRatio:false,animation:false,
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},
       interaction:{mode:'index',intersect:false},
       layout:{padding:{top:16,right:14,left:6,bottom:6}},
       plugins:{legend:{display:false},
@@ -4394,7 +4447,7 @@ function renderStaff(){
     ctx.restore();}};
   const tt={backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',borderWidth:1,cornerRadius:12,padding:12,titleColor:'#fff',bodyColor:'#c8d8f0'};
   const ax={ticks:{color:'#8a9dba',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.08)'}};
-  const SH=Math.max(200,Math.round((getHeights().h1)*0.95));
+  const SH=getHeights(true).h1;
   const cHead=document.getElementById('stHeadChart'),sHead=document.getElementById('st-scroll-head');
   resizeCanvas(cHead,sHead,wkKeys.length,true,SH);
   if(window.stHeadInst){window.stHeadInst.destroy();window.stHeadInst=null;}
