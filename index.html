@@ -558,6 +558,37 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <style>#restack-card{display:none!important}</style>
 <style id="glass-extra">
+/* data status: tiny check badge, top right; details on hover */
+.status{position:absolute!important;top:22px;right:28px;z-index:80;width:26px;height:26px;margin:0!important;padding:0!important;font-size:0!important;
+  border-radius:50%!important;display:flex;align-items:center;justify-content:center;cursor:default;
+  background:rgba(120,195,165,.12)!important;border:1px solid rgba(120,195,165,.35)!important;color:#78c3a5!important;}
+.status::before{content:'…';font-size:13px;font-weight:700;line-height:1;}
+.status.ok::before{content:'✓';}
+.status.err{background:rgba(224,138,130,.14)!important;border-color:rgba(224,138,130,.45)!important;color:#e08a82!important;}
+.status.err::before{content:'✗';}
+.status::after{content:attr(data-tip);position:absolute;top:34px;right:0;white-space:nowrap;font-size:11px;font-weight:400;color:#c8d8f0;
+  background:rgba(12,19,35,.97);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 11px;box-shadow:0 12px 30px rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;transform:translateY(-3px);transition:opacity .15s,transform .15s;}
+.status:hover::after{opacity:1;transform:none;}
+
+/* Operations: compact one-screen layout */
+#tab-operations .kpi-row{margin-bottom:12px;}
+#tab-operations .kpi-card{padding:10px 16px!important;}
+#tab-operations .kpi-label{margin-bottom:4px;}
+#tab-operations .kpi-bar{margin-bottom:6px;}
+#tab-operations .kpi-value{font-size:24px;}
+#tab-operations .kpi-threshold-hint{margin-top:2px;font-size:10.5px;}
+#tab-operations .charts-row{margin-bottom:12px;gap:12px;}
+#tab-operations .chart-card{padding:12px 16px!important;}
+#tab-operations .card-title{margin-bottom:8px;font-size:13px;}
+#tab-operations .legend{margin-top:4px;}
+#tab-operations .ops3{min-width:0;}
+.controls .workforce-panel,.controls .threshold-panel{left:auto!important;right:0!important;max-width:calc(100vw - 140px);}
+
+.dropdown-item.selected{color:var(--g-acc-2);background:rgba(143,211,182,.10);}
+.dropdown-item.selected::after{content:'✓';margin-left:auto;font-size:11px;}
+.custom-dropdown .dropdown-menu .dropdown-item{border-radius:10px;}
+
 /* controls: action buttons to the right edge, everything centred vertically */
 .controls{align-items:center!important;}
 .controls .ctrl-right{margin-left:auto;}
@@ -565,6 +596,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .controls .ctrl-right .threshold-panel,.controls .ctrl-right .workforce-panel{left:auto!important;right:0!important;}
 /* KPI tiles: soft glow in the tile's own accent colour on hover */
 #kpi-card-hwyimd{--kc:90,156,196;}#kpi-card-lcp{--kc:127,200,216;}#kpi-card-hourly{--kc:227,174,114;}#kpi-card-cost{--kc:120,195,165;}#kpi-card-util{--kc:169,155,214;}
+#kpi-card-lcp.alert{--kc:224,108,100;}
 .kpi-card{transition:transform .2s,border-color .25s,background .25s,box-shadow .25s!important;}
 .kpi-card:hover{border-color:rgba(var(--kc,120,195,165),.5)!important;
   box-shadow:0 0 0 1px rgba(var(--kc,120,195,165),.22),0 10px 34px rgba(var(--kc,120,195,165),.20),inset 0 1px 0 rgba(255,255,255,.06)!important;}
@@ -831,7 +863,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     </div>
   </div>
   <div class="charts-row">
-    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
+    <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
       <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
       <div class="chart-scroll-wrap" id="scroll2"><canvas id="chart2" role="img" aria-label="Operating cost"></canvas></div>
       <div class="legend">
@@ -839,7 +871,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>Avg hourly rate</span>
       </div>
     </div>
-    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
+    <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Labor Productivity (pallets / hr)</div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -863,10 +895,8 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         </table>
       </div>
     </div>
-  </div>
-  <div class="charts-row">
     <!-- Correlation chart -->
-    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
+    <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Correlation: plt/hr · LCP · Hourly rate</div>
         <button id="corr-matrix-toggle" onclick="toggleCorrMatrix()" style="font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.16);border-radius:6px;background:#0f1729;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Matrix</button>
@@ -1273,7 +1303,7 @@ function getActiveThreshold(locs) {
   return sumW>0?sumTW/sumW:null;
 }
 
-function getHeights(){const vh=window.innerHeight;return{h1:Math.max(220,Math.round(vh*0.30)),h2:Math.max(160,Math.round(vh*0.22)),donut:Math.max(180,Math.round(vh*0.25))};}
+function getHeights(ops){const vh=window.innerHeight;if(ops){const rowH=Math.max(250,(vh-290)/2);return{h1:Math.max(170,Math.round(rowH-120)),h2:Math.max(150,Math.round(rowH-150)),donut:Math.max(170,Math.round(rowH-150))};}return{h1:Math.max(220,Math.round(vh*0.30)),h2:Math.max(160,Math.round(vh*0.22)),donut:Math.max(180,Math.round(vh*0.25))};}
 
 function toggleDropdown(name){
   const menu=document.getElementById(name+'-menu'),trigger=document.getElementById(name+'-trigger');
@@ -1971,7 +2001,7 @@ function renderOpsMap() {
 function renderOperations(){
   const{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
-  const H=getHeights();
+  const H=getHeights(true);
 
   document.getElementById('date-range-row').classList.toggle('visible',isDaily);
 
@@ -2149,7 +2179,7 @@ function renderOperations(){
   if(donutInst){donutInst.destroy();donutInst=null;}
   donutInst=new Chart(document.getElementById('donutChart'),{
     type:'doughnut',
-    data:{labels:DIR_LABELS,datasets:[{data:dTot,backgroundColor:DIR_COLORS.map(c=>c+'ee'),borderColor:'#0f1729',borderWidth:3,hoverOffset:8}]},
+    data:{labels:DIR_LABELS,datasets:[{data:dTot,backgroundColor:DIR_COLORS.map(c=>c+'ee'),borderColor:'rgba(255,255,255,0.14)',borderWidth:1,hoverOffset:8}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:92,right:92,top:14,bottom:14}},cutout:'50%',plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{const v=ctx.raw,pct=gTot>0?((v/gTot)*100).toFixed(2):'0';return` ${v>=1000?(v/1000).toFixed(1)+'K':v} (${pct}%)`; }}}}},
     plugins:[{id:'dl',afterDraw(chart){
       const{ctx,chartArea:{width,height,left,top}}=chart;
@@ -2571,7 +2601,7 @@ function renderInventory() {
   if(invCatDonutInst){invCatDonutInst.destroy();invCatDonutInst=null;}
   invCatDonutInst = new Chart(document.getElementById('invCatDonut'), {
     type:'doughnut',
-    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'ee'),borderColor:'#0f1729',borderWidth:2,hoverOffset:6}]},
+    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:CAT_COLORS.slice(0,catLabels.length).map(c=>c+'ee'),borderColor:'rgba(255,255,255,0.14)',borderWidth:1,hoverOffset:6}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:92,right:92,top:14,bottom:14}},cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=totalCat>0?((ctx.raw/totalCat)*100).toFixed(1):'0';return` $${Number(ctx.raw).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct}%)`;}}}}
@@ -3324,7 +3354,7 @@ function getActiveProdThreshold(locs, gran, years, selectedPeriods, isDaily, dat
 function renderProductivity(){
   const{gran,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
-  const H=getHeights();
+  const H=getHeights(true);
 
   // Use shared bucket builder
   const{bkts:buckets,hasRoles,empFirstDate,hireThr}=buildProdBuckets(gran,years,locs,selectedPeriods,isDaily,dateFrom,dateTo);
@@ -3897,7 +3927,7 @@ function renderCorrChart(){
   const hrVals=keys.map(k=>{const d=bkts[k];return d.hours>0?parseFloat((d.costs2/d.hours).toFixed(2)):null;});
 
   const isScroll=gran==='weekly';
-  const H=getHeights();
+  const H=getHeights(true);
   const c=document.getElementById('corrChart'),sw=document.getElementById('scroll-corr');
   resizeCanvas(c,sw,keys.length,isScroll,H.h2);
   if(corrInst){corrInst.destroy();corrInst=null;}
@@ -4339,7 +4369,7 @@ function renderStaff(){
   if(window.locHoursDonutInst){window.locHoursDonutInst.destroy();}
   window.locHoursDonutInst = new Chart(document.getElementById('locHoursDonut'),{
     type:'doughnut',
-    data:{labels:locHoursLabels,datasets:[{data:locHoursVals,backgroundColor:LOC_COLORS.slice(0,locHoursLabels.length).map(c=>c+'ee'),borderColor:'#0f1729',borderWidth:2,hoverOffset:6}]},
+    data:{labels:locHoursLabels,datasets:[{data:locHoursVals,backgroundColor:LOC_COLORS.slice(0,locHoursLabels.length).map(c=>c+'ee'),borderColor:'rgba(255,255,255,0.14)',borderWidth:1,hoverOffset:6}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:92,right:92,top:14,bottom:14}},cutout:'50%',plugins:{legend:{display:false},
       tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
         callbacks:{label:ctx=>{const pct=locHoursTotal>0?((ctx.raw/locHoursTotal)*100).toFixed(1):'0';return` ${ctx.raw}h (${pct}%)`;}}}}
@@ -4608,6 +4638,38 @@ function scrollChartsToEnd(){
   const f=window[n]; if(typeof f!=='function')return;
   window[n]=function(){ const r=f.apply(this,arguments); [30,150,400].forEach(t=>setTimeout(scrollChartsToEnd,t)); return r; };
 });
+// one dropdown standard: replace native <select class="simple-select"> with the same custom dropdown used by Week/Location
+function enhanceSelects(){
+  document.querySelectorAll('select.simple-select').forEach(sel=>{
+    if(sel._enh)return; sel._enh=true;
+    const id=sel.id||('sel'+Math.random().toString(36).slice(2,7));
+    const wrap=document.createElement('div');wrap.className='custom-dropdown';
+    const trig=document.createElement('div');trig.className='dropdown-trigger';trig.id=id+'-trigger';
+    const menu=document.createElement('div');menu.className='dropdown-menu';menu.id=id+'-menu';
+    const sync=()=>{
+      const o=sel.options[sel.selectedIndex];trig.textContent=o?o.text:'';
+      [...menu.children].forEach((it,i)=>it.classList.toggle('selected',i===sel.selectedIndex));
+    };
+    [...sel.options].forEach((o,i)=>{
+      const it=document.createElement('div');it.className='dropdown-item';it.textContent=o.text;
+      it.onclick=()=>{sel.selectedIndex=i;sync();menu.classList.remove('open');trig.classList.remove('open');
+        sel.dispatchEvent(new Event('change',{bubbles:true}));};
+      menu.appendChild(it);
+    });
+    trig.onclick=()=>toggleDropdown(id);
+    wrap.appendChild(trig);wrap.appendChild(menu);
+    sel.style.display='none';sel.parentNode.insertBefore(wrap,sel.nextSibling);
+    // keep label in sync when code sets sel.value programmatically
+    const d=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value');
+    Object.defineProperty(sel,'value',{get(){return d.get.call(sel);},set(v){d.set.call(sel,v);sync();},configurable:true});
+    sync();
+  });
+}
+enhanceSelects();
+// keep the status badge tooltip in sync with the status text
+(function(){const st=document.getElementById('status');if(!st)return;
+  const sync=()=>{st.dataset.tip=st.textContent;};
+  new MutationObserver(sync).observe(st,{childList:true,characterData:true,subtree:true});sync();})();
 loadData();
 </script>
 </body>
