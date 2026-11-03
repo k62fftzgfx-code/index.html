@@ -893,25 +893,10 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     </div>
   </div>
   <div class="charts-row">
-    <div class="chart-card main">
+    <div class="chart-card main" style="flex:1;min-width:0;">
       <div class="card-title">Pallets by direction &amp; Labor cost per pallet</div>
       <div class="chart-scroll-wrap" id="scroll1"><canvas id="comboChart" role="img" aria-label="Combo chart"></canvas></div>
       <div class="legend" id="combo-legend"></div>
-    </div>
-    <div class="chart-card donut">
-      <div class="card-title">Proportion of each direction</div>
-      <div style="position:relative; width:100%;" id="donut-wrap"><canvas id="donutChart" role="img" aria-label="Donut chart"></canvas></div>
-      <div class="donut-legend" id="donut-legend"></div>
-    </div>
-  </div>
-  <div class="charts-row">
-    <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
-      <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
-      <div class="chart-scroll-wrap" id="scroll2"><canvas id="chart2" role="img" aria-label="Operating cost"></canvas></div>
-      <div class="legend">
-        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Operating Cost</span>
-        <span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>Avg hourly rate</span>
-      </div>
     </div>
     <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -937,8 +922,23 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         </table>
       </div>
     </div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:hidden;">
+      <div class="card-title">Operating Cost &amp; Avg hourly rate</div>
+      <div class="chart-scroll-wrap" id="scroll2"><canvas id="chart2" role="img" aria-label="Operating cost"></canvas></div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-box" style="background:#4a7fa0"></span>Operating Cost</span>
+        <span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>Avg hourly rate</span>
+      </div>
+    </div>
+    <div class="chart-card donut" style="flex:.7;min-width:200px;">
+      <div class="card-title">Proportion of each direction</div>
+      <div style="position:relative; width:100%;" id="donut-wrap"><canvas id="donutChart" role="img" aria-label="Donut chart"></canvas></div>
+      <div class="donut-legend" id="donut-legend"></div>
+    </div>
     <!-- Correlation chart -->
-    <div class="chart-card ops3" style="flex:1;min-width:0;overflow:hidden;">
+    <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Correlation: plt/hr · LCP · Hourly rate</div>
         <button id="corr-matrix-toggle" onclick="toggleCorrMatrix()" style="font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.16);border-radius:6px;background:#0f1729;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Matrix</button>
@@ -1420,7 +1420,7 @@ function syncRegionUI(){
   else if(sel===REGIONS.west.slice().sort().join('|'))r='west';
   else if(sel===REGIONS.east.slice().sort().join('|'))r='east';
   // keep the region on while the user only narrows inside it
-  if((curRegion==='west'||curRegion==='east')&&r!=='all'&&checked.length&&checked.every(c=>REGIONS[curRegion].includes(c.value)))r=curRegion;
+  if((curRegion==='west'||curRegion==='east')&&r!=='all'&&checked.every(c=>REGIONS[curRegion].includes(c.value)))r=curRegion;
   else curRegion=(r==='west'||r==='east')?r:'all';
   cbs.forEach(c=>{c.closest('label').hidden=!(curRegion==='all'||REGIONS[curRegion].includes(c.value));});
   const allLbl=document.querySelector('#loc-menu .all-item');
@@ -2233,7 +2233,7 @@ function renderOperations(){
     data:{labels:dispLabels,datasets},
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
-      layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:20}},
+      layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:22}},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if(ctx.dataset.label==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
@@ -2277,7 +2277,7 @@ function renderOperations(){
       const cnt=satCanvasData&&satCanvasData[k]||0;
       if(!cnt)return;
       ctx.fillStyle='#e08a82';
-      ctx.fillText(cnt,bar.x,bottom+10);
+      ctx.fillText(cnt,bar.x,(chart.scales.x?chart.scales.x.bottom:bottom)+9);
     });
     ctx.restore();
   }}]});
@@ -3551,7 +3551,7 @@ function renderProductivity(){
   }
 
   const c=document.getElementById('prodChart'),sw=document.getElementById('scroll-prod');
-  resizeCanvas(c,sw,keys.length,isScroll,H.h2);
+  resizeCanvas(c,sw,keys.length,isScroll,Math.max(150,H.h1-30));
   if(prodInst){prodInst.destroy();prodInst=null;}
   prodInst=new Chart(c,{
     data:{labels:dispLabels,datasets},
