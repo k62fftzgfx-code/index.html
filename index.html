@@ -134,6 +134,25 @@ if(window.Chart){
       const ctx=chart.ctx;ctx.save();ctx.shadowColor=toRGBA(col,0.55);ctx.shadowBlur=10;ctx._lg=true;},
     afterDatasetDraw(chart,args){
       const ctx=chart.ctx;if(ctx._lg){ctx.restore();ctx._lg=false;}}});
+  // doughnut: soft glow in each slice's own colour (stronger for the hovered slice)
+  C.register({id:'arcGlow',beforeDatasetDraw(chart,args){
+    if(chart.config.type!=='doughnut'&&chart.config.type!=='pie')return;
+    const ctx=chart.ctx,OFF=20000;
+    const act=new Set(chart.getActiveElements().filter(e=>e.datasetIndex===args.index).map(e=>e.index));
+    args.meta.data.forEach((arc,i)=>{
+      const q=arc.getProps(['x','y','startAngle','endAngle','innerRadius','outerRadius'],true);
+      if(isNaN(q.startAngle)||q.endAngle-q.startAngle<0.01)return;
+      const bg=arc.options&&arc.options.backgroundColor;if(typeof bg!=='string')return;
+      const hot=act.has(i);
+      ctx.save();
+      ctx.shadowColor=toRGBA(bg.length===9&&bg[0]==='#'?bg.slice(0,7):bg,hot?0.7:0.35);
+      ctx.shadowBlur=hot?28:16;ctx.shadowOffsetX=OFF;ctx.shadowOffsetY=0;
+      ctx.fillStyle='#000';ctx.beginPath();
+      ctx.arc(q.x-OFF,q.y,q.outerRadius,q.startAngle,q.endAngle);
+      ctx.arc(q.x-OFF,q.y,q.innerRadius,q.endAngle,q.startAngle,true);
+      ctx.closePath();ctx.fill();ctx.restore();
+    });
+  }});
   C.register({id:'glassGloss',afterDatasetsDraw(chart){
     return;
     const ctx=chart.ctx;
@@ -538,6 +557,22 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 </style>
 
 <style>#restack-card{display:none!important}</style>
+<style id="glass-extra">
+/* controls: action buttons to the right edge, everything centred vertically */
+.controls{align-items:center!important;}
+.controls .ctrl-right{margin-left:auto;}
+.controls .btn-threshold,.controls .btn-workforce,.controls .btn-refresh{align-self:center!important;}
+.controls .ctrl-right .threshold-panel,.controls .ctrl-right .workforce-panel{left:auto!important;right:0!important;}
+/* KPI tiles: soft glow in the tile's own accent colour on hover */
+#kpi-card-hwyimd{--kc:90,156,196;}#kpi-card-lcp{--kc:127,200,216;}#kpi-card-hourly{--kc:227,174,114;}#kpi-card-cost{--kc:120,195,165;}#kpi-card-util{--kc:169,155,214;}
+.kpi-card{transition:transform .2s,border-color .25s,background .25s,box-shadow .25s!important;}
+.kpi-card:hover{border-color:rgba(var(--kc,120,195,165),.5)!important;
+  box-shadow:0 0 0 1px rgba(var(--kc,120,195,165),.22),0 10px 34px rgba(var(--kc,120,195,165),.20),inset 0 1px 0 rgba(255,255,255,.06)!important;}
+/* chart panels: faint contour glow on hover */
+.chart-card{transition:border-color .3s,box-shadow .3s;}
+.chart-card:hover{border-color:rgba(143,211,182,.32)!important;
+  box-shadow:0 0 0 1px rgba(143,211,182,.12),0 0 30px rgba(143,211,182,.10),0 10px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)!important;}
+</style>
 </head>
 <body>
 
@@ -601,7 +636,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       <option value="Cross Dock">Cross Dock</option>
     </select>
   </div>
-  <div style="position:relative;display:inline-block;">
+  <div class="ctrl-right" style="position:relative;display:inline-block;">
     <button class="btn-threshold" onclick="toggleThresholdPanel()">⚙ Thresholds</button>
     <!-- Threshold Panel -->
 <div class="threshold-panel" id="threshold-panel">
@@ -804,21 +839,6 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>Avg hourly rate</span>
       </div>
     </div>
-    <!-- Correlation chart -->
-    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:0">Correlation: plt/hr · LCP · Hourly rate</div>
-        <button id="corr-matrix-toggle" onclick="toggleCorrMatrix()" style="font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.16);border-radius:6px;background:#0f1729;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Matrix</button>
-      </div>
-      <div class="chart-scroll-wrap" id="scroll-corr"><canvas id="corrChart" role="img" aria-label="Correlation chart"></canvas></div>
-      <div class="legend" id="corr-legend"></div>
-      <!-- Correlation matrix -->
-      <div id="corr-matrix-wrap" style="display:none;margin-top:12px;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;">
-        <table id="corr-matrix-table" style="width:100%;border-collapse:collapse;font-size:11px;"></table>
-      </div>
-    </div>
-  </div>
-  <div class="charts-row">
     <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div class="card-title" style="margin-bottom:0">Labor Productivity (pallets / hr)</div>
@@ -841,6 +861,21 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
           <thead id="prod-table-head"></thead>
           <tbody id="prod-table-body"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+  <div class="charts-row">
+    <!-- Correlation chart -->
+    <div class="chart-card" style="flex:1;min-width:300px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Correlation: plt/hr · LCP · Hourly rate</div>
+        <button id="corr-matrix-toggle" onclick="toggleCorrMatrix()" style="font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.16);border-radius:6px;background:#0f1729;color:#8a9dba;cursor:pointer;white-space:nowrap;">▶ Matrix</button>
+      </div>
+      <div class="chart-scroll-wrap" id="scroll-corr"><canvas id="corrChart" role="img" aria-label="Correlation chart"></canvas></div>
+      <div class="legend" id="corr-legend"></div>
+      <!-- Correlation matrix -->
+      <div id="corr-matrix-wrap" style="display:none;margin-top:12px;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;">
+        <table id="corr-matrix-table" style="width:100%;border-collapse:collapse;font-size:11px;"></table>
       </div>
     </div>
   </div>
