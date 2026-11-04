@@ -737,6 +737,8 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     <div class="threshold-item"><label>Greenville, SC</label><input type="number" id="pthr-greenville" value="8.00" step="0.5" min="0" onchange="saveSettings();renderOperations()"></div>
   </div>
 
+  <div id="pm-panel"></div>
+
   <!-- SHIFT PLAN -->
   <div class="threshold-panel-title" style="margin-top:14px;color:#78c3a5;">Shift Plan — by location</div>
   <div class="shift-grid">
@@ -1138,6 +1140,25 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     <div class="kpi-card"><div class="kpi-label">Margin %</div><div class="kpi-bar" style="background:#7fc8d8"></div><div class="kpi-value" id="fin-kpi-margin">—</div><div class="kpi-threshold-hint">прибуток ÷ виручка</div></div>
     <div class="kpi-card"><div class="kpi-label">Profit / pallet</div><div class="kpi-bar" style="background:#a99bd6"></div><div class="kpi-value" id="fin-kpi-ppp">—</div><div class="kpi-threshold-hint" id="fin-kpi-ppp-sub"></div></div>
   </div>
+  <div class="chart-card" style="margin-bottom:14px;" id="fin-prem-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="card-title">Supervisor premium — R/C completion (4-week periods)</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px;color:#8a9dba;">
+        <span>Period</span><select id="pm-per" onchange="renderFinance()" style="font-size:12px;padding:5px 10px;border-radius:8px;background:#0f1729;color:#c8d8f0;border:1px solid rgba(255,255,255,0.12);"></select>
+        <span>Location</span><select id="pm-loc" onchange="renderFinance()" style="font-size:12px;padding:5px 10px;border-radius:8px;background:#0f1729;color:#c8d8f0;border:1px solid rgba(255,255,255,0.12);"></select>
+      </div>
+    </div>
+    <div style="font-size:10.5px;color:#6a7d9a;margin-top:2px;">Actual revenue ÷ target revenue (effective productive hours × norm) · points: 0 below threshold, 20 at 100%, 30 at 150% · zero if the period is at a loss</div>
+    <div id="fin-prem-tiles" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,250px));gap:12px;margin:10px 0 14px;"></div>
+    <div id="fin-prem-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+      <div style="min-width:0"><div class="card-title" style="font-size:12px;">R/C completion by period</div><div class="chart-scroll-wrap" id="scroll-pmA"><canvas id="pmChartA"></canvas></div></div>
+      <div style="min-width:0"><div class="card-title" style="font-size:12px;">Weekly R/C completion</div><div class="chart-scroll-wrap" id="scroll-pmB"><canvas id="pmChartB"></canvas></div><div class="legend" id="pm-legendB"></div></div>
+      <div style="min-width:0"><div class="card-title" style="font-size:12px;">Target vs actual revenue by week</div><div class="chart-scroll-wrap" id="scroll-pmC"><canvas id="pmChartC"></canvas></div><div class="legend" id="pm-legendC"></div></div>
+      <div style="min-width:0"><div class="card-title" style="font-size:12px;">Pallet completion vs R/C completion</div><div class="chart-scroll-wrap" id="scroll-pmD"><canvas id="pmChartD"></canvas></div><div class="legend" id="pm-legendD"></div></div>
+      <div style="min-width:0"><div class="card-title" style="font-size:12px;">Premium scale</div><div class="chart-scroll-wrap" id="scroll-pmE"><canvas id="pmChartE"></canvas></div></div>
+    </div>
+    <div id="fin-prem-empty" style="display:none;color:#7a8daa;font-size:12px;padding:6px 0;">No data yet for periods starting from the configured first week.</div>
+  </div>
   <div class="chart-card" style="margin-bottom:14px;">
     <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Avg revenue / pallet</div>
     <div class="chart-scroll-wrap" id="scroll-fin1"><canvas id="finChart1"></canvas></div>
@@ -1321,6 +1342,37 @@ const PERSIST_IDS=['thr-markham','thr-markham-east','thr-reno','thr-stockton','t
   'wf-hire-date','wf-w1','wf-w2','wf-w3','wf-w4','wf-w56','wf-w78','wf-w910','wf-w1112','wf-w13',
   // Capacity panel fields (per location: comfortable, uncomfortable, dock, equipment, base-pph)
   ...['mrk','mrke','reno','stk','sanb','den','col','grv'].flatMap(id=>[`cap-${id}-comf`,`cap-${id}-uncomf`,`cap-${id}-dock`,`cap-${id}-equip`,`cap-${id}-basepph`])];
+
+
+// ---- Supervisor premium (R/C method) parameters panel ----
+const PM_LOCS=[['Markham, IL West','mrk',[8,8,9,10],0],['San Bernardino, CA','sbd',[8,9,9,10],0],['Stockton, CA','stk',[8,9,10,10],2],['Reno, NV','rno',[8,9,10,10],0],['Denver, CO','den',[6,7,8,9],1],['Greenville, SC','grv',[6,7,8,9],1]];
+const PM_PEOPLE_DEFAULT=['MRK | Igor Makoshenets | 0','MRK | Maksym Didyk | 0','MRK | Oleh Bybyk | 0','MRK | Oleksandr Zakatov | 0','MRK | Roman Dosiak | 0','MRK | Andrii Petriv | 0','MRK | Vitalii Yatsyk | 0','MRK | Yurii Sushnov | 0 | 43','MRK | Yurii Ivanchuk | excl','SBD | Courtney Meza | 0','SBD | Omar Meza | 0','RNO | Vitalii Nikolaichuk | 30','RNO | Mykola Sushytskyi | 60'].join('\n');
+(function buildPmPanel(){
+  const host=document.getElementById('pm-panel');if(!host)return;
+  const ids=[];
+  const inp=(id,val,lab,step)=>{ids.push(id);return `<div class="threshold-item"><label>${lab}</label><input type="number" id="${id}" value="${val}" step="${step||1}" min="0" onchange="saveSettings();renderFinance()"></div>`;};
+  let h=`<div class="threshold-panel-title" style="margin-top:14px;">Supervisor premium — R/C method parameters</div><div class="threshold-grid">`;
+  h+=inp('pm-norm',17,'Pallets per effective hour');
+  h+=inp('pm-div',1.75,'Spot price divisor','0.05');
+  h+=inp('pm-thr',90,'Premium threshold, %');
+  h+=inp('pm-sy',2026,'First period: year');
+  h+=inp('pm-sw',33,'First period: week');
+  h+=inp('pm-pwk',39,'Spot price change from week');
+  h+=`</div><div class="threshold-panel-title" style="margin-top:10px;font-size:11px;">Spot prices ($) and non-productive quota by location</div><div class="threshold-grid">`;
+  PM_LOCS.forEach(([loc,id,pr,q])=>{
+    const ab=id.toUpperCase();
+    h+=inp('pm-q-'+id,q,ab+' · quota (people)');
+    h+=inp('pm-p-'+id+'-ia',pr[0],ab+' · IN before change','0.5');
+    h+=inp('pm-p-'+id+'-ib',pr[1],ab+' · IN after change','0.5');
+    h+=inp('pm-p-'+id+'-oa',pr[2],ab+' · OUT before change','0.5');
+    h+=inp('pm-p-'+id+'-ob',pr[3],ab+' · OUT after change','0.5');
+  });
+  ids.push('pm-people');
+  h+=`</div><div class="threshold-panel-title" style="margin-top:10px;font-size:11px;">Pallet-work share per person: LOCATION | Name | % (0–100, or excl) | optional from week</div>
+  <textarea id="pm-people" rows="9" spellcheck="false" onchange="saveSettings();renderFinance()" style="width:100%;box-sizing:border-box;font-size:12px;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:#0c1424;color:#c8d8f0;outline:none;font-family:ui-monospace,monospace;">${PM_PEOPLE_DEFAULT}</textarea>`;
+  host.innerHTML=h;
+  ids.forEach(i=>PERSIST_IDS.push(i));
+})();
 
 function saveSettings(){
   const data={};
@@ -3207,7 +3259,7 @@ function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
 // ===================== FINANCE TAB =====================
-let finInst1=null, finInst2=null;
+let finInst1=null, finInst2=null, finInst3=null;
 const FIN_DIR_COLORS=['#5a9cc4','#3f6a8f','#d2e6dc','#78c3a5','#2a4a66'];
 
 // price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
@@ -3293,6 +3345,214 @@ function finLabelsPlugin(opts){
   }};
 }
 
+
+// ===== Supervisor premium — Revenue per Labor Cost (R/C) method =====
+const PM_RED='#e08a82', PM_YEL='#e3ae72', PM_GRN='#78c3a5';
+const pmInst={};
+function pmN(id,d){const v=parseFloat(document.getElementById(id)?.value);return isNaN(v)?d:v;}
+function pmCfg(){return{norm:pmN('pm-norm',17),div:pmN('pm-div',1.75)||1.75,thr:pmN('pm-thr',90)/100,pwk:pmN('pm-pwk',39),sy:pmN('pm-sy',2026),sw:pmN('pm-sw',33)};}
+function pmMonday(y,w){const j4=new Date(y,0,4);const m=new Date(j4.getFullYear(),j4.getMonth(),j4.getDate()-((j4.getDay()+6)%7)+(w-1)*7);return m;}
+function pmCoef(n){return n<=12?0.40+0.05*(n-1):(n===13?0.98:1);}
+function pmStatusColor(c){return c===null||c===undefined?'#8a9dba':c>=1?PM_GRN:c>=pmCfg().thr?PM_YEL:PM_RED;}
+function pmPoints(c,rcAct,thr){
+  if(c===null||c===undefined||isNaN(c))return null;
+  if(rcAct!==null&&rcAct<1)return 0;
+  if(c<thr)return 0;
+  if(c<1)return thr>=1?20:20*(c-thr)/(1-thr);
+  if(c>=1.5)return 30;
+  return 20+(c-1)/0.5*10;
+}
+function pmParsePeople(){
+  const ab2loc={};PM_LOCS.forEach(([loc])=>{ab2loc[(LOC_ABBR[loc]||'').toLowerCase()]=loc;ab2loc[loc.toLowerCase()]=loc;});
+  const out={};
+  String(document.getElementById('pm-people')?.value||'').split('\n').forEach(line=>{
+    const p=line.split('|').map(x=>x.trim());if(p.length<3||!p[1])return;
+    const loc=ab2loc[p[0].toLowerCase()];if(!loc)return;
+    const excl=/^excl/i.test(p[2]);const share=excl?null:Math.max(0,Math.min(100,parseFloat(p[2])))/100;
+    if(!excl&&isNaN(share))return;
+    const from=p[3]?parseInt(p[3]):0;
+    (out[loc]=out[loc]||{})[p[1].toLowerCase()]={excl,share,from:from||0};
+  });
+  return out;
+}
+function pmCompute(){
+  const cfg=pmCfg();
+  const startMon=pmMonday(cfg.sy,cfg.sw);
+  const idxOfDate=dt=>{const m=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()-((dt.getDay()+6)%7));return Math.round((m-startMon)/(7*864e5));};
+  const weekInfo=idx=>{const m=new Date(startMon.getFullYear(),startMon.getMonth(),startMon.getDate()+idx*7);const th=new Date(m.getFullYear(),m.getMonth(),m.getDate()+3);return{wk:getISOWeek(th),yr:th.getFullYear()};};
+  const people=pmParsePeople();
+  const hireThr=new Date((document.getElementById('wf-hire-date')?.value||'2026-03-01')+'T00:00:00');
+  // first shift per person (any location) + hours per loc/person/week
+  const first={};const hrs={};
+  timeData.forEach(r=>{
+    const name=String(r.employeeName||'').trim().toLowerCase();if(!name)return;
+    const pd=parseDate(r.date);if(!pd)return;
+    if(!first[name]||pd.dt<first[name])first[name]=pd.dt;
+    const loc=mapLocName(r.locationName);if(!loc)return;
+    const idx=idxOfDate(pd.dt);if(idx<0)return;
+    const h=toNum(r.totalHours);if(!h)return;
+    const L=(hrs[loc]=hrs[loc]||{});const P=(L[name]=L[name]||{});P[idx]=(P[idx]||0)+h;
+  });
+  const res={};
+  PM_LOCS.forEach(([loc,id,defPr,defQ])=>{
+    const agg={};
+    rawData.forEach(r=>{
+      if(r._location!==loc)return;
+      const key=getBucketKey(r,'weekly');if(!key||key.length<6)return;
+      const y=parseInt(key.slice(0,4)),w=parseInt(key.slice(4));if(!y||!w)return;
+      const idx=Math.round((pmMonday(y,w)-startMon)/(7*864e5));if(idx<0)return;
+      const o=agg[idx]||(agg[idx]={key,inP:0,outP:0,cost:0});
+      o.inP+=toNum(r[COL.localDelivery]);o.outP+=toNum(r[COL.highway])+toNum(r[COL.intermodal])+toNum(r[COL.eastCoast]);o.cost+=toNum(r[COL.costs2]);
+    });
+    const quota=pmN('pm-q-'+id,defQ);
+    const weeks={};
+    Object.keys(agg).map(Number).sort((a,b)=>a-b).forEach(idx=>{
+      const o=agg[idx];if(!(o.cost>0))return;
+      const wi=weekInfo(idx);
+      const late=wi.yr>cfg.sy||wi.wk>=cfg.pwk;
+      const pIn=pmN('pm-p-'+id+(late?'-ib':'-ia'),defPr[late?1:0])/cfg.div, pOut=pmN('pm-p-'+id+(late?'-ob':'-oa'),defPr[late?3:2])/cfg.div;
+      const mon=new Date(startMon.getFullYear(),startMon.getMonth(),startMon.getDate()+idx*7);
+      let eff=0,expSum=0,expN=0,totH=0,lostAdapt=0;
+      const L=(hrs[loc]||{});
+      Object.keys(L).forEach(name=>{
+        const h=L[name][idx];if(!h)return;
+        const ov=(people[loc]||{})[name];
+        if(ov&&ov.excl)return;
+        totH+=h;
+        let share=1;if(ov&&(!ov.from||wi.wk>=ov.from))share=ov.share;
+        const f=first[name];
+        let coef=1;
+        if(f&&f>=hireThr){const n=Math.floor((mon-new Date(f.getFullYear(),f.getMonth(),f.getDate()-((f.getDay()+6)%7)))/(7*864e5))+1;coef=pmCoef(Math.max(1,n));}
+        eff+=h*coef*share;lostAdapt+=h*(1-coef)*share;
+        if(coef===1&&share===1){expSum+=h;expN++;}
+      });
+      const avgExp=expN?expSum/expN:0;
+      eff=Math.max(0,eff-quota*avgExp);
+      const tgtPal=eff*cfg.norm;
+      const tot=o.inP+o.outP;const sIn=tot>0?o.inP/tot:0;
+      const tgtRev=tgtPal*(sIn*pIn+(1-sIn)*pOut);
+      const cdv=((window._finCdRev||{})[loc]||{})[o.key];const cd=cdv>0?cdv:0;
+      const palRev=o.inP*pIn+o.outP*pOut;
+      weeks[idx]={idx,wk:wi.wk,yr:wi.yr,key:o.key,inP:o.inP,outP:o.outP,cd,cost:o.cost,eff,totH,lostAdapt,tgtPal,tgtRev,palRev,actRev:palRev+cd,
+        comp:tgtRev>0?(palRev+cd)/tgtRev:null,palComp:tgtRev>0?palRev/tgtRev:null,rc:(palRev+cd)/o.cost};
+    });
+    const per={};
+    Object.values(weeks).forEach(w=>{const pi=Math.floor(w.idx/4);const q=per[pi]||(per[pi]={pi,weeks:[],tgtRev:0,actRev:0,palRev:0,cost:0,cd:0});q.weeks.push(w);q.tgtRev+=w.tgtRev;q.actRev+=w.actRev;q.palRev+=w.palRev;q.cost+=w.cost;q.cd+=w.cd;});
+    Object.values(per).forEach(q=>{
+      q.weeks.sort((a,b)=>a.idx-b.idx);
+      q.n=q.weeks.length;q.label='CW'+q.weeks[0].wk+'–'+q.weeks[q.n-1].wk;
+      q.comp=q.tgtRev>0?q.actRev/q.tgtRev:null;q.palComp=q.tgtRev>0?q.palRev/q.tgtRev:null;
+      q.rcAct=q.cost>0?q.actRev/q.cost:null;q.rcTgt=q.cost>0?q.tgtRev/q.cost:null;
+      q.pts=pmPoints(q.comp,q.rcAct,cfg.thr);
+    });
+    if(Object.keys(weeks).length)res[loc]={weeks,per};
+  });
+  return res;
+}
+const pmLabelPlugin={id:'pmLabels',afterDatasetsDraw(ch){
+  const ctx=ch.ctx;ch.data.datasets.forEach((ds,di)=>{
+    if(!ds.pmLbl)return;const m=ch.getDatasetMeta(di);if(m.hidden)return;
+    ctx.save();ctx.font='600 10.5px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';
+    m.data.forEach((el,i)=>{const v=ds.data[i];if(v===null||v===undefined)return;const t=ds.pmLbl(v,i);if(!t)return;
+      ctx.fillStyle=(ds.pmLblColor&&ds.pmLblColor(i))||'#e6edf8';ctx.fillText(t,el.x,el.y-5);});
+    ctx.restore();});
+}};
+const pmRefPlugin={id:'pmRefs',afterDatasetsDraw(ch){
+  const refs=ch.options.plugins&&ch.options.plugins.pmRefs&&ch.options.plugins.pmRefs.refs;if(!refs)return;
+  const ys=ch.scales.y,ca=ch.chartArea,ctx=ch.ctx;
+  refs.forEach(r=>{const y=ys.getPixelForValue(r.v);if(y<ca.top||y>ca.bottom)return;
+    ctx.save();ctx.strokeStyle=r.color;ctx.lineWidth=1.2;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(ca.left,y);ctx.lineTo(ca.right,y);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle=r.color;ctx.font='10px sans-serif';ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText(r.label,ca.right-2,y-2);ctx.restore();});
+}};
+const PM_TT={backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',borderWidth:1,cornerRadius:12,padding:12,titleColor:'#fff',bodyColor:'#c8d8f0'};
+function pmMk(key,cv,cfg){if(pmInst[key]){pmInst[key].destroy();}return(pmInst[key]=new Chart(cv,cfg));}
+function renderPremium(f){
+  const t=s=>window.tr?tr(s):s;
+  const grid=document.getElementById('fin-prem-grid'),tiles=document.getElementById('fin-prem-tiles'),empty=document.getElementById('fin-prem-empty');
+  Object.keys(pmInst).forEach(k=>{pmInst[k].destroy();delete pmInst[k];});
+  const all=pmCompute();
+  const locs=PM_LOCS.map(x=>x[0]).filter(l=>all[l]&&f.locs.includes(l));
+  const selP=document.getElementById('pm-per'),selL=document.getElementById('pm-loc');
+  if(!locs.length){tiles.innerHTML='';grid.style.display='none';empty.style.display='block';selP.innerHTML='';selL.innerHTML='';return;}
+  grid.style.display='grid';empty.style.display='none';
+  const cfg=pmCfg();
+  const abbr=l=>LOC_ABBR[l]||l;
+  // period list
+  const pis=[...new Set(locs.flatMap(l=>Object.keys(all[l].per).map(Number)))].sort((a,b)=>a-b);
+  const plabel=pi=>{const l=locs.find(x=>all[x].per[pi]);const q=all[l].per[pi];return q.label+(q.n<4?` (${q.n}/4)`:'');};
+  const prevP=selP.value,prevL=selL.value;
+  selP.innerHTML=pis.map(pi=>`<option value="${pi}">${plabel(pi)}</option>`).join('');
+  selP.value=pis.map(String).includes(prevP)?prevP:String(pis[pis.length-1]);
+  selL.innerHTML=locs.map(l=>`<option value="${l}">${abbr(l)}</option>`).join('');
+  selL.value=locs.includes(prevL)?prevL:locs[0];
+  const pi=parseInt(selP.value),selLoc=selL.value;
+  const colOf=PM_COLORS_LOC;
+  const pct=v=>v===null||v===undefined?'—':Math.round(v*100)+'%';
+  // tiles
+  tiles.innerHTML=locs.map(l=>{
+    const q=all[l].per[pi];
+    if(!q)return `<div class="kpi-card"><div class="kpi-label">${abbr(l)}</div><div class="kpi-bar" style="background:#8a9dba"></div><div class="kpi-value" style="font-size:22px;color:#8a9dba">—</div><div class="kpi-threshold-hint"><span>No data for this period</span></div></div>`;
+    const col=pmStatusColor(q.comp);const rgb=col===PM_GRN?'120,195,165':col===PM_YEL?'227,174,114':col===PM_RED?'224,138,130':'138,157,186';
+    const loss=q.rcAct!==null&&q.rcAct<1;
+    return `<div class="kpi-card" style="--kc:${rgb}"><div class="kpi-label">${abbr(l)} · ${q.label}${q.n<4?` (${q.n}/4)`:''}</div><div class="kpi-bar" style="background:${col}"></div>
+      <div class="kpi-value" style="font-size:22px;color:${col}">${q.pts===null?'—':q.pts.toFixed(1)} <span style="font-size:12px;font-weight:600">${t('points')}</span></div>
+      <div class="kpi-threshold-hint" style="color:${col}"><span>R/C completion</span> ${pct(q.comp)}</div>
+      <div class="kpi-threshold-hint"><span>Actual R/C</span> ${q.rcAct===null?'—':q.rcAct.toFixed(2)} · <span>Target R/C</span> ${q.rcTgt===null?'—':q.rcTgt.toFixed(2)}${loss?` · <span style="color:${PM_RED}">${t('Loss — 0 points')}</span>`:''}</div></div>`;
+  }).join('');
+  const axis={ticks:{color:'#8a9dba',font:{size:10}},grid:{display:false}};
+  const yPct={beginAtZero:true,grace:'12%',ticks:{color:'#8a9dba',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.06)'}};
+  const H=Math.max(230,getHeights(true).h1+40);
+  const refs=[{v:cfg.thr*100,color:PM_RED,label:Math.round(cfg.thr*100)+'%'},{v:100,color:PM_YEL,label:'100%'},{v:150,color:PM_GRN,label:'150%'}];
+  const base={responsive:false,maintainAspectRatio:false,animation:{duration:0},layout:{padding:{top:18,right:14}}};
+  // A: completion by period (selected period)
+  {const cv=document.getElementById('pmChartA');resizeCanvas(cv,document.getElementById('scroll-pmA'),locs.length,false,H);
+   const qs=locs.map(l=>all[l].per[pi]||null);
+   pmMk('A',cv,{type:'bar',plugins:[pmLabelPlugin,pmRefPlugin],data:{labels:locs.map(abbr),datasets:[{label:t('R/C completion'),data:qs.map(q=>q&&q.comp!==null?+(q.comp*100).toFixed(1):null),
+      backgroundColor:qs.map(q=>pmStatusColor(q?q.comp:null)+'cc'),borderColor:qs.map(q=>pmStatusColor(q?q.comp:null)),borderWidth:0,maxBarThickness:56,
+      pmLbl:(v,i)=>Math.round(v)+'%'+(qs[i]&&qs[i].pts!==null?' · '+qs[i].pts.toFixed(1)+'p':''),pmLblColor:i=>pmStatusColor(qs[i]?qs[i].comp:null)}]},
+     options:{...base,plugins:{legend:{display:false},pmRefs:{refs},tooltip:{...PM_TT,callbacks:{title:i=>locs[i[0].dataIndex],label:c=>{const q=qs[c.dataIndex];if(!q)return '—';return [` ${t('R/C completion')}: ${pct(q.comp)}`,` ${t('Actual R/C')} ${q.rcAct.toFixed(2)} / ${t('Target R/C')} ${q.rcTgt.toFixed(2)}`,` ${t('points')}: ${q.pts.toFixed(1)}`,` ${t('Weeks')}: ${q.n}/4`];}}}},scales:{x:axis,y:yPct}}});}
+  // B: weekly completion lines
+  {const wkIdx=[...new Set(locs.flatMap(l=>Object.keys(all[l].weeks).map(Number)))].sort((a,b)=>a-b);
+   const cv=document.getElementById('pmChartB');resizeCanvas(cv,document.getElementById('scroll-pmB'),wkIdx.length,true,H);
+   const lab=wkIdx.map(i=>{const l=locs.find(x=>all[x].weeks[i]);return 'CW'+all[l].weeks[i].wk;});
+   pmMk('B',cv,{type:'line',plugins:[pmRefPlugin],data:{labels:lab,datasets:locs.map((l,i)=>({label:abbr(l),data:wkIdx.map(k=>{const w=all[l].weeks[k];return w&&w.comp!==null?+(w.comp*100).toFixed(1):null;}),
+      borderColor:colOf[i%colOf.length],backgroundColor:colOf[i%colOf.length],tension:.25,pointRadius:3,borderWidth:2,spanGaps:true}))},
+     options:{...base,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},pmRefs:{refs:refs.slice(0,2)},tooltip:{...PM_TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y===null?'—':Math.round(c.parsed.y)+'%'}`}}},scales:{x:axis,y:yPct}}});
+   document.getElementById('pm-legendB').innerHTML=locs.map((l,i)=>`<span class="leg-item"><span class="leg-box" style="background:${colOf[i%colOf.length]}"></span>${abbr(l)}</span>`).join('');}
+  // C: target vs actual revenue, selected location
+  {const ws=Object.values(all[selLoc].weeks).sort((a,b)=>a.idx-b.idx);
+   const cv=document.getElementById('pmChartC');resizeCanvas(cv,document.getElementById('scroll-pmC'),ws.length,true,H);
+   pmMk('C',cv,{type:'bar',data:{labels:ws.map(w=>'CW'+w.wk),datasets:[
+     {type:'bar',label:t('Pallets'),data:ws.map(w=>Math.round(w.palRev)),backgroundColor:'#5a9cc4cc',stack:'a',maxBarThickness:46,order:2},
+     {type:'bar',label:'Cross Dock',data:ws.map(w=>Math.round(w.cd)),backgroundColor:'#d2e6dcdd',stack:'a',maxBarThickness:46,order:2},
+     {type:'line',label:t('Target revenue'),data:ws.map(w=>Math.round(w.tgtRev)),borderColor:'#e3ae72',backgroundColor:'#e3ae72',borderWidth:2,pointRadius:3,tension:.2,order:1}]},
+     options:{...base,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{...PM_TT,callbacks:{label:c=>` ${c.dataset.label}: ${finMoney(c.parsed.y)}`,afterBody:it=>{const w=ws[it[0].dataIndex];return w&&w.comp!==null?` ${t('R/C completion')}: ${pct(w.comp)}`:'';}}}},
+       scales:{x:{...axis,stacked:true},y:{stacked:true,beginAtZero:true,grace:'8%',ticks:{color:'#8a9dba',callback:v=>finMoney(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
+   document.getElementById('pm-legendC').innerHTML=`<span class="leg-item"><span class="leg-box" style="background:#5a9cc4"></span>${t('Pallets')}</span><span class="leg-item"><span class="leg-box" style="background:#d2e6dc"></span>Cross Dock</span><span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>${t('Target revenue')}</span>`;}
+  // D: pallets-only completion vs R/C completion
+  {const cv=document.getElementById('pmChartD');resizeCanvas(cv,document.getElementById('scroll-pmD'),locs.length,false,H);
+   const qs=locs.map(l=>all[l].per[pi]||null);
+   pmMk('D',cv,{type:'bar',plugins:[pmLabelPlugin,pmRefPlugin],data:{labels:locs.map(abbr),datasets:[
+     {label:t('Pallets only'),data:qs.map(q=>q&&q.palComp!==null?+(q.palComp*100).toFixed(1):null),backgroundColor:'#5a9cc4cc',maxBarThickness:34,pmLbl:v=>Math.round(v)+'%',pmLblColor:()=>'#9cc6e6'},
+     {label:t('With Cross Dock (R/C)'),data:qs.map(q=>q&&q.comp!==null?+(q.comp*100).toFixed(1):null),backgroundColor:'#d2e6dccc',maxBarThickness:34,pmLbl:v=>Math.round(v)+'%',pmLblColor:()=>'#d2e6dc'}]},
+     options:{...base,plugins:{legend:{display:false},pmRefs:{refs:refs.slice(0,2)},tooltip:{...PM_TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y===null?'—':Math.round(c.parsed.y)+'%'}`}}},scales:{x:axis,y:yPct}}});
+   document.getElementById('pm-legendD').innerHTML=`<span class="leg-item"><span class="leg-box" style="background:#5a9cc4"></span>${t('Pallets only')}</span><span class="leg-item"><span class="leg-box" style="background:#d2e6dc"></span>${t('With Cross Dock (R/C)')}</span>`;}
+  // E: premium scale
+  {const cv=document.getElementById('pmChartE');resizeCanvas(cv,document.getElementById('scroll-pmE'),locs.length,false,H);
+   const qs=locs.map(l=>all[l].per[pi]||null);
+   const xMax=Math.max(160,...qs.map(q=>q&&q.comp!==null?q.comp*100+15:0));
+   const T=cfg.thr*100;
+   const pts=qs.map((q,i)=>q&&q.comp!==null?{x:+(q.comp*100).toFixed(1),y:q.pts,i}:null).filter(Boolean);
+   pmMk('E',cv,{type:'scatter',plugins:[pmLabelPlugin],data:{datasets:[
+     {label:t('Premium scale'),showLine:true,data:[{x:0,y:0},{x:T,y:0},{x:100,y:20},{x:150,y:30},{x:xMax,y:30}],borderColor:'#7fc8d8',borderWidth:2,pointRadius:0,fill:false},
+     {label:t('Locations'),data:pts,pointRadius:6,pointHoverRadius:8,backgroundColor:pts.map(p=>pmStatusColor(p.x/100)),borderColor:'#0b1121',borderWidth:1.5,
+       pmLbl:(v)=>abbr(locs[v.i])+' '+(v.y===null?'':v.y.toFixed(1)),pmLblColor:(k)=>pmStatusColor(pts[k].x/100)}]},
+     options:{...base,plugins:{legend:{display:false},tooltip:{...PM_TT,callbacks:{title:()=>'',label:c=>c.datasetIndex===1?` ${abbr(locs[c.raw.i])}: ${Math.round(c.raw.x)}% → ${c.raw.y.toFixed(1)} ${t('points')}`:` ${Math.round(c.parsed.x)}% → ${c.parsed.y.toFixed(1)} ${t('points')}`}}},
+       scales:{x:{type:'linear',min:0,max:xMax,ticks:{color:'#8a9dba',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'},title:{display:true,text:t('R/C completion'),color:'#6a7d9a',font:{size:10}}},
+               y:{min:0,max:34,ticks:{color:'#8a9dba',stepSize:10},grid:{color:'rgba(255,255,255,0.06)'},title:{display:true,text:t('points'),color:'#6a7d9a',font:{size:10}}}}}});}
+}
+const PM_COLORS_LOC=['#78c3a5','#e3ae72','#7fc8d8','#e08a82','#a99bd6','#5a9cc4'];
+
 function renderFinance(){
   if(!rawData.length)return;
   const f=getFilters();
@@ -3300,6 +3560,7 @@ function renderFinance(){
   const sel=f.isDaily?null:f.selectedPeriods;
   const years=f.isDaily?[...new Set(rawData.map(r=>parseDate(r[COL.date])?.y).filter(Boolean))]:f.years;
   const priceMap=finBuildPriceMap();
+  try{renderPremium(f,priceMap,years,gran,sel);}catch(e){console.error('premium',e);}
 
   // 1) weekly aggregation per location
   window._finFallback=new Set();
@@ -4874,9 +5135,23 @@ const D={
 'Total':'Усього','Details':'Деталі','Matrix':'Матриця','Target':'Ціль','Actual pallets':'Фактичні палети','Target pallets':'Цільові палети','Lost pallets':'Втрачені палети',
 'All hrs plt/hr ':'Усі год. пал/год','Prod hrs (act.)':'Прод. год. (факт)','Prod hrs (plan)':'Прод. год. (план)','Adapt. coef':'Коеф. адапт.','Sat workers':'Працівники в суботу','Utilization %':'Завантаження %',
 'Headcount by week':'Чисельність по тижнях','Hires and leavers':'Новачки та звільнені','All Hours':'Усі години','Productive Hours':'Продуктивні години',
+'Supervisor premium — R/C completion (4-week periods)':'Премія супервайзерів — виконання R/C (4-тижневі періоди)',
+'Period':'Період','Location':'Локація','points':'пунктів','Weeks':'Тижнів','Loss — 0 points':'Збиток — 0 пунктів',
+'Actual revenue ÷ target revenue (effective productive hours × norm) · points: 0 below threshold, 20 at 100%, 30 at 150% · zero if the period is at a loss':'Фактична виручка ÷ цільова (ефективні продуктивні години × норма) · пункти: 0 нижче порогу, 20 при 100%, 30 при 150% · нуль, якщо період у мінусі',
+'R/C completion by period':'Виконання R/C за період','Weekly R/C completion':'Тижневе виконання R/C','Target vs actual revenue by week':'Цільова vs фактична виручка по тижнях',
+'Pallet completion vs R/C completion':'Виконання по палетах vs виконання R/C','Premium scale':'Шкала премії','R/C completion':'Виконання R/C','Actual R/C':'Факт R/C','Target R/C':'Ціль R/C',
+'Pallets':'Палети','Target revenue':'Цільова виручка','Pallets only':'Лише палети','With Cross Dock (R/C)':'З Cross Dock (R/C)','Locations':'Локації',
+'No data yet for periods starting from the configured first week.':'Поки немає даних за періоди від налаштованого першого тижня.',
+'Supervisor premium — R/C method parameters':'Премія супервайзерів — параметри методу R/C','Pallets per effective hour':'Палет на ефективну годину','Spot price divisor':'Дільник спот-ціни',
+'Premium threshold, %':'Поріг премії, %','First period: year':'Перший період: рік','First period: week':'Перший період: тиждень','Spot price change from week':'Зміна спот-цін з тижня',
+'Spot prices ($) and non-productive quota by location':'Спот-ціни ($) і квота непродуктивних по локаціях',
+'Pallet-work share per person: LOCATION | Name | % (0–100, or excl) | optional from week':'Частка палетної роботи по людях: ЛОКАЦІЯ | Ім\'я | % (0–100 або excl) | необов\'язково з тижня',
 'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
 };
 const RX=[
+[/^(MRK|SBD|STK|RNO|DEN|GRV) · quota \(people\)$/,'$1 · квота (осіб)'],
+[/^(MRK|SBD|STK|RNO|DEN|GRV) · (IN|OUT) before change$/,'$1 · $2 до зміни'],
+[/^(MRK|SBD|STK|RNO|DEN|GRV) · (IN|OUT) after change$/,'$1 · $2 після зміни'],
 [/^New hires \(last (\d+) weeks\)$/i,'Новачки (останні $1 тижн.)'],
 [/^NEW HIRES \(LAST (\d+) WEEKS\)$/,'НОВАЧКИ (ОСТАННІ $1 ТИЖН.)'],
 [/^last shift (\d+)–(\d+) weeks ago$/,'остання зміна $1–$2 тижн. тому'],
