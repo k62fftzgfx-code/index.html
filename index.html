@@ -1159,16 +1159,6 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     </div>
     <div id="fin-prem-empty" style="display:none;color:#7a8daa;font-size:12px;padding:6px 0;">No data yet for periods starting from the configured first week.</div>
   </div>
-  <div class="chart-card" style="margin-bottom:14px;">
-    <div class="card-title">Revenue by direction ($) &amp; Labor cost / pallet vs Avg revenue / pallet</div>
-    <div class="chart-scroll-wrap" id="scroll-fin1"><canvas id="finChart1"></canvas></div>
-    <div class="legend" id="fin-legend1"></div>
-  </div>
-  <div class="chart-card">
-    <div class="card-title">Profit after labor ($) &amp; Margin %</div>
-    <div class="chart-scroll-wrap" id="scroll-fin2"><canvas id="finChart2"></canvas></div>
-    <div class="legend" id="fin-legend2"></div>
-  </div>
   <div id="fin-empty" style="display:none;color:#7a8daa;font-size:12px;padding:10px;">Немає даних про ціну (Cross Dock) для вибраних локацій/періодів.</div>
 </div>
 
@@ -3259,8 +3249,7 @@ function getProdThreshold(loc){
   const id=PROD_THR_MAP[loc]; return id?parseFloat(document.getElementById(id)?.value||0):0;
 }
 // ===================== FINANCE TAB =====================
-let finInst1=null, finInst2=null, finInst3=null;
-const FIN_DIR_COLORS=['#5a9cc4','#3f6a8f','#d2e6dc','#78c3a5','#2a4a66'];
+
 
 // price map: loc -> { 'YYYYWW': price }, with carry-forward resolved in finPriceFor()
 function finBuildPriceMap(){
@@ -3301,49 +3290,6 @@ function finMoney(v){
   return sg+'$'+a.toFixed(2);
 }
 
-function finLabelsPlugin(opts){
-  return{id:'finLabels',afterDatasetsDraw(chart){
-    const ctx=chart.ctx;ctx.save();ctx.textAlign='center';ctx.font='10px sans-serif';
-    const n=chart.data.labels.length;
-    // totals above stacked bars
-    if(opts.totals){
-      const ys=chart.scales[opts.totalAxis];
-      for(let i=0;i<n;i++){
-        const tot=opts.totals[i];if(!tot)continue;
-        const x=chart.getDatasetMeta(0).data[i]?.x;if(x===undefined)continue;
-        ctx.fillStyle='#e0e8f8';ctx.font='bold 10px sans-serif';ctx.textBaseline='bottom';
-        ctx.fillText(opts.fmtTotal(tot),x,ys.getPixelForValue(tot)-4);
-      }
-    }
-    // value labels on line datasets
-    chart.data.datasets.forEach((ds,di)=>{
-      if(ds.type!=='line')return;
-      const meta=chart.getDatasetMeta(di);
-      ctx.fillStyle=ds.borderColor;ctx.font='bold 10px sans-serif';
-      meta.data.forEach((pt,i)=>{
-        const v=ds.data[i];if(v===null||v===undefined)return;
-        ctx.textBaseline=ds._lblPos==='below'?'top':'bottom';
-        const dy=ds._lblPos==='below'?7:-7;
-        const txt=String(ds._fmt?ds._fmt(v):v),tw=ctx.measureText(txt).width;
-        const ty=pt.y+(ds._lblPos==='below'?dy+6:dy-6);
-        ctx.fillStyle='rgba(15,23,41,0.9)';ctx.fillRect(pt.x-tw/2-2,ty-6,tw+4,12);
-        ctx.fillStyle=ds.borderColor;ctx.textBaseline='middle';
-        ctx.fillText(txt,pt.x,ty);
-      });
-    });
-    // profit bar values
-    if(opts.barValues){
-      const meta=chart.getDatasetMeta(0);
-      meta.data.forEach((bar,i)=>{
-        const v=chart.data.datasets[0].data[i];if(v===null||v===undefined)return;
-        ctx.fillStyle=v<0?'#e08a82':'#8fd3b6';ctx.font='bold 10px sans-serif';
-        ctx.textBaseline=v<0?'top':'bottom';
-        ctx.fillText(opts.barValues(v),bar.x,v<0?bar.y+4:bar.y-4);
-      });
-    }
-    ctx.restore();
-  }};
-}
 
 
 // ===== Supervisor premium — Revenue per Labor Cost (R/C) method =====
@@ -3454,7 +3400,9 @@ const pmLabelPlugin={id:'pmLabels',afterDatasetsDraw(ch){
     if(!ds.pmLbl)return;const m=ch.getDatasetMeta(di);if(m.hidden)return;
     ctx.save();ctx.font='600 10.5px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';
     m.data.forEach((el,i)=>{const v=ds.data[i];if(v===null||v===undefined)return;const t=ds.pmLbl(v,i);if(!t)return;
-      ctx.fillStyle=(ds.pmLblColor&&ds.pmLblColor(i))||'#e6edf8';ctx.fillText(t,el.x,el.y-5);});
+      ctx.fillStyle=(ds.pmLblColor&&ds.pmLblColor(i))||'#e6edf8';
+      if(ds.pmLblPos==='center'){if(Math.abs(el.base-el.y)<15)return;ctx.textBaseline='middle';ctx.fillText(t,el.x,(el.y+el.base)/2);ctx.textBaseline='bottom';}
+      else ctx.fillText(t,el.x,el.y-6);});
     ctx.restore();});
 }};
 const pmRefPlugin={id:'pmRefs',afterDatasetsDraw(ch){
@@ -3515,17 +3463,17 @@ function renderPremium(f){
   {const wkIdx=[...new Set(locs.flatMap(l=>Object.keys(all[l].weeks).map(Number)))].sort((a,b)=>a-b);
    const cv=document.getElementById('pmChartB');resizeCanvas(cv,document.getElementById('scroll-pmB'),wkIdx.length,true,H);
    const lab=wkIdx.map(i=>{const l=locs.find(x=>all[x].weeks[i]);return 'CW'+all[l].weeks[i].wk;});
-   pmMk('B',cv,{type:'line',plugins:[pmRefPlugin],data:{labels:lab,datasets:locs.map((l,i)=>({label:abbr(l),data:wkIdx.map(k=>{const w=all[l].weeks[k];return w&&w.comp!==null?+(w.comp*100).toFixed(1):null;}),
-      borderColor:colOf[i%colOf.length],backgroundColor:colOf[i%colOf.length],tension:.25,pointRadius:3,borderWidth:2,spanGaps:true}))},
+   pmMk('B',cv,{type:'line',plugins:[pmRefPlugin,pmLabelPlugin],data:{labels:lab,datasets:locs.map((l,i)=>({label:abbr(l),data:wkIdx.map(k=>{const w=all[l].weeks[k];return w&&w.comp!==null?+(w.comp*100).toFixed(1):null;}),
+      borderColor:colOf[i%colOf.length],backgroundColor:colOf[i%colOf.length],tension:.25,pointRadius:3,borderWidth:l===selLoc?3:1.5,spanGaps:true,...(l===selLoc?{pmLbl:v=>Math.round(v)+'%',pmLblColor:()=>colOf[i%colOf.length]}:{})}))},
      options:{...base,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},pmRefs:{refs:refs.slice(0,2)},tooltip:{...PM_TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y===null?'—':Math.round(c.parsed.y)+'%'}`}}},scales:{x:axis,y:yPct}}});
    document.getElementById('pm-legendB').innerHTML=locs.map((l,i)=>`<span class="leg-item"><span class="leg-box" style="background:${colOf[i%colOf.length]}"></span>${abbr(l)}</span>`).join('');}
   // C: target vs actual revenue, selected location
   {const ws=Object.values(all[selLoc].weeks).sort((a,b)=>a.idx-b.idx);
    const cv=document.getElementById('pmChartC');resizeCanvas(cv,document.getElementById('scroll-pmC'),ws.length,true,H);
-   pmMk('C',cv,{type:'bar',data:{labels:ws.map(w=>'CW'+w.wk),datasets:[
-     {type:'bar',label:t('Pallets'),data:ws.map(w=>Math.round(w.palRev)),backgroundColor:'#5a9cc4cc',stack:'a',maxBarThickness:46,order:2},
-     {type:'bar',label:'Cross Dock',data:ws.map(w=>Math.round(w.cd)),backgroundColor:'#d2e6dcdd',stack:'a',maxBarThickness:46,order:2},
-     {type:'line',label:t('Target revenue'),data:ws.map(w=>Math.round(w.tgtRev)),borderColor:'#e3ae72',backgroundColor:'#e3ae72',borderWidth:2,pointRadius:3,tension:.2,order:1}]},
+   pmMk('C',cv,{type:'bar',plugins:[pmLabelPlugin],data:{labels:ws.map(w=>['CW'+w.wk,w.comp!==null?Math.round(w.comp*100)+'%':'—']),datasets:[
+     {type:'bar',label:t('Pallets'),data:ws.map(w=>Math.round(w.palRev)),backgroundColor:'#5a9cc4cc',stack:'a',maxBarThickness:46,order:2,pmLblPos:'center',pmLbl:v=>finMoney(v),pmLblColor:()=>'#0b1121'},
+     {type:'bar',label:'Cross Dock',data:ws.map(w=>Math.round(w.cd)),backgroundColor:'#d2e6dcdd',stack:'a',maxBarThickness:46,order:2,pmLblPos:'center',pmLbl:v=>v>0?finMoney(v):'',pmLblColor:()=>'#0b1121'},
+     {type:'line',label:t('Target revenue'),data:ws.map(w=>Math.round(w.tgtRev)),borderColor:'#e3ae72',backgroundColor:'#e3ae72',borderWidth:2,pointRadius:3,tension:.2,order:1,pmLbl:v=>finMoney(v),pmLblColor:()=>'#e3ae72'}]},
      options:{...base,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{...PM_TT,callbacks:{label:c=>` ${c.dataset.label}: ${finMoney(c.parsed.y)}`,afterBody:it=>{const w=ws[it[0].dataIndex];return w&&w.comp!==null?` ${t('R/C completion')}: ${pct(w.comp)}`:'';}}}},
        scales:{x:{...axis,stacked:true},y:{stacked:true,beginAtZero:true,grace:'8%',ticks:{color:'#8a9dba',callback:v=>finMoney(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
    document.getElementById('pm-legendC').innerHTML=`<span class="leg-item"><span class="leg-box" style="background:#5a9cc4"></span>${t('Pallets')}</span><span class="leg-item"><span class="leg-box" style="background:#d2e6dc"></span>Cross Dock</span><span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>${t('Target revenue')}</span>`;}
@@ -3546,7 +3494,7 @@ function renderPremium(f){
    pmMk('E',cv,{type:'scatter',plugins:[pmLabelPlugin],data:{datasets:[
      {label:t('Premium scale'),showLine:true,data:[{x:0,y:0},{x:T,y:0},{x:100,y:20},{x:150,y:30},{x:xMax,y:30}],borderColor:'#7fc8d8',borderWidth:2,pointRadius:0,fill:false},
      {label:t('Locations'),data:pts,pointRadius:6,pointHoverRadius:8,backgroundColor:pts.map(p=>pmStatusColor(p.x/100)),borderColor:'#0b1121',borderWidth:1.5,
-       pmLbl:(v)=>abbr(locs[v.i])+' '+(v.y===null?'':v.y.toFixed(1)),pmLblColor:(k)=>pmStatusColor(pts[k].x/100)}]},
+       pmLbl:(v)=>abbr(locs[v.i])+' '+(v.y===null?'':v.y.toFixed(1))+' · '+Math.round(v.x)+'%',pmLblColor:(k)=>pmStatusColor(pts[k].x/100)}]},
      options:{...base,plugins:{legend:{display:false},tooltip:{...PM_TT,callbacks:{title:()=>'',label:c=>c.datasetIndex===1?` ${abbr(locs[c.raw.i])}: ${Math.round(c.raw.x)}% → ${c.raw.y.toFixed(1)} ${t('points')}`:` ${Math.round(c.parsed.x)}% → ${c.parsed.y.toFixed(1)} ${t('points')}`}}},
        scales:{x:{type:'linear',min:0,max:xMax,ticks:{color:'#8a9dba',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'},title:{display:true,text:t('R/C completion'),color:'#6a7d9a',font:{size:10}}},
                y:{min:0,max:34,ticks:{color:'#8a9dba',stepSize:10},grid:{color:'rgba(255,255,255,0.06)'},title:{display:true,text:t('points'),color:'#6a7d9a',font:{size:10}}}}}});}
@@ -3620,50 +3568,6 @@ function renderFinance(){
   document.getElementById('fin-kpi-margin').textContent=T.revOk>0&&T.lab>0?(profit/T.revOk*100).toFixed(1)+'%':'—';
   document.getElementById('fin-kpi-ppp').textContent=T.palOk>0&&T.lab>0?'$'+(profit/T.palOk).toFixed(2):'—';
   document.getElementById('fin-kpi-ppp-sub').textContent=T.palOk>0&&T.lab>0?'ціна $'+(T.revOk/Math.max(T.palOk,1)).toFixed(2)+' − LCP':'';
-
-  // 4) charts
-  const labels=keys.map(k=>getDisplayLabel(k,gran));
-  const lcp=keys.map(k=>g[k].lab>0&&g[k].palOk>0?+(g[k].lab/g[k].palOk).toFixed(2):null);
-  const price=keys.map(k=>g[k].priceP>0?+(g[k].priceW/g[k].priceP).toFixed(2):null);
-  const profits=keys.map(k=>g[k].lab>0?+(g[k].revOk-g[k].lab).toFixed(0):null);
-  const margins=keys.map(k=>g[k].lab>0&&g[k].revOk>0?+((g[k].revOk-g[k].lab)/g[k].revOk*100).toFixed(1):null);
-
-  const draw=(wrapId,canvasId,old,cfg)=>{
-    if(old)old.destroy();
-    const wrap=document.getElementById(wrapId),cv=document.getElementById(canvasId);
-    const n=labels.length,w=Math.max(wrap.clientWidth||800,n*42+100);
-    cv.style.width=w+'px';cv.style.height='340px';cv.width=w;cv.height=340;
-    return new Chart(cv,cfg);
-  };
-  const baseOpts={responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
-    plugins:{legend:{display:false}},
-    scales:{x:{ticks:{color:'#7a8daa',font:{size:10}},grid:{display:false}}}};
-
-  const dsBars=DIR_LABELS.map((lbl,i)=>({type:'bar',label:lbl,data:keys.map(k=>+g[k].dirRev[i].toFixed(0)),backgroundColor:FIN_DIR_COLORS[i]+'dd',stack:'r',yAxisID:'yR',order:2,maxBarThickness:60})).filter(d=>d.data.some(v=>v>0));
-  finInst1=draw('scroll-fin1','finChart1',finInst1,{
-    data:{labels,datasets:[...dsBars,
-      {type:'line',label:'Avg revenue / pallet',data:price,borderColor:'#e6c27e',backgroundColor:'#e6c27e',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>'$'+v.toFixed(2)},
-      {type:'line',label:'Labor cost / pallet',data:lcp,borderColor:'#7fc8d8',backgroundColor:'#7fc8d8',yAxisID:'yL',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'below',_fmt:v=>'$'+v.toFixed(2)}]},
-    plugins:[finLabelsPlugin({totals:keys.map(k=>g[k].rev),totalAxis:'yR',fmtTotal:finMoney})],
-    options:{...baseOpts,scales:{...baseOpts.scales,
-      yR:{stacked:true,grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'rgba(255,255,255,0.06)'}},
-      yL:{position:'right',grace:'10%',ticks:{color:'#7a8daa',callback:v=>'$'+v},grid:{display:false}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?`${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`:`${c.dataset.label}: $${c.parsed.y}`}}}}
-  });
-  document.getElementById('fin-legend1').innerHTML=dsBars.map(d=>{const i=DIR_LABELS.indexOf(d.label);return`<span class="leg-item"><span class="leg-box" style="background:${FIN_DIR_COLORS[i]}"></span>${d.label}</span>`;}).join('')+
-    '<span class="leg-item"><span class="leg-line" style="background:#e6c27e"></span>Avg revenue / pallet</span><span class="leg-item"><span class="leg-line" style="background:#7fc8d8"></span>Labor cost / pallet</span>';
-
-  finInst2=draw('scroll-fin2','finChart2',finInst2,{
-    data:{labels,datasets:[
-      {type:'bar',label:'Profit after labor ($)',data:profits,backgroundColor:profits.map(v=>v!==null&&v<0?'#e08a82cc':'#78c3a5cc'),yAxisID:'yP',order:2,maxBarThickness:60},
-      {type:'line',label:'Margin %',data:margins,borderColor:'#e3ae72',backgroundColor:'#e3ae72',yAxisID:'yM',order:1,tension:.25,pointRadius:3,spanGaps:true,_lblPos:'above',_fmt:v=>v+'%'}]},
-    plugins:[finLabelsPlugin({barValues:finMoney})],
-    options:{...baseOpts,scales:{...baseOpts.scales,
-      yP:{grace:'12%',position:'left',ticks:{color:'#7a8daa',callback:v=>'$'+fmtTop(v)},grid:{color:'rgba(255,255,255,0.06)'}},
-      yM:{grace:'10%',position:'right',ticks:{color:'#7a8daa',callback:v=>v+'%'},grid:{display:false}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yP'?`Profit: ${finMoney(c.parsed.y)}`:`Margin: ${c.parsed.y}%`}}}}
-  });
-  document.getElementById('fin-legend2').innerHTML='<span class="leg-item"><span class="leg-box" style="background:#78c3a5"></span>Profit</span><span class="leg-item"><span class="leg-box" style="background:#e08a82"></span>Loss</span><span class="leg-item"><span class="leg-line" style="background:#e3ae72"></span>Margin %</span>';
 }
 
 // ===================== RESTACK / RELOAD (Cross Dock sheet) =====================
@@ -5128,8 +5032,7 @@ const D={
 'Jan':'Січ','Feb':'Лют','Mar':'Бер','Apr':'Кві','May':'Тра','Jun':'Чер','Jul':'Лип','Aug':'Сер','Sep':'Вер','Oct':'Жов','Nov':'Лис','Dec':'Гру',
 'Week 1':'Тиждень 1','Week 2':'Тиждень 2','Week 3':'Тиждень 3','Week 4':'Тиждень 4','Weeks 5–6':'Тижні 5–6','Weeks 7–8':'Тижні 7–8','Weeks 9–10':'Тижні 9–10','Weeks 11–12':'Тижні 11–12','Week 13+':'Тиждень 13+',
 'Revenue':'Виручка','Profit after labor':'Прибуток після ЗП','Margin %':'Маржа %','Profit / pallet':'Прибуток / палета',
-'Revenue by direction ($) & Labor cost / pallet vs Avg revenue / pallet':'Виручка за напрямком ($) і вартість праці / палета проти середньої виручки / палета',
-'Profit after labor ($) & Margin %':'Прибуток після ЗП ($) і маржа %','Labor cost (Costs2)':'Витрати на працю (Costs2)',
+'Labor cost (Costs2)':'Витрати на працю (Costs2)',
 'KPI by location':'KPI по локаціях','Total Cost':'Загальні витрати','Avg Hourly':'Сер. погодинна',
 'Search...':'Пошук...','Search employee...':'Пошук працівника...','Zoom in':'Збільшити','Zoom out':'Зменшити',
 'Total':'Усього','Details':'Деталі','Matrix':'Матриця','Target':'Ціль','Actual pallets':'Фактичні палети','Target pallets':'Цільові палети','Lost pallets':'Втрачені палети',
