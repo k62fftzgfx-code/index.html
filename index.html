@@ -577,6 +577,17 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 #tab-operations .kpi-label{margin-bottom:4px;}
 #tab-operations .kpi-bar{margin-bottom:6px;}
 #tab-operations .kpi-value{font-size:24px;}
+.kpi-delta{font-size:10.5px;margin-top:3px;font-weight:600;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-delta .kd-sub{color:var(--g-mute,#6a7d9a);font-weight:400}
+#ops-alerts{margin:0 0 10px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);font-size:11.5px;color:#c8d8f0}
+#ops-alerts .al-head{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+#ops-alerts .al-head b{font-weight:600}
+#ops-alerts .al-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+#ops-alerts.collapsed .al-list{display:none}
+#ops-alerts .al-item{display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:background .2s}
+#ops-alerts .al-item:hover{background:rgba(255,255,255,.09)}
+#ops-alerts .al-dot{width:7px;height:7px;border-radius:50%;flex:none}
+#ops-alerts .al-loc{font-weight:600}
 #tab-operations .kpi-threshold-hint{margin-top:2px;font-size:10.5px;}
 #tab-operations .charts-row{margin-bottom:12px;gap:12px;}
 #tab-operations .chart-card{padding:12px 16px!important;}
@@ -845,6 +856,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <!-- ===== TAB 1: OPERATIONS ===== -->
 <div class="tab-content active" id="tab-operations">
+  <div id="ops-alerts"></div>
   <div class="kpi-row">
     <div class="kpi-card" id="kpi-card-hwyimd">
       <div class="kpi-label">Total HWY/IMD</div><div class="kpi-bar"></div>
@@ -1070,6 +1082,19 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <span class="leg-item"><span class="leg-box" style="background:#78c3a5"></span>New hires</span>
         <span class="leg-item"><span class="leg-box" style="background:#e08a82"></span>Leavers</span>
       </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:14px;overflow:hidden;">
+    <div class="card-title">Hours structure by week — where the hours go</div>
+    <div style="font-size:10.5px;color:#6a7d9a;margin:-2px 0 4px;">Adaptation coefficient and pallet-work shares from the supervisor premium parameters (Thresholds) · line = effective productive hours</div>
+    <div class="chart-scroll-wrap" id="st-scroll-hours"><canvas id="stHoursChart" role="img" aria-label="Hours structure"></canvas></div>
+    <div class="legend">
+      <span class="leg-item"><span class="leg-box" style="background:#5a9cc4"></span>Experienced</span>
+      <span class="leg-item"><span class="leg-box" style="background:#78c3a5"></span>New hires (after coefficient)</span>
+      <span class="leg-item"><span class="leg-box" style="background:#e3ae72"></span>Adaptation loss</span>
+      <span class="leg-item"><span class="leg-box" style="background:#a99bd6"></span>Non-productive</span>
+      <span class="leg-item"><span class="leg-line" style="background:#e6c27e"></span>Effective productive hours</span>
     </div>
   </div>
 
@@ -2162,6 +2187,101 @@ function renderOpsMap() {
 }
 
 // ===================== OPERATIONS TAB =====================
+// ===== better/worse vs previous period =====
+function setDelta(card,cur,prev,goodUp,label,mode){
+  if(!card)return;
+  let el=card.querySelector('.kpi-delta');
+  if(!el){el=document.createElement('div');el.className='kpi-delta';const tip=card.querySelector('.kpi-formula-tip');card.insertBefore(el,tip||null);}
+  if(cur===null||cur===undefined||prev===null||prev===undefined||isNaN(cur)||isNaN(prev)||(mode!=='pp'&&!prev)){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
+  const d=mode==='pp'?cur-prev:(cur-prev)/Math.abs(prev)*100;
+  const up=d>0, flat=Math.abs(d)<0.5;
+  const col=flat||goodUp===null?'#8a9dba':((up===goodUp)?'#78c3a5':'#e08a82');
+  const arrow=flat?'●':(up?'▲':'▼');
+  const txt=mode==='pp'?Math.abs(d).toFixed(1)+' pp':Math.abs(d).toFixed(1)+'%';
+  el.innerHTML=`<span style="color:${col}">${arrow} ${txt}</span> <span class="kd-sub">${label}</span>`;
+}
+function clearDeltas(root){(root||document).querySelectorAll('.kpi-delta').forEach(e=>{e.innerHTML='';e.style.display='none';});}
+
+// ===== warnings ("what's wrong this week") =====
+function goTab(t){switchTab(t);setTimeout(()=>{if(t==='finance'){const c=document.getElementById('fin-prem-card');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});}},120);}
+function renderAlerts(locs,years){
+  const box=document.getElementById('ops-alerts');if(!box)return;
+  const items=[]; // {sev:2 red/1 yellow/0 data, loc, html, tab}
+  const RED='#e08a82',YEL='#e3ae72',BLU='#7fc8d8';
+  try{ if(typeof finBuildPriceMap==='function')finBuildPriceMap(); }catch(e){}
+  const allYears=[...new Set(rawData.map(r=>parseDate(r[COL.date])?.y).filter(Boolean))];
+  locs.forEach(loc=>{
+    const ab=LOC_ABBR[loc]||loc;
+    const wk={};
+    rawData.forEach(r=>{
+      if(r._location!==loc)return;
+      const k=getBucketKey(r,'weekly');if(!k)return;
+      const o=wk[k]||(wk[k]={pal:0,cost:0,cd:0});
+      o.pal+=toNum(r[COL.sumPallets]);o.cost+=toNum(r[COL.costs2]);o.cd+=toNum(r[COL.crossDock]);
+    });
+    const keys=Object.keys(wk).sort();if(!keys.length)return;
+    const lastDataKey=[...keys].reverse().find(k=>wk[k].pal>0);
+    const comp=keys.filter(k=>wk[k].cost>0&&wk[k].pal>0);
+    // missing Costs2 (weeks with pallets, no cost, except the latest week)
+    const miss=keys.filter(k=>wk[k].pal>0&&!(wk[k].cost>0)&&k!==lastDataKey&&(!comp.length||k>comp[0]));
+    if(miss.length)items.push({sev:0,loc:ab,tab:'operations',html:`<span>No Costs2 for</span> ${miss.slice(-4).map(k=>'CW'+k.slice(4)).join(', ')}`});
+    // Cross Dock pallets but no Cross Dock $
+    const cdm=(window._finCdRev||{})[loc];
+    if(cdm&&Object.keys(cdm).length){
+      const noCd=comp.slice(-4).filter(k=>wk[k].cd>0&&!(cdm[k]>0));
+      if(noCd.length)items.push({sev:0,loc:ab,tab:'finance',html:`<span>Cross Dock pallets without Cross Dock $ for</span> ${noCd.map(k=>'CW'+k.slice(4)).join(', ')}`});
+    }
+    if(!comp.length)return;
+    const last=comp[comp.length-1],base=comp.slice(-5,-1);
+    const cw='CW'+last.slice(4);
+    const lcp=wk[last].cost/wk[last].pal;
+    const thr=getThreshold(loc);
+    if(thr>0&&lcp>thr)items.push({sev:2,loc:ab,tab:'operations',html:`${cw} · <span>Labor cost/pallet above threshold</span> $${lcp.toFixed(2)} > $${thr.toFixed(2)}`});
+    if(base.length>=2){
+      const bl=base.reduce((a,k)=>a+wk[k].cost,0)/base.reduce((a,k)=>a+wk[k].pal,0);
+      const bp=base.reduce((a,k)=>a+wk[k].pal,0)/base.length;
+      const dl=(lcp-bl)/bl*100, dp=(wk[last].pal-bp)/bp*100;
+      if(dl>=15)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Labor cost/pallet</span> +${dl.toFixed(0)}% <span>vs 4-week average</span>`});
+      if(dp<=-20)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Pallets</span> ${dp.toFixed(0)}% <span>vs 4-week average</span>`});
+    }
+    // productivity vs target
+    const pthr=getProdThreshold(loc);
+    if(pthr>0){
+      try{
+        const {bkts}=buildProdBuckets('weekly',allYears,[loc],null,false);
+        const b=bkts[last];
+        if(b&&b.prodHours>0){const pr=b.pallets/b.prodHours;
+          if(pr<pthr*0.85)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Productivity</span> ${pr.toFixed(1)} <span>pallets/hr, target</span> ${pthr.toFixed(1)}`});}
+      }catch(e){}
+    }
+  });
+  // supervisor premium
+  try{
+    if(typeof pmCompute==='function'){
+      const all=pmCompute();const thr=pmCfg().thr;
+      Object.keys(all).filter(l=>locs.includes(l)).forEach(l=>{
+        const ab=LOC_ABBR[l]||l;const per=Object.values(all[l].per).sort((a,b)=>a.pi-b.pi);
+        const full=per.filter(q=>q.n===4);const q=full[full.length-1];
+        if(q&&q.comp!==null&&q.comp<thr)items.push({sev:2,loc:ab,tab:'finance',html:`${q.label} · <span>R/C completion</span> ${Math.round(q.comp*100)}% <span>below premium threshold</span> ${Math.round(thr*100)}%`});
+        const ws=Object.values(all[l].weeks).sort((a,b)=>a.idx-b.idx).slice(-2);
+        if(ws.length===2&&ws.every(w=>w.comp!==null&&w.comp<thr))items.push({sev:1,loc:ab,tab:'finance',html:`CW${ws[0].wk}–${ws[1].wk} · <span>weekly R/C completion below threshold</span> (${ws.map(w=>Math.round(w.comp*100)+'%').join(', ')})`});
+      });
+    }
+  }catch(e){console.error('alerts premium',e);}
+  items.sort((a,b)=>b.sev-a.sev);
+  const col=s=>s===2?RED:s===1?YEL:BLU;
+  const nR=items.filter(i=>i.sev===2).length,nY=items.filter(i=>i.sev===1).length,nD=items.filter(i=>i.sev===0).length;
+  if(!items.length){box.innerHTML=`<div class="al-head"><span class="al-dot" style="background:#78c3a5"></span><b>No warnings</b> <span style="color:#6a7d9a">· <span>all locations within targets</span></span></div>`;return;}
+  const collapsed=(()=>{try{return localStorage.getItem('fb_alerts_collapsed')==='1';}catch(e){return false;}})();
+  box.classList.toggle('collapsed',collapsed);
+  box.innerHTML=`<div class="al-head" onclick="toggleAlerts()"><span>⚠</span><b><span>Warnings</span>: ${items.length}</b>
+    ${nR?`<span style="color:${RED}">● ${nR} <span>critical</span></span>`:''}${nY?`<span style="color:${YEL}">● ${nY} <span>attention</span></span>`:''}${nD?`<span style="color:${BLU}">● ${nD} <span>data</span></span>`:''}
+    <span style="margin-left:auto;color:#6a7d9a;font-size:10.5px" id="al-tg">${collapsed?'▸':'▾'}</span></div>
+    <div class="al-list">${items.map(i=>`<div class="al-item" onclick="goTab('${i.tab}')"><span class="al-dot" style="background:${col(i.sev)}"></span><span class="al-loc">${i.loc}</span><span>${i.html}</span></div>`).join('')}</div>`;
+}
+function toggleAlerts(){const b=document.getElementById('ops-alerts');const c=!b.classList.contains('collapsed');b.classList.toggle('collapsed',c);try{localStorage.setItem('fb_alerts_collapsed',c?'1':'0');}catch(e){}const t=document.getElementById('al-tg');if(t)t.textContent=c?'▸':'▾';}
+
 function renderOperations(){
   const{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
   const isScroll=isDaily||gran==='weekly';
@@ -2183,7 +2303,7 @@ function renderOperations(){
     const key=getBucketKey(r,gran);if(!key)return;
     if(selectedPeriods&&!selectedPeriods.has(key))return;
     const sum=isSummaryRow(r);
-    if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
+    if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0,hours:0,hwyImd:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
     // direction pallets from ALL rows incl. Sunday (Sunday rows carry real pallets; only Costs2 / HWY-IMD are Sunday summaries)
     DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});
     // Sum Pallets counted from ALL rows incl. Sunday (Sunday is summary only for Costs2)
@@ -2195,7 +2315,9 @@ function renderOperations(){
       if(toNum(r[COL.avgHourlyRate])>0)b2[key].hourly.push(toNum(r[COL.avgHourlyRate]));
       kpiCosts2+=toNum(r[COL.costs2]);
       kpiHwyImd+=toNum(r[COL.hwyImd]); // HWY/IMD is a weekly sum stored in Sunday rows
+      buckets[key].hwyImd+=toNum(r[COL.hwyImd]);
     }
+    buckets[key].hours+=toNum(r[COL.hours]);
     kpiSumPallets+=toNum(r[COL.sumPallets]);kpiTotalTime+=toNum(r[COL.hours]);
   });
 
@@ -2257,7 +2379,28 @@ function renderOperations(){
     }
   }
 
-  const keys=Object.keys(buckets).sort();if(!keys.length)return;
+  const keys=Object.keys(buckets).sort();
+  try{renderAlerts(locs,years);}catch(e){console.error('alerts',e);}
+  // better/worse: latest complete period vs the one before
+  try{
+    const opsTab=document.getElementById('tab-operations');
+    const ck=keys.filter(k=>buckets[k].costs2>0&&buckets[k].sumPallets>0);
+    if(isDaily||ck.length<2)clearDeltas(opsTab);
+    else{
+      const a=buckets[ck[ck.length-1]],b=buckets[ck[ck.length-2]];
+      const lab=`${getDisplayLabel(ck[ck.length-1],gran)} vs ${getDisplayLabel(ck[ck.length-2],gran)}`;
+      setDelta(document.getElementById('kpi-card-hwyimd'),a.hwyImd,b.hwyImd,true,lab);
+      setDelta(document.getElementById('kpi-card-lcp'),a.costs2/a.sumPallets,b.costs2/b.sumPallets,false,lab);
+      setDelta(document.getElementById('kpi-card-hourly'),a.hours>0?a.costs2/a.hours:null,b.hours>0?b.costs2/b.hours:null,false,lab);
+      setDelta(document.getElementById('kpi-card-cost'),a.costs2,b.costs2,null,lab);
+      let ua=null,ub=null;
+      try{let ta=0,tb=0;locs.forEach(loc=>{const thr=getProdThreshold(loc);if(!thr)return;const{bkts}=buildProdBuckets(gran,years,[loc],null,false);
+        if(bkts[ck[ck.length-1]])ta+=thr*bkts[ck[ck.length-1]].prodHours;if(bkts[ck[ck.length-2]])tb+=thr*bkts[ck[ck.length-2]].prodHours;});
+        if(ta>0)ua=a.sumPallets/ta*100;if(tb>0)ub=b.sumPallets/tb*100;}catch(e){}
+      setDelta(document.getElementById('kpi-card-util'),ua,ub,true,lab,'pp');
+    }
+  }catch(e){console.error('ops delta',e);}
+  if(!keys.length)return;
   const dispLabels=keys.map(k=>getDisplayLabel(k,gran));
   const dirs=dirF==='ALL'?DIR_FIELD:DIR_FIELD.filter(f=>f===dirF);
   const lcpVals=keys.map(k=>{const lcp=buckets[k].sumPallets>0?buckets[k].costs2/buckets[k].sumPallets:null;return lcp!==null?parseFloat(lcp.toFixed(2)):null;});
@@ -3443,7 +3586,7 @@ function renderPremium(f){
     const loss=q.rcAct!==null&&q.rcAct<1;
     return `<div class="kpi-card" style="--kc:${rgb}"><div class="kpi-label">${abbr(l)} · ${q.label}${q.n<4?` (${q.n}/4)`:''}</div><div class="kpi-bar" style="background:${col}"></div>
       <div class="kpi-value" style="font-size:22px;color:${col}">${q.pts===null?'—':q.pts.toFixed(1)} <span style="font-size:12px;font-weight:600">${t('points')}</span></div>
-      <div class="kpi-threshold-hint" style="color:${col}"><span>R/C completion</span> ${pct(q.comp)}</div>
+      <div class="kpi-threshold-hint" style="color:${col}"><span>R/C completion</span> ${pct(q.comp)}${(()=>{const pq=all[l].per[pi-1];if(!pq||pq.comp===null||q.comp===null)return'';const d=(q.comp-pq.comp)*100;const c=Math.abs(d)<0.5?'#8a9dba':d>0?PM_GRN:PM_RED;return ` <span style="color:${c};font-weight:600">${Math.abs(d)<0.5?'●':d>0?'▲':'▼'} ${Math.abs(d).toFixed(1)} pp</span> <span style="color:#6a7d9a">vs ${pq.label}</span>`;})()}</div>
       <div class="kpi-threshold-hint"><span>Actual R/C</span> ${q.rcAct===null?'—':q.rcAct.toFixed(2)} · <span>Target R/C</span> ${q.rcTgt===null?'—':q.rcTgt.toFixed(2)}${loss?` · <span style="color:${PM_RED}">${t('Loss — 0 points')}</span>`:''}</div></div>`;
   }).join('');
   const axis={ticks:{color:'#8a9dba',font:{size:10}},grid:{display:false}};
@@ -3566,6 +3709,21 @@ function renderFinance(){
   pe.textContent=T.lab>0?finMoney(profit):'—';pe.style.color=profit<0?'#e08a82':'#78c3a5';
   document.getElementById('fin-kpi-margin').textContent=T.revOk>0&&T.lab>0?(profit/T.revOk*100).toFixed(1)+'%':'—';
   document.getElementById('fin-kpi-ppp').textContent=T.palOk>0&&T.lab>0?'$'+(profit/T.palOk).toFixed(2):'—';
+  try{
+    const fk=keys.filter(k=>g[k].lab>0&&g[k].revOk>0);
+    const finTab=document.getElementById('tab-finance');
+    if(fk.length<2)clearDeltas(finTab);
+    else{
+      const a=g[fk[fk.length-1]],b=g[fk[fk.length-2]];
+      const lab=`${getDisplayLabel(fk[fk.length-1],gran)} vs ${getDisplayLabel(fk[fk.length-2],gran)}`;
+      const card=id=>document.getElementById(id).closest('.kpi-card');
+      setDelta(card('fin-kpi-rev'),a.revOk,b.revOk,true,lab);
+      setDelta(card('fin-kpi-lab'),a.lab,b.lab,null,lab);
+      setDelta(card('fin-kpi-profit'),a.revOk-a.lab,b.revOk-b.lab,true,lab);
+      setDelta(card('fin-kpi-margin'),(a.revOk-a.lab)/a.revOk*100,(b.revOk-b.lab)/b.revOk*100,true,lab,'pp');
+      setDelta(card('fin-kpi-ppp'),a.palOk>0?(a.revOk-a.lab)/a.palOk:null,b.palOk>0?(b.revOk-b.lab)/b.palOk:null,true,lab);
+    }
+  }catch(e){console.error('fin delta',e);}
   document.getElementById('fin-kpi-ppp-sub').textContent=T.palOk>0&&T.lab>0?'ціна $'+(T.revOk/Math.max(T.palOk,1)).toFixed(2)+' − LCP':'';
 }
 
@@ -4541,6 +4699,66 @@ function renderDailySchedule(filtered){
 }
 
 
+// ===== Time & Staff: hours structure (experienced / new after coefficient / adaptation loss / non-productive) =====
+function renderHoursStructure(filtered,wkKeys,wkMap,locs,abbr,tt,ax){
+  const cv=document.getElementById('stHoursChart'),wrap=document.getElementById('st-scroll-hours');if(!cv)return;
+  const DAY=864e5;
+  const ws=dt=>{const d=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());d.setDate(d.getDate()-((d.getDay()+6)%7));return d;};
+  const dk=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const hireThr=new Date((document.getElementById('wf-hire-date')?.value||'2026-03-01')+'T00:00:00');
+  const people=typeof pmParsePeople==='function'?pmParsePeople():{};
+  const first={};let START=null;
+  timeData.forEach(r=>{const n=String(r.employeeName||'').trim().toLowerCase();const pd=parseDate(r.date);if(!n||!pd)return;if(!first[n]||pd.dt<first[n])first[n]=pd.dt;if(!START||pd.dt<START)START=pd.dt;});
+  // per week, per loc, per person hours
+  const W={};
+  filtered.forEach(r=>{
+    if(String(r.role||'').trim()==='Fleet')return;
+    const pd=parseDate(r.date),loc=mapLocName(r.locationName),n=String(r.employeeName||'').trim().toLowerCase();if(!pd||!loc||!n)return;
+    const h=toNum(r.totalHours);if(!h)return;const k=dk(ws(pd.dt));
+    const L=((W[k]=W[k]||{})[loc]=W[k]?.[loc]||{});L[n]=(L[n]||0)+h;
+  });
+  const quotaOf=loc=>{const x=(typeof PM_LOCS!=='undefined'?PM_LOCS:[]).find(a=>a[0]===loc);return x?pmN('pm-q-'+x[1],x[3]):0;};
+  const res=wkKeys.map(k=>{
+    const o={exp:0,neu:0,loss:0,non:0,tot:0};
+    const wsDt=wkMap[k]?wkMap[k].ws:new Date(k+'T00:00:00');const isoWk=getISOWeek(wsDt);
+    Object.entries(W[k]||{}).forEach(([loc,P])=>{
+      let expSum=0,expN=0,expH=0;
+      Object.entries(P).forEach(([n,h])=>{
+        const ov=(people[loc]||{})[n];if(ov&&ov.excl)return;
+        let share=1;if(ov&&(!ov.from||isoWk>=ov.from))share=ov.share;
+        let coef=1;const f=first[n];
+        if(f&&f>=hireThr&&(f-START)/DAY>14){const wn=Math.floor((wsDt-ws(f))/(7*DAY))+1;coef=pmCoef(Math.max(1,wn));}
+        o.tot+=h;o.non+=h*(1-share);
+        if(coef>=1){expH+=h*share;}else{o.neu+=h*coef*share;o.loss+=h*(1-coef)*share;}
+        if(coef>=1&&share===1){expSum+=h;expN++;}
+      });
+      const q=Math.min(expH,quotaOf(loc)*(expN?expSum/expN:0));
+      o.exp+=expH-q;o.non+=q;
+    });
+    o.eff=o.exp+o.neu;return o;
+  });
+  const labels=wkKeys.map(k=>'CW'+String(getISOWeek(wkMap[k].ws)).padStart(2,'0'));
+  resizeCanvas(cv,wrap,wkKeys.length,true,getHeights(true).h1);
+  if(window.stHoursInst){window.stHoursInst.destroy();window.stHoursInst=null;}
+  const r0=v=>Math.round(v);
+  const totPlugin={id:'stHrsTot',afterDatasetsDraw(ch){const ctx=ch.ctx;const m=ch.getDatasetMeta(3);if(!m)return;ctx.save();ctx.font='bold 10px -apple-system,sans-serif';ctx.fillStyle='#c8d8f0';ctx.textAlign='center';ctx.textBaseline='bottom';
+    m.data.forEach((el,i)=>{const t=res[i].tot;if(!t)return;let top=Infinity;for(let d=0;d<4;d++){const e=ch.getDatasetMeta(d).data[i];if(e&&ch.data.datasets[d].data[i]>0)top=Math.min(top,e.y);}if(top<Infinity)ctx.fillText(fmtTop(t),el.x,top-4);});
+    const lm=ch.getDatasetMeta(4);ctx.fillStyle='#e6c27e';ctx.textBaseline='top';
+    lm.data.forEach((pt,i)=>{const v=res[i].eff;if(!v||v>=res[i].tot*0.98)return;ctx.fillText(fmtTop(v),pt.x,pt.y+6);});ctx.restore();}};
+  window.stHoursInst=new Chart(cv,{data:{labels,datasets:[
+    {type:'bar',label:'Experienced',data:res.map(o=>r0(o.exp)),backgroundColor:'#5a9cc4',stack:'h',maxBarThickness:38,order:2},
+    {type:'bar',label:'New hires (after coefficient)',data:res.map(o=>r0(o.neu)),backgroundColor:'#78c3a5',stack:'h',maxBarThickness:38,order:2},
+    {type:'bar',label:'Adaptation loss',data:res.map(o=>r0(o.loss)),backgroundColor:'#e3ae72',stack:'h',maxBarThickness:38,order:2},
+    {type:'bar',label:'Non-productive',data:res.map(o=>r0(o.non)),backgroundColor:'#a99bd6',stack:'h',maxBarThickness:38,order:2},
+    {type:'line',label:'Effective productive hours',data:res.map(o=>r0(o.eff)),borderColor:'#e6c27e',backgroundColor:'#e6c27e',borderWidth:2,pointRadius:3,tension:.25,order:1}]},
+    plugins:[totPlugin],
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:22,right:10}},interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>{const t=res[c.dataIndex].tot;return ` ${c.dataset.label}: ${c.parsed.y.toLocaleString()} h`+(t&&c.dataset.type==='bar'?` (${Math.round(c.parsed.y/t*100)}%)`:'');},
+        footer:it=>{const o=res[it[0].dataIndex];return ` ${window.tr?tr('Total'):'Total'}: ${r0(o.tot).toLocaleString()} h · ${window.tr?tr('effective'):'effective'} ${o.tot?Math.round(o.eff/o.tot*100):0}%`;}}}},
+      scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,beginAtZero:true,grace:'10%',ticks:{...ax.ticks,callback:v=>fmtTop(v)}}}}});
+  wrap.scrollLeft=wrap.scrollWidth;
+}
+
 function renderStaff(){
   const{years,locs,isDaily,dateFrom,dateTo}=getFilters();
 
@@ -4609,6 +4827,17 @@ function renderStaff(){
   document.getElementById('st-k-new-sub').textContent=newHires.length+' in the last 12 weeks';
   document.getElementById('st-k-left').textContent=leavers.length;
   document.getElementById('st-k-avg').textContent=active.length?(hrs4/active.length/4).toFixed(1)+'h':'—';
+  try{
+    const ref4=new Date(REF.getTime()-28*DAY);
+    const act4=list.filter(e=>e.first<=ref4&&Object.keys(e.days).some(k=>{const d=new Date(k+'T00:00:00');return d<=ref4&&d>new Date(ref4.getTime()-14*DAY);})).length;
+    const new4p=list.filter(e=>isNewCandidate(e)&&ago(e.first)>28&&ago(e.first)<=56).length;
+    const pw=new Date(REF.getTime()-55*DAY);let hp=0;const pp=new Set();
+    list.forEach(e=>Object.entries(e.days).forEach(([k,h])=>{const d=new Date(k+'T00:00:00');if(d>=pw&&d<startWin){hp+=h;pp.add(e.name);}}));
+    const cardOf=id=>document.getElementById(id).closest('.kpi-card');
+    setDelta(cardOf('st-k-active'),active.length,act4,null,'vs <span>4 weeks ago</span>');
+    setDelta(cardOf('st-k-new'),newHires.filter(e=>ago(e.first)<=28).length,new4p,null,'vs <span>previous 4 weeks</span>');
+    setDelta(cardOf('st-k-avg'),active.length?hrs4/active.length/4:null,pp.size?hp/pp.size/4:null,null,'vs <span>previous 4 weeks</span>');
+  }catch(e){console.error('staff delta',e);}
   const lc={};active.forEach(e=>{const a=abbr(e.loc);lc[a]=(lc[a]||0)+1;});
   document.getElementById('st-k-active-locs').innerHTML=Object.entries(lc).sort((a,b)=>b[1]-a[1])
     .map(([a,c])=>`<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(120,195,165,.12);color:#78c3a5;font-weight:500">${a}:${c}</span>`).join('');
@@ -4650,11 +4879,12 @@ function renderStaff(){
   document.getElementById('st-head-legend').innerHTML=locOrder.map((l,i)=>`<span class="leg-item"><span class="leg-box" style="background:${ST_COLORS[i%ST_COLORS.length]}"></span>${abbr(l)}</span>`).join('');
 
   // ---------- hires vs leavers by week ----------
-  const hireW={},leaveW={};
+  const hireW={},leaveW={},hireN={},leaveN={};
   list.forEach(e=>{
-    if(isNewCandidate(e)){const k=dkey(weekStart(e.first));hireW[k]=(hireW[k]||0)+1;}
-    if(ago(e.last)>=INACTIVE_DAYS){const k=dkey(weekStart(e.last));leaveW[k]=(leaveW[k]||0)+1;}
+    if(isNewCandidate(e)){const k=dkey(weekStart(e.first));hireW[k]=(hireW[k]||0)+1;(hireN[k]=hireN[k]||[]).push(e.name+' ('+abbr(e.loc)+')');}
+    if(ago(e.last)>=INACTIVE_DAYS){const k=dkey(weekStart(e.last));leaveW[k]=(leaveW[k]||0)+1;(leaveN[k]=leaveN[k]||[]).push(e.name+' ('+abbr(e.loc)+')');}
   });
+  const nameList=arr=>{if(!arr||!arr.length)return[];const max=14;const out=arr.slice(0,max).map(n=>'   • '+n);if(arr.length>max)out.push('   + '+(arr.length-max)+' …');return out;};
   const cFlow=document.getElementById('stFlowChart'),sFlow=document.getElementById('st-scroll-flow');
   resizeCanvas(cFlow,sFlow,wkKeys.length,true,SH);
   if(window.stFlowInst){window.stFlowInst.destroy();window.stFlowInst=null;}
@@ -4670,8 +4900,10 @@ function renderStaff(){
       {type:'bar',label:'Leavers',data:wkKeys.map(k=>-(leaveW[k]||0)),backgroundColor:'#e08a82',stack:'f',maxBarThickness:30}]},
     plugins:[flowLabels],
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:18,bottom:16,right:10}},interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw)}`}}},
+      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw)}`,afterLabel:c=>nameList((c.datasetIndex===0?hireN:leaveN)[wkKeys[c.dataIndex]])}}},
       scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,grace:'18%',ticks:{...ax.ticks,precision:0,callback:v=>Math.abs(v)}}}}});
+
+  try{renderHoursStructure(filtered,wkKeys,wkMap,locs,abbr,tt,ax);}catch(e){console.error('hours structure',e);}
 
   // ---------- tables ----------
   const weeksSince=e=>Math.floor((REF-e.first)/(7*DAY));
@@ -5048,6 +5280,14 @@ const D={
 'Premium threshold, %':'Поріг премії, %','First period: year':'Перший період: рік','First period: week':'Перший період: тиждень','Spot price change from week':'Зміна спот-цін з тижня',
 'Spot prices ($) and non-productive quota by location':'Спот-ціни ($) і квота непродуктивних по локаціях',
 'Pallet-work share per person: LOCATION | Name | % (0–100, or excl) | optional from week':'Частка палетної роботи по людях: ЛОКАЦІЯ | Ім\'я | % (0–100 або excl) | необов\'язково з тижня',
+'No Costs2 for':'Немає Costs2 за','Cross Dock pallets without Cross Dock $ for':'Палети Cross Dock без суми Cross Dock $ за','Labor cost/pallet above threshold':'Вартість праці/палету вище порогу',
+'Labor cost/pallet':'Вартість праці/палету','vs 4-week average':'до середнього за 4 тижні','Productivity':'Продуктивність','pallets/hr, target':'пал/год, ціль',
+'below premium threshold':'нижче порогу премії','weekly R/C completion below threshold':'тижневе виконання R/C нижче порогу','No warnings':'Попереджень немає',
+'all locations within targets':'усі локації в межах цілей','Warnings':'Попередження','critical':'критичні','attention':'увага','data':'дані',
+'4 weeks ago':'4 тижні тому','previous 4 weeks':'попередні 4 тижні','Hours structure by week — where the hours go':'Структура годин по тижнях — куди йдуть години',
+'Adaptation coefficient and pallet-work shares from the supervisor premium parameters (Thresholds) · line = effective productive hours':'Коефіцієнт адаптації і частки палетної роботи — з параметрів премії (Thresholds) · лінія = ефективні продуктивні години',
+'Experienced':'Досвідчені','New hires (after coefficient)':'Новачки (після коефіцієнта)','Adaptation loss':'Втрата на адаптації','Non-productive':'Непродуктивні',
+'Effective productive hours':'Ефективні продуктивні години','effective':'ефективні',
 'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
 };
 const RX=[
