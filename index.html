@@ -3351,12 +3351,19 @@ function htmlTip(ctx,html){
 }
 function lcpWfData(gran,locs,years){
   const B={};
-  const nb=()=>({C:0,P:0,dir:DIR_FIELD.map(()=>0),H:0,exp:0,neu:0,loss:0,non:0,ppl:new Set(),newP:new Set(),nonP:new Set()});
+  const nb=()=>({C:0,P:0,dir:DIR_FIELD.map(()=>0),H:0,exp:0,neu:0,loss:0,non:0,ppl:new Set(),newP:new Set(),nonP:new Set(),wks:new Set(),open:false});
+  // closed weeks = weeks that already have Costs2 (cost, pallets and hours are taken only from closed weeks)
+  const wkC={};
+  rawData.forEach(r=>{if(!locs.includes(r._location))return;const wk=getBucketKey(r,'weekly');if(!wk)return;wkC[wk]=(wkC[wk]||0)+toNum(r[COL.costs2]);});
+  const closed=wk=>wkC[wk]>0;
   rawData.forEach(r=>{
     if(!locs.includes(r._location))return;
     const pd=parseDate(r[COL.date]);if(!pd||!years.includes(pd.y))return;
     const k=getBucketKey(r,gran);if(!k)return;
+    const wk=getBucketKey(r,'weekly');
     const o=B[k]||(B[k]=nb());
+    if(!closed(wk)){if(toNum(r[COL.sumPallets])>0)o.open=true;return;}
+    o.wks.add(wk);
     o.C+=toNum(r[COL.costs2]);o.P+=toNum(r[COL.sumPallets]);
     DIR_FIELD.forEach((f,i)=>{o.dir[i]+=toNum(r[f]);});
   });
@@ -3373,6 +3380,7 @@ function lcpWfData(gran,locs,years){
       k=gran==='monthly'?th.getFullYear()+'-'+String(th.getMonth()+1).padStart(2,'0'):th.getFullYear()+'-Q'+Math.ceil((th.getMonth()+1)/3);}
     else if(gran==='yearly')k=String(pd.y);
     if(!k||!B[k])return;
+    {const p=yw.split('-');const wk=p.length===2?p[0]+String(p[1]).padStart(2,'0'):null;if(!wk||!closed(wk)){if(toNum(r.totalHours)>0)B[k].open=true;return;}}
     const o=B[k],h=toNum(r.totalHours);if(!h)return;
     const n=String(r.employeeName||'').trim();
     o.H+=h;o.ppl.add(n);
@@ -3405,8 +3413,10 @@ function renderLcpWaterfall(){
   const sp=f.selectedPeriods&&f.selectedPeriods.size?f.selectedPeriods:null;
   const sig=gran+'|'+N+'|'+(sp?[...sp].sort().join(','):'all');
   if(eSel.dataset.sig!==sig){eSel.dataset.sig=sig;eSel.dataset.manual='';}
-  eSel.innerHTML=[...valid].reverse().map(k=>`<option value="${k}">${cw(k)}${gran==='weekly'&&k.slice(0,4)!==String(new Date().getFullYear())?' '+k.slice(0,4):''}</option>`).join('');
-  const defEnd=(sp&&[...valid].reverse().find(k=>sp.has(k)))||valid[valid.length-1];
+  const inc=k=>gran!=='weekly'&&B[k].open;
+  eSel.innerHTML=[...valid].reverse().map(k=>`<option value="${k}">${cw(k)}${gran==='weekly'&&k.slice(0,4)!==String(new Date().getFullYear())?' '+k.slice(0,4):''}${inc(k)?' · '+(wfUk()?'неповний':'incomplete'):''}</option>`).join('');
+  const lastFull=[...valid].reverse().find(k=>!inc(k))||valid[valid.length-1];
+  const defEnd=(sp&&[...valid].reverse().find(k=>sp.has(k)&&!inc(k)))||lastFull;
   eSel.value=(eSel.dataset.manual==='1'&&valid.includes(prevEnd))?prevEnd:defEnd;
   if(!valid.length){empty.style.display='';wrap.style.display='none';per.textContent='';return;}
   empty.style.display='none';wrap.style.display='';
@@ -3417,8 +3427,9 @@ function renderLcpWaterfall(){
   const a=sumB(kA),b=sumB(kB);
   const blab=ks=>ks.length===1?cw(ks[0]):cw(ks[0])+'–'+ks[ks.length-1].slice(4);
   if(!eSel.value)return;
+  const wkr=k=>{const w=[...B[k].wks].sort();return w.length?'CW'+w[0].slice(4)+(w.length>1?'–'+w[w.length-1].slice(4):''):'';};
   const lab0=blab(kA),lab1=blab(kB);
-  per.textContent=lab1+' vs '+lab0;
+  per.textContent=gran==='weekly'?lab1+' vs '+lab0:`${lab1} (${wkr(kB[0])}${inc(kB[0])?', '+(wfUk()?'неповний':'incomplete'):''}) vs ${lab0} (${wkr(kA[0])}${inc(kA[0])?', '+(wfUk()?'неповний':'incomplete'):''})`;
   const PROD=getWfMode()==='prod';
   document.querySelectorAll('#lcpwf-mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===(PROD?'prod':'cost')));
   {const t=document.getElementById('lcpwf-title');const en=PROD?'Why productivity changed':'Why labor cost per pallet changed';t.textContent=wfUk()&&window.tr?tr(en):en;}
@@ -3460,7 +3471,7 @@ function renderLcpWaterfall(){
       return head(`${lab1}: ${money(L1)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')} (${sgn(L1-L0)}, ${pcs(L1,L0)})`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(b.C)} · ${T('pallets','палет')} ${n0(b.P)} · ${T('hours','годин')} ${n0(b.H)}</div><div class="ft-s">${T('Biggest factor','Найбільший вплив')}: ${big.lab} (${sgn(big.v)})</div>`;}
     const x=facts[i-1];let body='';
     if(x.id==='rate'){const r0=a.C/a.H,r1=b.C/b.H;
-      body=`<div>${T('Cost per hour of work','Вартість години роботи')}: ${money(r0)} → ${money(r1)} (${pcs(r1,r0)})</div><div class="ft-s">${T('Possible causes','Можливі причини')}:</div><div>${x.v>0?T('• more overtime / weekend hours<br>• higher-paid roles in the mix<br>• one-off items in Costs2 (backpay, call fees)','• більше понаднормових / вихідних годин<br>• більше дорожчих ролей у складі<br>• разові суми в Costs2 (доплати, виклики)'):T('• fewer overtime / weekend hours<br>• lower-paid roles in the mix<br>• fewer one-off items in Costs2','• менше понаднормових / вихідних годин<br>• більше дешевших ролей у складі<br>• менше разових сум у Costs2')}</div>`;}
+      body=`<div>${T('Cost per hour of work','Вартість години роботи')}: ${money(r0)} → ${money(r1)} (${pcs(r1,r0)})</div><div class="ft-s">${T('Possible causes','Можливі причини')}:</div><div>${x.v>0?T('• more call fees (Cross Dock)<br>• more overtime / weekend hours<br>• higher-paid roles in the mix<br>• one-off items in Costs2 (backpay)','• більше кол-фі (Cross Dock)<br>• більше понаднормових / вихідних годин<br>• більше дорожчих ролей у складі<br>• разові суми в Costs2 (доплати)'):T('• fewer call fees (Cross Dock)<br>• fewer overtime / weekend hours<br>• lower-paid roles in the mix<br>• fewer one-off items in Costs2','• менше кол-фі (Cross Dock)<br>• менше понаднормових / вихідних годин<br>• більше дешевших ролей у складі<br>• менше разових сум у Costs2')}</div>`;}
     else if(x.id==='vol'){
       const ch=DIR_FIELD.map((fl,j)=>({n:DIR_LABELS[j],d:b.dir[j]-a.dir[j]})).filter(o=>Math.abs(o.d)>=1).sort((p,q)=>Math.abs(q.d)-Math.abs(p.d)).slice(0,4);
       body=`<div>${T('Pallets','Палети')}: ${n0(a.P)} → ${n0(b.P)} (${pcs(b.P,a.P)})</div>${ch.length?`<div class="ft-s">${T('By direction','По напрямках')}:</div><div>${ch.map(o=>`• ${o.n}: ${o.d>0?'+':''}${n0(o.d)}`).join('<br>')}</div>`:''}
