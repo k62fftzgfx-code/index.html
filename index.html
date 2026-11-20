@@ -622,6 +622,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .help-q-tip div+div{margin-top:4px}
 .help-q:hover .help-q-tip,.help-q:focus .help-q-tip{display:block}
 .chart-card:has(.help-q:hover),.chart-card:has(.help-q:focus){position:relative;z-index:80}
+.wf-seg{display:flex;border:1px solid rgba(255,255,255,.12);border-radius:9px;overflow:hidden;background:rgba(255,255,255,.03)}
+.wf-seg button{font-size:11px;padding:4px 10px;border:0;background:transparent;color:#8a9dba;cursor:pointer;font-family:inherit;transition:background .2s,color .2s}
+.wf-seg button.on{background:rgba(120,195,165,.18);color:#78c3a5}
 .chart-card .custom-dropdown{min-width:96px}
 .chart-card .custom-dropdown .dropdown-trigger{font-size:11px!important;padding:4px 26px 4px 10px!important;min-height:0!important}
 .chart-card .custom-dropdown .dropdown-menu{max-height:260px;min-width:120px;left:auto;right:0;z-index:150}
@@ -990,8 +993,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     <!-- Why labor cost per pallet changed (waterfall) -->
     <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:visible;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:8px;">
-        <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:7px;"><span>Why labor cost per pallet changed</span><span class="help-q" tabindex="0">?<span class="help-q-tip"><div>Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.</div><div>Hourly rate — labor cost (Costs2) ÷ all Deputy hours.</div><div>Volume — number of pallets (Sum Pallets).</div><div>Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).</div><div>New hires hrs — useful hours of new hires after the adaptation coefficient.</div><div>Adaptation loss — paid hours of new hires not yet productive (temporary).</div><div>Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).</div><div>All bars together = the difference between the first and the last bar.</div><div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.1);color:#9fb3cc">How it is calculated: cost per pallet = hourly rate × hours ÷ pallets.</div><div style="color:#9fb3cc">The % change of each part × the average cost per pallet = its contribution in $. All contributions add up exactly to the difference.</div></span></span></div>
+        <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:7px;"><span id="lcpwf-title">Why labor cost per pallet changed</span><span class="help-q" tabindex="0">?<span class="help-q-tip"><div>Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.</div><div>Hourly rate — labor cost (Costs2) ÷ all Deputy hours.</div><div>Volume — number of pallets (Sum Pallets).</div><div>Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).</div><div>New hires hrs — useful hours of new hires after the adaptation coefficient.</div><div>Adaptation loss — paid hours of new hires not yet productive (temporary).</div><div>Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).</div><div>All bars together = the difference between the first and the last bar.</div><div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.1);color:#9fb3cc">How it is calculated: cost per pallet = hourly rate × hours ÷ pallets.</div><div style="color:#9fb3cc">Productivity mode: pallets ÷ all hours; same bars without the hourly rate. Green raised productivity, red lowered it.</div><div style="color:#9fb3cc">The % change of each part × the average cost per pallet = its contribution in $. All contributions add up exactly to the difference.</div></span></span></div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          <div class="wf-seg" id="lcpwf-mode"><button data-m="cost" onclick="setWfMode('cost')">Cost / pallet</button><button data-m="prod" onclick="setWfMode('prod')">Productivity</button></div>
           <select class="simple-select" id="lcpwf-n" onchange="try{localStorage.setItem('fb_wf_n',this.value)}catch(e){};renderLcpWaterfall()"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select>
           <select class="simple-select" id="lcpwf-end" onchange="renderLcpWaterfall()"></select>
         </div>
@@ -3381,7 +3385,10 @@ function lcpWfData(gran,locs,years){
   });
   return B;
 }
+function getWfMode(){try{return localStorage.getItem('fb_wf_mode')==='prod'?'prod':'cost';}catch(e){return'cost';}}
+function setWfMode(m){try{localStorage.setItem('fb_wf_mode',m);}catch(e){}renderLcpWaterfall();}
 function renderLcpWaterfall(){
+  {const tp=document.getElementById('st-flow-tip');if(tp)tp.style.opacity=0;}
   const cv=document.getElementById('lcpWfChart'),wrap=document.getElementById('scroll-lcpwf');if(!cv)return;
   const f=getFilters();const gran='weekly';
   const nSel=document.getElementById('lcpwf-n'),eSel=document.getElementById('lcpwf-end');
@@ -3406,12 +3413,15 @@ function renderLcpWaterfall(){
   const blab=ks=>ks.length===1?cw(ks[0]):cw(ks[0])+'–'+ks[ks.length-1].slice(4);
   const lab0=blab(kA),lab1=blab(kB);
   per.textContent=lab1+' vs '+lab0;
-  const L0=a.C/a.P,L1=b.C/b.P;
+  const PROD=getWfMode()==='prod';
+  document.querySelectorAll('#lcpwf-mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===(PROD?'prod':'cost')));
+  {const t=document.getElementById('lcpwf-title');const en=PROD?'Why productivity changed':'Why labor cost per pallet changed';t.textContent=wfUk()&&window.tr?tr(en):en;}
+  const L0=PROD?a.P/a.H:a.C/a.P,L1=PROD?b.P/b.H:b.C/b.P;
   const lm=(x,y)=>Math.abs(x-y)<1e-9?x:(x-y)/(Math.log(x)-Math.log(y));
   const w=lm(L1,L0),LH=lm(b.H,a.H);
   const eRate=w*Math.log((b.C/b.H)/(a.C/a.H));
-  const eVol=-w*Math.log(b.P/a.P);
-  const part=k=>w*(b[k]-a[k])/LH;
+  const eVol=(PROD?1:-1)*w*Math.log(b.P/a.P);
+  const part=k=>(PROD?-1:1)*w*(b[k]-a[k])/LH;
   const T=(en,uk)=>wfUk()?uk:en;
   const facts=[
     {id:'rate',en:'Hourly rate',uk:'Ставка/год',v:eRate},
@@ -3421,32 +3431,40 @@ function renderLcpWaterfall(){
     {id:'loss',en:'Adaptation loss',uk:'Втрата на адапт.',v:part('loss')},
     {id:'non',en:'Non-productive',uk:'Непродуктивні',v:part('non')}
   ];
+  if(PROD){facts.splice(0,facts.length,
+    {id:'vol',en:'Volume',uk:'Обсяг',v:eVol},
+    {id:'prodh',en:'Productive hrs',uk:'Продуктивні год.',v:part('exp')+part('neu')},
+    {id:'loss',en:'Adaptation loss',uk:'Втрата на адапт.',v:part('loss')},
+    {id:'non',en:'Non-productive',uk:'Непродуктивні',v:part('non')});}
+  const GOOD=PROD?'#78c3a5':'#e08a82',BAD=PROD?'#e08a82':'#78c3a5'; // colour for v>0 / v<0
   facts.forEach(x=>Object.defineProperty(x,'lab',{get(){return wfUk()?x.uk:x.en;}}));
   const labels=[lab0,...facts.map(x=>x.en),lab1];
   let run=L0;const data=[[0,L0]];const cols=['#5a9cc4'];
-  facts.forEach(x=>{const lo=run,hi=run+x.v;data.push([Math.min(lo,hi),Math.max(lo,hi)]);cols.push(x.v>0?'#e08a82':'#78c3a5');run=hi;});
+  facts.forEach(x=>{const lo=run,hi=run+x.v;data.push([Math.min(lo,hi),Math.max(lo,hi)]);cols.push(x.v>0?GOOD:BAD);run=hi;});
   data.push([0,L1]);cols.push('#5a9cc4');
-  const money=v=>'$'+v.toFixed(2),sgn=v=>Math.abs(v)<0.005?'$0.00':(v>=0?'+':'−')+'$'+Math.abs(v).toFixed(2);
+  const cur=PROD?'':'$';const money=v=>cur+v.toFixed(2),sgn=v=>Math.abs(v)<0.005?cur+'0.00':(v>=0?'+':'−')+cur+Math.abs(v).toFixed(2);
   const pc=(x,y)=>y?((x-y)/y*100):0,pcs=(x,y)=>{const d=pc(x,y);return (d>=0?'+':'')+d.toFixed(1)+'%';};
   const n0=x=>Math.round(x).toLocaleString();
-  const raise=v=>v>0?T('raised the cost per pallet by','підняло вартість палети на'):T('lowered the cost per pallet by','знизило вартість палети на');
+  const raise=v=>PROD?(v>0?T('raised productivity by','підняло продуктивність на'):T('lowered productivity by','знизило продуктивність на')):(v>0?T('raised the cost per pallet by','підняло вартість палети на'):T('lowered the cost per pallet by','знизило вартість палети на'));
+  const unit=()=>PROD?T(' pallets/hr',' пал/год'):'';
   const tipFor=i=>{
     const head=t=>`<div class="ft-h">${t}</div>`;
-    if(i===0)return head(`${lab0}: ${money(L0)} ${T('per pallet','за палету')}`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(a.C)} · ${T('pallets','палет')} ${n0(a.P)} · ${T('hours','годин')} ${n0(a.H)}</div>`;
+    if(i===0)return head(`${lab0}: ${money(L0)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')}`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(a.C)} · ${T('pallets','палет')} ${n0(a.P)} · ${T('hours','годин')} ${n0(a.H)}</div>`;
     if(i===labels.length-1){const big=[...facts].sort((x,y)=>Math.abs(y.v)-Math.abs(x.v))[0];
-      return head(`${lab1}: ${money(L1)} ${T('per pallet','за палету')} (${sgn(L1-L0)}, ${pcs(L1,L0)})`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(b.C)} · ${T('pallets','палет')} ${n0(b.P)} · ${T('hours','годин')} ${n0(b.H)}</div><div class="ft-s">${T('Biggest factor','Найбільший вплив')}: ${big.lab} (${sgn(big.v)})</div>`;}
+      return head(`${lab1}: ${money(L1)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')} (${sgn(L1-L0)}, ${pcs(L1,L0)})`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(b.C)} · ${T('pallets','палет')} ${n0(b.P)} · ${T('hours','годин')} ${n0(b.H)}</div><div class="ft-s">${T('Biggest factor','Найбільший вплив')}: ${big.lab} (${sgn(big.v)})</div>`;}
     const x=facts[i-1];let body='';
     if(x.id==='rate'){const r0=a.C/a.H,r1=b.C/b.H;
       body=`<div>${T('Cost per hour of work','Вартість години роботи')}: ${money(r0)} → ${money(r1)} (${pcs(r1,r0)})</div><div class="ft-s">${T('Possible causes','Можливі причини')}:</div><div>${x.v>0?T('• more overtime / weekend hours<br>• higher-paid roles in the mix<br>• one-off items in Costs2 (backpay, call fees)','• більше понаднормових / вихідних годин<br>• більше дорожчих ролей у складі<br>• разові суми в Costs2 (доплати, виклики)'):T('• fewer overtime / weekend hours<br>• lower-paid roles in the mix<br>• fewer one-off items in Costs2','• менше понаднормових / вихідних годин<br>• більше дешевших ролей у складі<br>• менше разових сум у Costs2')}</div>`;}
     else if(x.id==='vol'){
       const ch=DIR_FIELD.map((fl,j)=>({n:DIR_LABELS[j],d:b.dir[j]-a.dir[j]})).filter(o=>Math.abs(o.d)>=1).sort((p,q)=>Math.abs(q.d)-Math.abs(p.d)).slice(0,4);
       body=`<div>${T('Pallets','Палети')}: ${n0(a.P)} → ${n0(b.P)} (${pcs(b.P,a.P)})</div>${ch.length?`<div class="ft-s">${T('By direction','По напрямках')}:</div><div>${ch.map(o=>`• ${o.n}: ${o.d>0?'+':''}${n0(o.d)}`).join('<br>')}</div>`:''}
-        <div class="ft-s">${x.v>0?T('Fewer pallets for a similar team — adjust hours to volume or bring in work (Cross Dock).','Менше палет при схожій команді — підлаштувати години під обсяг або взяти роботу (Cross Dock).'):T('More pallets for a similar team — cost spread over more volume.','Більше палет при схожій команді — витрати розійшлись на більший обсяг.')}</div>`;}
+        <div class="ft-s">${(PROD?x.v<0:x.v>0)?T('Fewer pallets for a similar team — adjust hours to volume or bring in work (Cross Dock).','Менше палет при схожій команді — підлаштувати години під обсяг або взяти роботу (Cross Dock).'):T('More pallets for a similar team — cost spread over more volume.','Більше палет при схожій команді — витрати розійшлись на більший обсяг.')}</div>`;}
+    else if(x.id==='prodh')body=`<div>${T('Productive hours (experienced + useful part of new hires)','Продуктивні години (досвідчені + корисна частина новачків)')}: ${n0(a.exp+a.neu)} → ${n0(b.exp+b.neu)} (${pcs(b.exp+b.neu,a.exp+a.neu)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v<0?T('More hours for this volume — fewer pallets per hour.','Більше годин на цей обсяг — менше палет за годину.'):T('Fewer hours for this volume — more pallets per hour.','Менше годин на цей обсяг — більше палет за годину.')}</div>`;
     else if(x.id==='exp')body=`<div>${T('Productive hours of experienced staff','Продуктивні години досвідчених')}: ${n0(a.exp)} → ${n0(b.exp)} (${pcs(b.exp,a.exp)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v>0?T('More hours for this volume — part of them may not have been needed.','Більше годин на цей обсяг — частина могла бути зайвою.'):T('Fewer hours for this volume — the team worked more efficiently.','Менше годин на цей обсяг — команда спрацювала ефективніше.')}</div>`;
     else if(x.id==='neu')body=`<div>${T('Productive hours of new hires (after coefficient)','Продуктивні години новачків (після коефіцієнта)')}: ${n0(a.neu)} → ${n0(b.neu)}</div><div>${T('New hires in adaptation','Новачків в адаптації')}: ${a.newP.size} → ${b.newP.size}</div>`;
     else if(x.id==='loss')body=`<div>${T('Hours lost to adaptation','Годин втрачено на адаптацію')}: ${n0(a.loss)} → ${n0(b.loss)}</div><div>${T('People in weeks 1–8','Людей на тижнях 1–8')}: ${a.newP.size} → ${b.newP.size}</div><div class="ft-s">${T('Temporary — goes down as new hires adapt.','Тимчасово — зменшується, коли новачки адаптуються.')}</div>`;
     else if(x.id==='non')body=`<div>${T('Non-productive hours','Непродуктивні години')}: ${n0(a.non)} → ${n0(b.non)} (${pcs(b.non,a.non)})</div><div>${T('People with non-productive hours','Людей з непродуктивними годинами')}: ${a.nonP.size} → ${b.nonP.size}</div><div class="ft-s">${T('Supervisors, spotters, managers, consolidators — these hours do not move pallets, so they go straight into the cost per pallet.','Супервайзери, спотери, менеджери, консолідатори — ці години не рухають палети, тож одразу йдуть у вартість палети.')}</div>`;
-    return head(`${x.lab}: ${sgn(x.v)}`)+`<div style="color:${x.v>0?'#e08a82':'#78c3a5'};margin-bottom:4px">${raise(x.v)} ${money(Math.abs(x.v))}</div>`+body;
+    return head(`${x.lab}: ${sgn(x.v)}${unit()}`)+`<div style="color:${x.v>0?GOOD:BAD};margin-bottom:4px">${raise(x.v)} ${money(Math.abs(x.v))}${unit()}</div>`+body;
   };
   const H=getHeights(true);
   // fill the card height: match the tallest card in the same row
@@ -3463,7 +3481,7 @@ function renderLcpWaterfall(){
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},layout:{padding:{top:18,right:6}},
       plugins:{legend:{display:false},tooltip:{enabled:false,external:ctx=>htmlTip(ctx,tipFor)}},
       scales:{x:{ticks:{color:'#8a9dba',font:{size:9.5},maxRotation:0,autoSkip:false,callback:function(v,i){const l=(i>0&&i<labels.length-1)?facts[i-1].lab:labels[i];return l.length>11?l.split(' '):l;}},grid:{display:false}},
-        y:{min:Math.max(0,Math.floor((mn-pad)*2)/2),suggestedMax:mx+pad*0.3,ticks:{color:'#8a9dba',callback:v=>'$'+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
+        y:{min:Math.max(0,Math.floor((mn-pad)*2)/2),suggestedMax:mx+pad*0.3,ticks:{color:'#8a9dba',callback:v=>cur+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
 }
 
 // ===================== PRODUCTIVITY CHART =====================
@@ -5529,7 +5547,8 @@ const D={
 'Effective productive hours':'Ефективні продуктивні години','effective':'ефективні',
 'Notifications':'Сповіщення','Mark all as seen':'Позначити всі переглянутими','All':'Усі','Critical':'Критичні','Attention':'Увага','Data':'Дані',
 'No notifications':'Сповіщень немає','Latest complete week · follows the Location / Region filter':'Останній повний тиждень · за фільтром Локація / Регіон','pallets':'палети',
-'Why labor cost per pallet changed':'Чому змінилась вартість палети',
+'Why labor cost per pallet changed':'Чому змінилась вартість палети','Why productivity changed':'Чому змінилась продуктивність','Cost / pallet':'Ціна палети','Productivity':'Продуктивність',
+'Productivity mode: pallets ÷ all hours; same bars without the hourly rate. Green raised productivity, red lowered it.':'Режим «Продуктивність»: палети ÷ усі години; ті самі стовпці без ставки. Зелене підняло продуктивність, червоне знизило.',
 'Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.':'Кожен стовпець — на скільки цей фактор змінив вартість однієї палети. Червоне підняло, зелене знизило.',
 'Hourly rate — labor cost (Costs2) ÷ all Deputy hours.':'Ставка/год — витрати на працю (Costs2) ÷ усі години Deputy.',
 'Volume — number of pallets (Sum Pallets).':'Обсяг — кількість палет (Sum Pallets).',
