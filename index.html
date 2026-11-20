@@ -539,7 +539,8 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 #tab-finance>div:first-child{background:linear-gradient(135deg,rgba(240,192,80,.14),rgba(240,192,80,.04))!important;border:1px solid rgba(240,192,80,.28)!important;border-radius:16px!important;line-height:1.55;}
 #tab-capacity>div:first-child{background:linear-gradient(135deg,rgba(160,125,212,.16),rgba(160,125,212,.04))!important;border:1px solid rgba(160,125,212,.30)!important;border-radius:16px!important;}
 /* stacking: filter bar (with its dropdowns/panels) must sit above cards */
-.controls{position:relative;z-index:120;}
+.controls{position:relative;z-index:60;}
+.controls:has(.threshold-panel.visible),.controls:has(.workforce-panel.visible),.controls:has(.open){z-index:200;}
 .kpi-card:hover{z-index:70;}
 /* ---- Responsive: sidebar becomes bottom bar ---- */
 @media (max-width:820px){
@@ -620,6 +621,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 .help-q-tip{display:none;position:absolute;top:calc(100% + 8px);left:-10px;z-index:900;width:380px;max-width:calc(100vw - 40px);padding:11px 13px;border-radius:12px;background:rgba(11,17,33,.97);border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 34px rgba(0,0,0,.45);font-size:11.5px;font-weight:400;line-height:1.45;color:#c8d8f0;text-transform:none;letter-spacing:0}
 .help-q-tip div+div{margin-top:4px}
 .help-q:hover .help-q-tip,.help-q:focus .help-q-tip{display:block}
+.chart-card:has(.help-q:hover),.chart-card:has(.help-q:focus){position:relative;z-index:80}
 .chart-card .custom-dropdown{min-width:96px}
 .chart-card .custom-dropdown .dropdown-trigger{font-size:11px!important;padding:4px 26px 4px 10px!important;min-height:0!important}
 .chart-card .custom-dropdown .dropdown-menu{max-height:260px;min-width:120px;left:auto;right:0;z-index:150}
@@ -986,9 +988,9 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
       <div class="donut-legend" id="donut-legend"></div>
     </div>
     <!-- Why labor cost per pallet changed (waterfall) -->
-    <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:hidden;">
+    <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:visible;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:8px;">
-        <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:7px;"><span>Why labor cost per pallet changed</span><span class="help-q" tabindex="0">?<span class="help-q-tip"><div>Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.</div><div>Hourly rate — labor cost (Costs2) ÷ all Deputy hours.</div><div>Volume — number of pallets (Sum Pallets).</div><div>Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).</div><div>New hires hrs — useful hours of new hires after the adaptation coefficient.</div><div>Adaptation loss — paid hours of new hires not yet productive (temporary).</div><div>Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).</div><div>All bars together = the difference between the first and the last bar.</div></span></span></div>
+        <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:7px;"><span>Why labor cost per pallet changed</span><span class="help-q" tabindex="0">?<span class="help-q-tip"><div>Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.</div><div>Hourly rate — labor cost (Costs2) ÷ all Deputy hours.</div><div>Volume — number of pallets (Sum Pallets).</div><div>Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).</div><div>New hires hrs — useful hours of new hires after the adaptation coefficient.</div><div>Adaptation loss — paid hours of new hires not yet productive (temporary).</div><div>Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).</div><div>All bars together = the difference between the first and the last bar.</div><div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.1);color:#9fb3cc">How it is calculated: cost per pallet = hourly rate × hours ÷ pallets.</div><div style="color:#9fb3cc">The % change of each part × the average cost per pallet = its contribution in $. All contributions add up exactly to the difference.</div></span></span></div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           <select class="simple-select" id="lcpwf-n" onchange="try{localStorage.setItem('fb_wf_n',this.value)}catch(e){};renderLcpWaterfall()"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select>
           <select class="simple-select" id="lcpwf-end" onchange="renderLcpWaterfall()"></select>
@@ -5535,6 +5537,8 @@ const D={
 'New hires hrs — useful hours of new hires after the adaptation coefficient.':'Год. новачків — корисні години новачків після коефіцієнта адаптації.',
 'Adaptation loss — paid hours of new hires not yet productive (temporary).':'Втрата на адапт. — оплачені години новачків, ще не продуктивні (тимчасово).',
 'Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).':'Непродуктивні — супервайзери, спотери, менеджери, консолідатори (+25% Supervisor/FO, LM/FO).',
+'How it is calculated: cost per pallet = hourly rate × hours ÷ pallets.':'Як рахується: вартість палети = ставка × години ÷ палети.',
+'The % change of each part × the average cost per pallet = its contribution in $. All contributions add up exactly to the difference.':'Зміна кожної частини (у %) × середня вартість палети = її внесок у $. Усі внески разом точно дорівнюють різниці.',
 'All bars together = the difference between the first and the last bar.':'Усі стовпці разом = різниця між першим і останнім стовпцем.',
 '1 week':'1 тиждень','2 weeks':'2 тижні','4 weeks':'4 тижні','Not enough complete periods to compare.':'Замало повних періодів для порівняння.',
 'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
