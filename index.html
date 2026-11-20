@@ -588,6 +588,33 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 #ops-alerts .al-item:hover{background:rgba(255,255,255,.09)}
 #ops-alerts .al-dot{width:7px;height:7px;border-radius:50%;flex:none}
 #ops-alerts .al-loc{font-weight:600}
+#bell-btn{position:fixed;top:18px;right:170px;z-index:700;width:34px;height:30px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#c8d8f0;cursor:pointer;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:background .2s}
+#bell-btn:hover{background:rgba(255,255,255,.1)}
+#bell-badge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;font-size:10px;font-weight:700;line-height:16px;text-align:center;color:#0b1121}
+#bell-panel{position:fixed;z-index:701;width:460px;max-width:calc(100vw - 16px);max-height:70vh;display:none;flex-direction:column;border-radius:14px;background:rgba(11,17,33,.97);border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 50px rgba(0,0,0,.5);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-size:12px;color:#c8d8f0;overflow:hidden}
+#bell-panel.open{display:flex}
+#bell-panel .bp-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 6px}
+#bell-panel .bp-head b{font-size:13px;color:#fff}
+#bell-panel .bp-all{font-size:11px;color:#7fc8d8;cursor:pointer}
+#bell-panel .bp-tabs{display:flex;gap:6px;padding:4px 14px 8px;border-bottom:1px solid rgba(255,255,255,.07)}
+#bell-panel .bp-tab{padding:3px 9px;border-radius:8px;font-size:11px;color:#8a9dba;cursor:pointer;background:rgba(255,255,255,.03)}
+#bell-panel .bp-tab.on{background:rgba(120,195,165,.18);color:#78c3a5}
+#bell-panel .bp-list{overflow-y:auto;padding:4px 6px 6px}
+#bell-panel .bp-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:9px;cursor:pointer;line-height:1.35}
+#bell-panel .bp-item:hover{background:rgba(255,255,255,.06)}
+#bell-panel .bp-item.seen{opacity:.45}
+#bell-panel .al-dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:4px}
+#bell-panel .bp-loc{font-weight:700;min-width:40px;color:#fff}
+#bell-panel .bp-txt{flex:1}
+#bell-panel .bp-txt b{color:#fff}
+#bell-panel .bp-ok{flex:none;width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6a7d9a;border:1px solid rgba(255,255,255,.1)}
+#bell-panel .bp-ok:hover{color:#78c3a5;border-color:#78c3a5}
+#bell-panel .bp-empty{padding:18px;text-align:center;color:#6a7d9a}
+#bell-panel .bp-foot{padding:7px 14px;border-top:1px solid rgba(255,255,255,.07);font-size:10.5px;color:#6a7d9a}
+#st-flow-tip{position:fixed;z-index:800;pointer-events:none;opacity:0;transition:opacity .15s;max-width:560px;padding:12px 14px;border-radius:12px;background:rgba(11,17,33,.96);border:1px solid rgba(255,255,255,.14);color:#c8d8f0;font-size:11.5px;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+#st-flow-tip .ft-h{font-weight:700;color:#fff;margin-bottom:6px}
+#st-flow-tip .ft-s{margin-top:6px;font-weight:600}
+#st-flow-tip .ft-g{display:grid;grid-template-columns:repeat(2,minmax(0,auto));column-gap:18px;row-gap:2px;margin-top:3px}
 #tab-operations .kpi-threshold-hint{margin-top:2px;font-size:10.5px;}
 #tab-operations .charts-row{margin-bottom:12px;gap:12px;}
 #tab-operations .chart-card{padding:12px 16px!important;}
@@ -856,7 +883,6 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 
 <!-- ===== TAB 1: OPERATIONS ===== -->
 <div class="tab-content active" id="tab-operations">
-  <div id="ops-alerts"></div>
   <div class="kpi-row">
     <div class="kpi-card" id="kpi-card-hwyimd">
       <div class="kpi-label">Total HWY/IMD</div><div class="kpi-bar"></div>
@@ -1854,6 +1880,7 @@ function renderAll(){
   else if(currentTab==='staff') renderStaff();
   else if(currentTab==='inventory') renderInventory();
   else if(currentTab==='finance') renderFinance();
+  try{renderBell();}catch(e){console.error('bell',e);}
 }
 
 
@@ -2204,83 +2231,124 @@ function setDelta(card,cur,prev,goodUp,label,mode){
 function clearDeltas(root){(root||document).querySelectorAll('.kpi-delta').forEach(e=>{e.innerHTML='';e.style.display='none';});}
 
 // ===== warnings ("what's wrong this week") =====
-function goTab(t){switchTab(t);setTimeout(()=>{if(t==='finance'){const c=document.getElementById('fin-prem-card');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});}},120);}
-function renderAlerts(locs,years){
-  const box=document.getElementById('ops-alerts');if(!box)return;
-  const items=[]; // {sev:2 red/1 yellow/0 data, loc, html, tab}
-  const RED='#e08a82',YEL='#e3ae72',BLU='#7fc8d8';
+function goTab(t){closeBell();switchTab(t);}
+// ===== Notifications bell =====
+const BELL_SEEN_KEY='fb_bell_seen';
+function bellSeen(){try{return JSON.parse(localStorage.getItem(BELL_SEEN_KEY)||'{}');}catch(e){return{};}}
+function bellSaveSeen(o){try{localStorage.setItem(BELL_SEEN_KEY,JSON.stringify(o));}catch(e){}}
+let bellItems=[],bellTab='all';
+function buildBellItems(){
+  const {locs,dirF}=getFilters();
+  const items=[]; // {sev:2/1/0, loc, html, tab, key, mag}
   try{ if(typeof finBuildPriceMap==='function')finBuildPriceMap(); }catch(e){}
   const allYears=[...new Set(rawData.map(r=>parseDate(r[COL.date])?.y).filter(Boolean))];
+  const dirIdx=dirF==='ALL'?-1:DIR_FIELD.indexOf(dirF);
   locs.forEach(loc=>{
     const ab=LOC_ABBR[loc]||loc;
     const wk={};
     rawData.forEach(r=>{
       if(r._location!==loc)return;
       const k=getBucketKey(r,'weekly');if(!k)return;
-      const o=wk[k]||(wk[k]={pal:0,cost:0,cd:0});
+      const o=wk[k]||(wk[k]={pal:0,cost:0,cd:0,dir:0});
       o.pal+=toNum(r[COL.sumPallets]);o.cost+=toNum(r[COL.costs2]);o.cd+=toNum(r[COL.crossDock]);
+      if(dirIdx>=0)o.dir+=toNum(r[dirF]);
     });
     const keys=Object.keys(wk).sort();if(!keys.length)return;
     const lastDataKey=[...keys].reverse().find(k=>wk[k].pal>0);
     const comp=keys.filter(k=>wk[k].cost>0&&wk[k].pal>0);
-    // missing Costs2 (weeks with pallets, no cost, except the latest week)
+    const cwOf=k=>'CW'+k.slice(4);
+    // data: missing Costs2 (weeks with pallets, no cost, except the latest week)
     const miss=keys.filter(k=>wk[k].pal>0&&!(wk[k].cost>0)&&k!==lastDataKey&&(!comp.length||k>comp[0]));
-    if(miss.length)items.push({sev:0,loc:ab,tab:'operations',html:`<span>No Costs2 for</span> ${miss.slice(-4).map(k=>'CW'+k.slice(4)).join(', ')}`});
-    // Cross Dock pallets but no Cross Dock $
+    if(miss.length)items.push({sev:0,loc:ab,tab:'operations',key:loc+'|costs2|'+miss.join(','),mag:miss.length,
+      html:`<span>No Costs2 for</span> ${miss.slice(-4).map(cwOf).join(', ')}`});
+    // data: Cross Dock pallets without Cross Dock $ (only weeks older than 2 weeks)
     const cdm=(window._finCdRev||{})[loc];
-    if(cdm&&Object.keys(cdm).length){
-      const noCd=comp.slice(-4).filter(k=>wk[k].cd>0&&!(cdm[k]>0));
-      if(noCd.length)items.push({sev:0,loc:ab,tab:'finance',html:`<span>Cross Dock pallets without Cross Dock $ for</span> ${noCd.map(k=>'CW'+k.slice(4)).join(', ')}`});
+    if(cdm&&Object.keys(cdm).length&&lastDataKey){
+      const recent=keys.filter(k=>wk[k].pal>0).slice(-2);
+      const noCd=keys.filter(k=>wk[k].cd>0&&!(cdm[k]>0)&&!recent.includes(k)).slice(-4);
+      if(noCd.length)items.push({sev:0,loc:ab,tab:'finance',key:loc+'|cd|'+noCd.join(','),mag:noCd.length,
+        html:`<span>Cross Dock pallets without Cross Dock $ for</span> ${noCd.map(cwOf).join(', ')}`});
     }
     if(!comp.length)return;
-    const last=comp[comp.length-1],base=comp.slice(-5,-1);
-    const cw='CW'+last.slice(4);
+    const last=comp[comp.length-1],base=comp.slice(-5,-1),cw=cwOf(last);
     const lcp=wk[last].cost/wk[last].pal;
     const thr=getThreshold(loc);
-    if(thr>0&&lcp>thr)items.push({sev:2,loc:ab,tab:'operations',html:`${cw} · <span>Labor cost/pallet above threshold</span> $${lcp.toFixed(2)} > $${thr.toFixed(2)}`});
+    if(thr>0&&lcp>thr)items.push({sev:2,loc:ab,tab:'operations',key:loc+'|lcpthr|'+last,mag:(lcp-thr)/thr*100,
+      html:`${cw} · <span>Labor cost/pallet above threshold</span> <b>$${lcp.toFixed(2)}</b> > $${thr.toFixed(2)}`});
     if(base.length>=2){
       const bl=base.reduce((a,k)=>a+wk[k].cost,0)/base.reduce((a,k)=>a+wk[k].pal,0);
-      const bp=base.reduce((a,k)=>a+wk[k].pal,0)/base.length;
-      const dl=(lcp-bl)/bl*100, dp=(wk[last].pal-bp)/bp*100;
-      if(dl>=15)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Labor cost/pallet</span> +${dl.toFixed(0)}% <span>vs 4-week average</span>`});
-      if(dp<=-20)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Pallets</span> ${dp.toFixed(0)}% <span>vs 4-week average</span>`});
+      const dl=(lcp-bl)/bl*100;
+      if(dl>=15)items.push({sev:1,loc:ab,tab:'operations',key:loc+'|lcptr|'+last,mag:dl,
+        html:`${cw} · <span>Labor cost/pallet</span> <b>+${dl.toFixed(0)}%</b> <span>vs 4-week average</span>`});
+      const fld=dirIdx>=0?'dir':'pal';
+      const bp=base.reduce((a,k)=>a+wk[k][fld],0)/base.length;
+      if(bp>0){const dp=(wk[last][fld]-bp)/bp*100;
+        if(dp<=-20)items.push({sev:1,loc:ab,tab:'operations',key:loc+'|pal|'+fld+'|'+last,mag:-dp,
+          html:`${cw} · ${dirIdx>=0?DIR_LABELS[dirIdx]+' ':''}<span>pallets</span> <b>${dp.toFixed(0)}%</b> <span>vs 4-week average</span>`});}
     }
-    // productivity vs target
     const pthr=getProdThreshold(loc);
     if(pthr>0){
       try{
         const {bkts}=buildProdBuckets('weekly',allYears,[loc],null,false);
         const b=bkts[last];
         if(b&&b.prodHours>0){const pr=b.pallets/b.prodHours;
-          if(pr<pthr*0.85)items.push({sev:1,loc:ab,tab:'operations',html:`${cw} · <span>Productivity</span> ${pr.toFixed(1)} <span>pallets/hr, target</span> ${pthr.toFixed(1)}`});}
+          if(pr<pthr*0.85)items.push({sev:1,loc:ab,tab:'operations',key:loc+'|prod|'+last,mag:(pthr-pr)/pthr*100,
+            html:`${cw} · <span>Productivity</span> <b>${pr.toFixed(1)}</b> <span>pallets/hr, target</span> ${pthr.toFixed(1)}`});}
       }catch(e){}
     }
   });
-  // supervisor premium
-  try{
-    if(typeof pmCompute==='function'){
-      const all=pmCompute();const thr=pmCfg().thr;
-      Object.keys(all).filter(l=>locs.includes(l)).forEach(l=>{
-        const ab=LOC_ABBR[l]||l;const per=Object.values(all[l].per).sort((a,b)=>a.pi-b.pi);
-        const full=per.filter(q=>q.n===4);const q=full[full.length-1];
-        if(q&&q.comp!==null&&q.comp<thr)items.push({sev:2,loc:ab,tab:'finance',html:`${q.label} · <span>R/C completion</span> ${Math.round(q.comp*100)}% <span>below premium threshold</span> ${Math.round(thr*100)}%`});
-        const ws=Object.values(all[l].weeks).sort((a,b)=>a.idx-b.idx).slice(-2);
-        if(ws.length===2&&ws.every(w=>w.comp!==null&&w.comp<thr))items.push({sev:1,loc:ab,tab:'finance',html:`CW${ws[0].wk}–${ws[1].wk} · <span>weekly R/C completion below threshold</span> (${ws.map(w=>Math.round(w.comp*100)+'%').join(', ')})`});
-      });
-    }
-  }catch(e){console.error('alerts premium',e);}
-  items.sort((a,b)=>b.sev-a.sev);
-  const col=s=>s===2?RED:s===1?YEL:BLU;
-  const nR=items.filter(i=>i.sev===2).length,nY=items.filter(i=>i.sev===1).length,nD=items.filter(i=>i.sev===0).length;
-  if(!items.length){box.innerHTML=`<div class="al-head"><span class="al-dot" style="background:#78c3a5"></span><b>No warnings</b> <span style="color:#6a7d9a">· <span>all locations within targets</span></span></div>`;return;}
-  const collapsed=(()=>{try{return localStorage.getItem('fb_alerts_collapsed')==='1';}catch(e){return false;}})();
-  box.classList.toggle('collapsed',collapsed);
-  box.innerHTML=`<div class="al-head" onclick="toggleAlerts()"><span>⚠</span><b><span>Warnings</span>: ${items.length}</b>
-    ${nR?`<span style="color:${RED}">● ${nR} <span>critical</span></span>`:''}${nY?`<span style="color:${YEL}">● ${nY} <span>attention</span></span>`:''}${nD?`<span style="color:${BLU}">● ${nD} <span>data</span></span>`:''}
-    <span style="margin-left:auto;color:#6a7d9a;font-size:10.5px" id="al-tg">${collapsed?'▸':'▾'}</span></div>
-    <div class="al-list">${items.map(i=>`<div class="al-item" onclick="goTab('${i.tab}')"><span class="al-dot" style="background:${col(i.sev)}"></span><span class="al-loc">${i.loc}</span><span>${i.html}</span></div>`).join('')}</div>`;
+  const seen=bellSeen();
+  items.forEach(i=>{const sv=seen[i.key];i.seen=sv!==undefined&&i.mag<=sv*1.1+0.01;});
+  items.sort((a,b)=>(a.seen-b.seen)||(b.sev-a.sev)||(b.mag-a.mag));
+  return items;
 }
-function toggleAlerts(){const b=document.getElementById('ops-alerts');const c=!b.classList.contains('collapsed');b.classList.toggle('collapsed',c);try{localStorage.setItem('fb_alerts_collapsed',c?'1':'0');}catch(e){}const t=document.getElementById('al-tg');if(t)t.textContent=c?'▸':'▾';}
+function renderBell(){
+  if(!rawData.length)return;
+  ensureBell();
+  bellItems=buildBellItems();
+  const act=bellItems.filter(i=>!i.seen);
+  const badge=document.getElementById('bell-badge');
+  badge.textContent=act.length>99?'99+':act.length;
+  badge.style.display=act.length?'':'none';
+  badge.style.background=act.some(i=>i.sev===2)?'#e08a82':act.some(i=>i.sev===1)?'#e3ae72':'#7fc8d8';
+  if(document.getElementById('bell-panel').classList.contains('open'))drawBellPanel();
+}
+function drawBellPanel(){
+  const col=s=>s===2?'#e08a82':s===1?'#e3ae72':'#7fc8d8';
+  const cnt=sv=>bellItems.filter(i=>!i.seen&&(sv===undefined||i.sev===sv)).length;
+  const tabs=[['all','All',undefined],['crit','Critical',2],['att','Attention',1],['data','Data',0]];
+  const cur=tabs.find(t=>t[0]===bellTab);
+  const list=bellItems.filter(i=>cur[2]===undefined||i.sev===cur[2]);
+  const p=document.getElementById('bell-panel');
+  p.innerHTML=`<div class="bp-head"><b><span>Notifications</span></b><span class="bp-all" onclick="bellSeenAll()"><span>Mark all as seen</span></span></div>
+    <div class="bp-tabs">${tabs.map(t=>`<span class="bp-tab${t[0]===bellTab?' on':''}" onclick="bellTab='${t[0]}';drawBellPanel()"><span>${t[1]}</span> ${cnt(t[2])}</span>`).join('')}</div>
+    <div class="bp-list">${list.length?list.map((i,n)=>`<div class="bp-item${i.seen?' seen':''}" onclick="goTab('${i.tab}')">
+      <span class="al-dot" style="background:${col(i.sev)}"></span><span class="bp-loc">${i.loc}</span><span class="bp-txt">${i.html}</span>
+      ${i.seen?'':`<span class="bp-ok" title="Seen" onclick="event.stopPropagation();bellMarkSeen(${bellItems.indexOf(i)})">✓</span>`}</div>`).join('')
+      :`<div class="bp-empty"><span>No notifications</span></div>`}</div>
+    <div class="bp-foot"><span>Latest complete week · follows the Location / Region filter</span></div>`;
+}
+function bellMarkSeen(idx){const i=bellItems[idx];if(!i)return;const s=bellSeen();s[i.key]=i.mag;bellSaveSeen(s);renderBell();drawBellPanel();}
+function bellSeenAll(){const s=bellSeen();bellItems.forEach(i=>{s[i.key]=i.mag;});bellSaveSeen(s);renderBell();drawBellPanel();}
+function toggleBell(e){if(e)e.stopPropagation();const p=document.getElementById('bell-panel');const o=!p.classList.contains('open');p.classList.toggle('open',o);if(o){positionBell();drawBellPanel();}}
+function closeBell(){const p=document.getElementById('bell-panel');if(p)p.classList.remove('open');}
+function positionBell(){
+  const b=document.getElementById('bell-btn');if(!b)return;
+  const ls=document.querySelector('.lang-seg');
+  if(ls){const r=ls.getBoundingClientRect();b.style.right=(window.innerWidth-r.left+8)+'px';b.style.top=r.top+'px';b.style.height=r.height+'px';}
+  const br=b.getBoundingClientRect(),p=document.getElementById('bell-panel');
+  p.style.top=(br.bottom+8)+'px';p.style.right=Math.max(8,window.innerWidth-br.right-40)+'px';
+}
+function ensureBell(){
+  if(document.getElementById('bell-btn'))return;
+  const b=document.createElement('div');b.id='bell-btn';b.title='Notifications';b.onclick=toggleBell;
+  b.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bell-badge" style="display:none">0</span>';
+  document.body.appendChild(b);
+  const p=document.createElement('div');p.id='bell-panel';p.onclick=e=>e.stopPropagation();document.body.appendChild(p);
+  document.addEventListener('click',closeBell);
+  window.addEventListener('resize',positionBell);
+  setTimeout(positionBell,50);setTimeout(positionBell,600);
+}
 
 function renderOperations(){
   const{gran,dirF,years,locs,isDaily,dateFrom,dateTo,selectedPeriods}=getFilters();
@@ -2380,7 +2448,6 @@ function renderOperations(){
   }
 
   const keys=Object.keys(buckets).sort();
-  try{renderAlerts(locs,years);}catch(e){console.error('alerts',e);}
   // better/worse: latest complete period vs the one before
   try{
     const opsTab=document.getElementById('tab-operations');
@@ -4700,6 +4767,26 @@ function renderDailySchedule(filtered){
 
 
 // ===== Time & Staff: hours structure (experienced / new after coefficient / adaptation loss / non-productive) =====
+function flowTip(ctx,labels,wkKeys,hireN,leaveN){
+  let el=document.getElementById('st-flow-tip');
+  if(!el){el=document.createElement('div');el.id='st-flow-tip';document.body.appendChild(el);}
+  const t=ctx.tooltip;
+  if(!t||t.opacity===0||!t.dataPoints||!t.dataPoints.length){el.style.opacity=0;return;}
+  const i=t.dataPoints[0].dataIndex,k=wkKeys[i];
+  const tr_=x=>window.tr?tr(x):x;
+  const h=hireN[k]||[],l=leaveN[k]||[];
+  const grid=a=>a.length?`<div class="ft-g">${a.map(n=>`<div>• ${n}</div>`).join('')}</div>`:'';
+  el.innerHTML=`<div class="ft-h">${labels[i]}</div>
+    <div class="ft-s" style="color:#78c3a5">${tr_('New hires')}: ${h.length}</div>${grid(h)}
+    <div class="ft-s" style="color:#e08a82">${tr_('Leavers')}: ${l.length}</div>${grid(l)}`;
+  const r=ctx.chart.canvas.getBoundingClientRect();
+  el.style.opacity=1;
+  const w=el.offsetWidth,hh=el.offsetHeight;
+  let x=r.left+t.caretX+14,y=r.top+t.caretY-hh/2;
+  if(x+w>window.innerWidth-8)x=r.left+t.caretX-w-14;
+  x=Math.max(8,x);y=Math.max(8,Math.min(y,window.innerHeight-hh-8));
+  el.style.left=x+'px';el.style.top=y+'px';
+}
 function renderHoursStructure(filtered,wkKeys,wkMap,locs,abbr,tt,ax){
   const cv=document.getElementById('stHoursChart'),wrap=document.getElementById('st-scroll-hours');if(!cv)return;
   const DAY=864e5;
@@ -4900,7 +4987,7 @@ function renderStaff(){
       {type:'bar',label:'Leavers',data:wkKeys.map(k=>-(leaveW[k]||0)),backgroundColor:'#e08a82',stack:'f',maxBarThickness:30}]},
     plugins:[flowLabels],
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:450},layout:{padding:{top:18,bottom:16,right:10}},interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{...tt,callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw)}`,afterLabel:c=>nameList((c.datasetIndex===0?hireN:leaveN)[wkKeys[c.dataIndex]])}}},
+      plugins:{legend:{display:false},tooltip:{enabled:false,external:ctx=>flowTip(ctx,labels,wkKeys,hireN,leaveN)}},
       scales:{x:{...ax,stacked:true},y:{...ax,stacked:true,grace:'18%',ticks:{...ax.ticks,precision:0,callback:v=>Math.abs(v)}}}}});
 
   try{renderHoursStructure(filtered,wkKeys,wkMap,locs,abbr,tt,ax);}catch(e){console.error('hours structure',e);}
@@ -5288,6 +5375,8 @@ const D={
 'Adaptation coefficient and pallet-work shares from the supervisor premium parameters (Thresholds) · line = effective productive hours':'Коефіцієнт адаптації і частки палетної роботи — з параметрів премії (Thresholds) · лінія = ефективні продуктивні години',
 'Experienced':'Досвідчені','New hires (after coefficient)':'Новачки (після коефіцієнта)','Adaptation loss':'Втрата на адаптації','Non-productive':'Непродуктивні',
 'Effective productive hours':'Ефективні продуктивні години','effective':'ефективні',
+'Notifications':'Сповіщення','Mark all as seen':'Позначити всі переглянутими','All':'Усі','Critical':'Критичні','Attention':'Увага','Data':'Дані',
+'No notifications':'Сповіщень немає','Latest complete week · follows the Location / Region filter':'Останній повний тиждень · за фільтром Локація / Регіон','pallets':'палети',
 'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
 };
 const RX=[
