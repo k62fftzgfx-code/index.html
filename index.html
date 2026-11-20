@@ -997,7 +997,7 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           <div class="wf-seg" id="lcpwf-mode"><button data-m="cost" onclick="setWfMode('cost')">Cost / pallet</button><button data-m="prod" onclick="setWfMode('prod')">Productivity</button></div>
           <select class="simple-select" id="lcpwf-n" onchange="try{localStorage.setItem('fb_wf_n',this.value)}catch(e){};renderLcpWaterfall()"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select>
-          <select class="simple-select" id="lcpwf-end" onchange="renderLcpWaterfall()"></select>
+          <select class="simple-select" id="lcpwf-end" onchange="this.dataset.manual='1';renderLcpWaterfall()"></select>
         </div>
       </div>
       <div id="lcpwf-period" style="font-size:10.5px;color:#6a7d9a;margin:-6px 0 4px;"></div>
@@ -3390,19 +3390,24 @@ function setWfMode(m){try{localStorage.setItem('fb_wf_mode',m);}catch(e){}render
 function renderLcpWaterfall(){
   {const tp=document.getElementById('st-flow-tip');if(tp)tp.style.opacity=0;}
   const cv=document.getElementById('lcpWfChart'),wrap=document.getElementById('scroll-lcpwf');if(!cv)return;
-  const f=getFilters();const gran='weekly';
+  const f=getFilters();const gran=f.gran==='daily'?'weekly':f.gran;
   const nSel=document.getElementById('lcpwf-n'),eSel=document.getElementById('lcpwf-end');
   if(!nSel.dataset.init){nSel.dataset.init='1';try{const v=localStorage.getItem('fb_wf_n');if(v)nSel.value=v;}catch(e){}}
-  const N=parseInt(nSel.value)||1;
+  {const dd=nSel.nextElementSibling;if(dd&&dd.classList.contains('custom-dropdown'))dd.style.display=gran==='weekly'?'':'none';}
+  const N=gran==='weekly'?(parseInt(nSel.value)||1):1;
   const B=lcpWfData(gran,f.locs,f.years);
   const keys=Object.keys(B).sort().filter(k=>B[k].C>0&&B[k].P>0&&B[k].H>0);
   const empty=document.getElementById('lcpwf-empty'),per=document.getElementById('lcpwf-period');
   if(lcpWfInst){lcpWfInst.destroy();lcpWfInst=null;}
-  const cw=k=>'CW'+k.slice(4);
+  const cw=k=>gran==='weekly'?'CW'+k.slice(4):getDisplayLabel(k,gran);
   const valid=keys.filter((k,i)=>i>=2*N-1);
   const prevEnd=eSel.value;
-  eSel.innerHTML=[...valid].reverse().map(k=>`<option value="${k}">${cw(k)}${k.slice(0,4)!==String(new Date().getFullYear())?' '+k.slice(0,4):''}</option>`).join('');
-  if(valid.includes(prevEnd))eSel.value=prevEnd;
+  const sp=f.selectedPeriods&&f.selectedPeriods.size?f.selectedPeriods:null;
+  const sig=gran+'|'+N+'|'+(sp?[...sp].sort().join(','):'all');
+  if(eSel.dataset.sig!==sig){eSel.dataset.sig=sig;eSel.dataset.manual='';}
+  eSel.innerHTML=[...valid].reverse().map(k=>`<option value="${k}">${cw(k)}${gran==='weekly'&&k.slice(0,4)!==String(new Date().getFullYear())?' '+k.slice(0,4):''}</option>`).join('');
+  const defEnd=(sp&&[...valid].reverse().find(k=>sp.has(k)))||valid[valid.length-1];
+  eSel.value=(eSel.dataset.manual==='1'&&valid.includes(prevEnd))?prevEnd:defEnd;
   if(!valid.length){empty.style.display='';wrap.style.display='none';per.textContent='';return;}
   empty.style.display='none';wrap.style.display='';
   const ei=keys.indexOf(eSel.value);
@@ -3411,6 +3416,7 @@ function renderLcpWaterfall(){
     ks.forEach(k=>{const x=B[k];['C','P','H','exp','neu','loss','non'].forEach(f=>o[f]+=x[f]);x.dir.forEach((v,j)=>o.dir[j]+=v);['ppl','newP','nonP'].forEach(f=>x[f].forEach(n=>o[f].add(n)));});return o;};
   const a=sumB(kA),b=sumB(kB);
   const blab=ks=>ks.length===1?cw(ks[0]):cw(ks[0])+'–'+ks[ks.length-1].slice(4);
+  if(!eSel.value)return;
   const lab0=blab(kA),lab1=blab(kB);
   per.textContent=lab1+' vs '+lab0;
   const PROD=getWfMode()==='prod';
