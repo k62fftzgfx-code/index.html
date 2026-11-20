@@ -3425,6 +3425,10 @@ function renderLcpWaterfall(){
   const sumB=ks=>{const o={C:0,P:0,dir:DIR_FIELD.map(()=>0),H:0,exp:0,neu:0,loss:0,non:0,ppl:new Set(),newP:new Set(),nonP:new Set()};
     ks.forEach(k=>{const x=B[k];['C','P','H','exp','neu','loss','non'].forEach(f=>o[f]+=x[f]);x.dir.forEach((v,j)=>o.dir[j]+=v);['ppl','newP','nonP'].forEach(f=>x[f].forEach(n=>o[f].add(n)));});return o;};
   const a=sumB(kA),b=sumB(kB);
+  // months/quarters/years can have a different number of weeks -> compare weekly averages
+  const NORM=gran!=='weekly';
+  const nA=NORM?Math.max(1,B[kA[0]].wks.size):1,nB=NORM?Math.max(1,B[kB[0]].wks.size):1;
+  if(NORM){[[a,nA],[b,nB]].forEach(([o,n])=>{['C','P','H','exp','neu','loss','non'].forEach(f=>o[f]/=n);o.dir=o.dir.map(v=>v/n);});}
   const blab=ks=>ks.length===1?cw(ks[0]):cw(ks[0])+'–'+ks[ks.length-1].slice(4);
   if(!eSel.value)return;
   const wkr=k=>{const w=[...B[k].wks].sort();return w.length?'CW'+w[0].slice(4)+(w.length>1?'–'+w[w.length-1].slice(4):''):'';};
@@ -3440,6 +3444,7 @@ function renderLcpWaterfall(){
   const eVol=(PROD?1:-1)*w*Math.log(b.P/a.P);
   const part=k=>(PROD?-1:1)*w*(b[k]-a[k])/LH;
   const T=(en,uk)=>wfUk()?uk:en;
+  const pw=()=>NORM?T(' / wk',' / тиж'):'';
   const facts=[
     {id:'rate',en:'Hourly rate',uk:'Ставка/год',v:eRate},
     {id:'vol',en:'Volume',uk:'Обсяг',v:eVol},
@@ -3466,21 +3471,21 @@ function renderLcpWaterfall(){
   const unit=()=>PROD?T(' pallets/hr',' пал/год'):'';
   const tipFor=i=>{
     const head=t=>`<div class="ft-h">${t}</div>`;
-    if(i===0)return head(`${lab0}: ${money(L0)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')}`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(a.C)} · ${T('pallets','палет')} ${n0(a.P)} · ${T('hours','годин')} ${n0(a.H)}</div>`;
+    if(i===0)return head(`${lab0}: ${money(L0)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')}`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(a.C)} · ${T('pallets','палет')} ${n0(a.P)} · ${T('hours','годин')} ${n0(a.H)}${pw()}${NORM?` (${nA} ${T('wks','тиж')})`:''}</div>`;
     if(i===labels.length-1){const big=[...facts].sort((x,y)=>Math.abs(y.v)-Math.abs(x.v))[0];
-      return head(`${lab1}: ${money(L1)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')} (${sgn(L1-L0)}, ${pcs(L1,L0)})`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(b.C)} · ${T('pallets','палет')} ${n0(b.P)} · ${T('hours','годин')} ${n0(b.H)}</div><div class="ft-s">${T('Biggest factor','Найбільший вплив')}: ${big.lab} (${sgn(big.v)})</div>`;}
+      return head(`${lab1}: ${money(L1)} ${PROD?T('pallets/hr','пал/год'):T('per pallet','за палету')} (${sgn(L1-L0)}, ${pcs(L1,L0)})`)+`<div>${T('Labor cost','Витрати на працю')} $${n0(b.C)} · ${T('pallets','палет')} ${n0(b.P)} · ${T('hours','годин')} ${n0(b.H)}${pw()}${NORM?` (${nB} ${T('wks','тиж')})`:''}</div><div class="ft-s">${T('Biggest factor','Найбільший вплив')}: ${big.lab} (${sgn(big.v)})</div>`;}
     const x=facts[i-1];let body='';
     if(x.id==='rate'){const r0=a.C/a.H,r1=b.C/b.H;
       body=`<div>${T('Cost per hour of work','Вартість години роботи')}: ${money(r0)} → ${money(r1)} (${pcs(r1,r0)})</div><div class="ft-s">${T('Possible causes','Можливі причини')}:</div><div>${x.v>0?T('• more call fees (Cross Dock)<br>• more overtime / weekend hours<br>• higher-paid roles in the mix<br>• one-off items in Costs2 (backpay)','• більше кол-фі (Cross Dock)<br>• більше понаднормових / вихідних годин<br>• більше дорожчих ролей у складі<br>• разові суми в Costs2 (доплати)'):T('• fewer call fees (Cross Dock)<br>• fewer overtime / weekend hours<br>• lower-paid roles in the mix<br>• fewer one-off items in Costs2','• менше кол-фі (Cross Dock)<br>• менше понаднормових / вихідних годин<br>• більше дешевших ролей у складі<br>• менше разових сум у Costs2')}</div>`;}
     else if(x.id==='vol'){
       const ch=DIR_FIELD.map((fl,j)=>({n:DIR_LABELS[j],d:b.dir[j]-a.dir[j]})).filter(o=>Math.abs(o.d)>=1).sort((p,q)=>Math.abs(q.d)-Math.abs(p.d)).slice(0,4);
-      body=`<div>${T('Pallets','Палети')}: ${n0(a.P)} → ${n0(b.P)} (${pcs(b.P,a.P)})</div>${ch.length?`<div class="ft-s">${T('By direction','По напрямках')}:</div><div>${ch.map(o=>`• ${o.n}: ${o.d>0?'+':''}${n0(o.d)}`).join('<br>')}</div>`:''}
+      body=`<div>${T('Pallets','Палети')}${pw()}: ${n0(a.P)} → ${n0(b.P)} (${pcs(b.P,a.P)})${NORM?` · ${nA} → ${nB} ${T('wks','тиж')}`:''}</div>${ch.length?`<div class="ft-s">${T('By direction','По напрямках')}:</div><div>${ch.map(o=>`• ${o.n}: ${o.d>0?'+':''}${n0(o.d)}`).join('<br>')}</div>`:''}
         <div class="ft-s">${(PROD?x.v<0:x.v>0)?T('Fewer pallets for a similar team — adjust hours to volume or bring in work (Cross Dock).','Менше палет при схожій команді — підлаштувати години під обсяг або взяти роботу (Cross Dock).'):T('More pallets for a similar team — cost spread over more volume.','Більше палет при схожій команді — витрати розійшлись на більший обсяг.')}</div>`;}
-    else if(x.id==='prodh')body=`<div>${T('Productive hours (experienced + useful part of new hires)','Продуктивні години (досвідчені + корисна частина новачків)')}: ${n0(a.exp+a.neu)} → ${n0(b.exp+b.neu)} (${pcs(b.exp+b.neu,a.exp+a.neu)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v<0?T('More hours for this volume — fewer pallets per hour.','Більше годин на цей обсяг — менше палет за годину.'):T('Fewer hours for this volume — more pallets per hour.','Менше годин на цей обсяг — більше палет за годину.')}</div>`;
-    else if(x.id==='exp')body=`<div>${T('Productive hours of experienced staff','Продуктивні години досвідчених')}: ${n0(a.exp)} → ${n0(b.exp)} (${pcs(b.exp,a.exp)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v>0?T('More hours for this volume — part of them may not have been needed.','Більше годин на цей обсяг — частина могла бути зайвою.'):T('Fewer hours for this volume — the team worked more efficiently.','Менше годин на цей обсяг — команда спрацювала ефективніше.')}</div>`;
-    else if(x.id==='neu')body=`<div>${T('Productive hours of new hires (after coefficient)','Продуктивні години новачків (після коефіцієнта)')}: ${n0(a.neu)} → ${n0(b.neu)}</div><div>${T('New hires in adaptation','Новачків в адаптації')}: ${a.newP.size} → ${b.newP.size}</div>`;
-    else if(x.id==='loss')body=`<div>${T('Hours lost to adaptation','Годин втрачено на адаптацію')}: ${n0(a.loss)} → ${n0(b.loss)}</div><div>${T('People in weeks 1–8','Людей на тижнях 1–8')}: ${a.newP.size} → ${b.newP.size}</div><div class="ft-s">${T('Temporary — goes down as new hires adapt.','Тимчасово — зменшується, коли новачки адаптуються.')}</div>`;
-    else if(x.id==='non')body=`<div>${T('Non-productive hours','Непродуктивні години')}: ${n0(a.non)} → ${n0(b.non)} (${pcs(b.non,a.non)})</div><div>${T('People with non-productive hours','Людей з непродуктивними годинами')}: ${a.nonP.size} → ${b.nonP.size}</div><div class="ft-s">${T('Supervisors, spotters, managers, consolidators — these hours do not move pallets, so they go straight into the cost per pallet.','Супервайзери, спотери, менеджери, консолідатори — ці години не рухають палети, тож одразу йдуть у вартість палети.')}</div>`;
+    else if(x.id==='prodh')body=`<div>${T('Productive hours (experienced + useful part of new hires)','Продуктивні години (досвідчені + корисна частина новачків)')}${pw()}: ${n0(a.exp+a.neu)} → ${n0(b.exp+b.neu)} (${pcs(b.exp+b.neu,a.exp+a.neu)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v<0?T('More hours for this volume — fewer pallets per hour.','Більше годин на цей обсяг — менше палет за годину.'):T('Fewer hours for this volume — more pallets per hour.','Менше годин на цей обсяг — більше палет за годину.')}</div>`;
+    else if(x.id==='exp')body=`<div>${T('Productive hours of experienced staff','Продуктивні години досвідчених')}${pw()}: ${n0(a.exp)} → ${n0(b.exp)} (${pcs(b.exp,a.exp)})</div><div>${T('People who worked','Людей працювало')}: ${a.ppl.size} → ${b.ppl.size}</div><div class="ft-s">${x.v>0?T('More hours for this volume — part of them may not have been needed.','Більше годин на цей обсяг — частина могла бути зайвою.'):T('Fewer hours for this volume — the team worked more efficiently.','Менше годин на цей обсяг — команда спрацювала ефективніше.')}</div>`;
+    else if(x.id==='neu')body=`<div>${T('Productive hours of new hires (after coefficient)','Продуктивні години новачків (після коефіцієнта)')}${pw()}: ${n0(a.neu)} → ${n0(b.neu)}</div><div>${T('New hires in adaptation','Новачків в адаптації')}: ${a.newP.size} → ${b.newP.size}</div>`;
+    else if(x.id==='loss')body=`<div>${T('Hours lost to adaptation','Годин втрачено на адаптацію')}${pw()}: ${n0(a.loss)} → ${n0(b.loss)}</div><div>${T('People in weeks 1–8','Людей на тижнях 1–8')}: ${a.newP.size} → ${b.newP.size}</div><div class="ft-s">${T('Temporary — goes down as new hires adapt.','Тимчасово — зменшується, коли новачки адаптуються.')}</div>`;
+    else if(x.id==='non')body=`<div>${T('Non-productive hours','Непродуктивні години')}${pw()}: ${n0(a.non)} → ${n0(b.non)} (${pcs(b.non,a.non)})</div><div>${T('People with non-productive hours','Людей з непродуктивними годинами')}: ${a.nonP.size} → ${b.nonP.size}</div><div class="ft-s">${T('Supervisors, spotters, managers, consolidators — these hours do not move pallets, so they go straight into the cost per pallet.','Супервайзери, спотери, менеджери, консолідатори — ці години не рухають палети, тож одразу йдуть у вартість палети.')}</div>`;
     return head(`${x.lab}: ${sgn(x.v)}${unit()}`)+`<div style="color:${x.v>0?GOOD:BAD};margin-bottom:4px">${raise(x.v)} ${money(Math.abs(x.v))}${unit()}</div>`+body;
   };
   const H=getHeights(true);
@@ -3493,12 +3498,14 @@ function renderLcpWaterfall(){
     ctx.restore();}};
   const vals=data.flat();const mn=Math.min(...data.slice(1,-1).flat(),L0,L1),mx=Math.max(...vals);
   const pad=(mx-mn)*0.6||mx*0.1;
+  const yStep=[0.01,0.02,0.05,0.1,0.2,0.25,0.5,1,2,5,10].find(st=>(mx+pad*0.3-(mn-pad))/st<=7)||10;
+  const yMin=Math.max(0,Math.floor((mn-pad)/yStep)*yStep),yMax=Math.ceil((mx+pad*0.3)/yStep)*yStep;
   lcpWfInst=new Chart(cv,{type:'bar',plugins:[lblPlugin],
     data:{labels,datasets:[{data,backgroundColor:cols,borderRadius:4,borderSkipped:false,maxBarThickness:42}]},
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},layout:{padding:{top:18,right:6}},
       plugins:{legend:{display:false},tooltip:{enabled:false,external:ctx=>htmlTip(ctx,tipFor)}},
       scales:{x:{ticks:{color:'#8a9dba',font:{size:9.5},maxRotation:0,autoSkip:false,callback:function(v,i){const l=(i>0&&i<labels.length-1)?facts[i-1].lab:labels[i];return l.length>11?l.split(' '):l;}},grid:{display:false}},
-        y:{min:Math.max(0,Math.floor((mn-pad)*2)/2),suggestedMax:mx+pad*0.3,ticks:{color:'#8a9dba',callback:v=>cur+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
+        y:{min:yMin,max:yMax,ticks:{stepSize:yStep,color:'#8a9dba',callback:v=>cur+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.06)'}}}}});
 }
 
 // ===================== PRODUCTIVITY CHART =====================
