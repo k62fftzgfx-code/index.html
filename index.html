@@ -2184,9 +2184,8 @@ function renderOperations(){
     if(selectedPeriods&&!selectedPeriods.has(key))return;
     const sum=isSummaryRow(r);
     if(!buckets[key]){buckets[key]={totalPallets:0,costs2:0,sumPallets:0};DIR_FIELD.forEach(f=>buckets[key][f]=0);}
-    if(!sum){
-      DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});
-    }
+    // direction pallets from ALL rows incl. Sunday (Sunday rows carry real pallets; only Costs2 / HWY-IMD are Sunday summaries)
+    DIR_FIELD.forEach(f=>{if(dirF!=='ALL'&&f!==dirF)return;const v=toNum(r[f]);buckets[key][f]+=v;buckets[key].totalPallets+=v;});
     // Sum Pallets counted from ALL rows incl. Sunday (Sunday is summary only for Costs2)
     buckets[key].sumPallets+=toNum(r[COL.sumPallets]);
     if(sum){
