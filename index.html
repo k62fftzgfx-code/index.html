@@ -615,6 +615,14 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
 #st-flow-tip .ft-h{font-weight:700;color:#fff;margin-bottom:6px}
 #st-flow-tip .ft-s{margin-top:6px;font-weight:600}
 #st-flow-tip .ft-g{display:grid;grid-template-columns:repeat(2,minmax(0,auto));column-gap:18px;row-gap:2px;margin-top:3px}
+.help-q{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:10.5px;font-weight:700;color:#8a9dba;border:1px solid rgba(255,255,255,.22);cursor:help;flex:none}
+.help-q:hover,.help-q:focus{color:#78c3a5;border-color:#78c3a5;outline:none}
+.help-q-tip{display:none;position:absolute;top:calc(100% + 8px);left:-10px;z-index:900;width:380px;max-width:calc(100vw - 40px);padding:11px 13px;border-radius:12px;background:rgba(11,17,33,.97);border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 34px rgba(0,0,0,.45);font-size:11.5px;font-weight:400;line-height:1.45;color:#c8d8f0;text-transform:none;letter-spacing:0}
+.help-q-tip div+div{margin-top:4px}
+.help-q:hover .help-q-tip,.help-q:focus .help-q-tip{display:block}
+.chart-card .custom-dropdown{min-width:96px}
+.chart-card .custom-dropdown .dropdown-trigger{font-size:11px!important;padding:4px 26px 4px 10px!important;min-height:0!important}
+.chart-card .custom-dropdown .dropdown-menu{max-height:260px;min-width:120px;left:auto;right:0;z-index:150}
 #tab-operations .kpi-threshold-hint{margin-top:2px;font-size:10.5px;}
 #tab-operations .charts-row{margin-bottom:12px;gap:12px;}
 #tab-operations .chart-card{padding:12px 16px!important;}
@@ -980,10 +988,10 @@ select.simple-select option{background:#0f1729;color:#e8eefb;}
     <!-- Why labor cost per pallet changed (waterfall) -->
     <div class="chart-card ops3" style="flex:1.35;min-width:0;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:8px;">
-        <div class="card-title" style="margin-bottom:0">Why labor cost per pallet changed</div>
+        <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:7px;"><span>Why labor cost per pallet changed</span><span class="help-q" tabindex="0">?<span class="help-q-tip"><div>Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.</div><div>Hourly rate — labor cost (Costs2) ÷ all Deputy hours.</div><div>Volume — number of pallets (Sum Pallets).</div><div>Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).</div><div>New hires hrs — useful hours of new hires after the adaptation coefficient.</div><div>Adaptation loss — paid hours of new hires not yet productive (temporary).</div><div>Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).</div><div>All bars together = the difference between the first and the last bar.</div></span></span></div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-          <select id="lcpwf-n" onchange="try{localStorage.setItem('fb_wf_n',this.value)}catch(e){};renderLcpWaterfall()" style="font-size:11px;padding:3px 8px;border-radius:7px;background:#0f1729;color:#c8d8f0;border:1px solid rgba(255,255,255,0.12);"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select>
-          <select id="lcpwf-end" onchange="renderLcpWaterfall()" style="font-size:11px;padding:3px 8px;border-radius:7px;background:#0f1729;color:#c8d8f0;border:1px solid rgba(255,255,255,0.12);"></select>
+          <select class="simple-select" id="lcpwf-n" onchange="try{localStorage.setItem('fb_wf_n',this.value)}catch(e){};renderLcpWaterfall()"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select>
+          <select class="simple-select" id="lcpwf-end" onchange="renderLcpWaterfall()"></select>
         </div>
       </div>
       <div id="lcpwf-period" style="font-size:10.5px;color:#6a7d9a;margin:-6px 0 4px;"></div>
@@ -2474,7 +2482,7 @@ function renderOperations(){
     options:{responsive:false,maintainAspectRatio:false,animation:{duration:0},interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{if(els.length){const i=els[0].index;onBucketClick(keys[i]);}},
       layout:{padding:{top:isDaily?6:32,right:14,left:6,bottom:22}},
-      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if(ctx.dataset.label==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',callbacks:{label:ctx=>{if((ctx.dataset._lbl??ctx.dataset.label)==='Threshold')return` Threshold: $${Number(ctx.raw).toFixed(2)}`;return ctx.dataset.yAxisID==='yL'?` Labor cost/pallet: $${Number(ctx.raw).toFixed(2)}`:` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()} pallets`;}}}},
       scales:{
         x:{ticks:{color:'#8a9dba',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:isDaily?Math.ceil(keys.length/3):100},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}},
         yP:{type:'linear',position:'left',stacked:true,ticks:{color:'#8a9dba',font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.05)',borderDash:[4,4]},border:{color:'transparent'}},
@@ -2498,7 +2506,7 @@ function renderOperations(){
       ctx.fillText(fmtTop(t),bar.x,bar.y-3);
     });
     ctx.restore();
-    const lni=chart.data.datasets.findIndex(d=>d.yAxisID==='yL'&&d.label==='Labor cost/pallet');if(lni<0)return;
+    const lni=chart.data.datasets.findIndex(d=>d.yAxisID==='yL'&&(d._lbl??d.label)==='Labor cost/pallet');if(lni<0)return;
     const lm=chart.getDatasetMeta(lni),ld=chart.data.datasets[lni].data;
     lm.data.forEach((pt,i)=>{
       const val=ld[i];if(val===null||val===undefined)return;
@@ -2563,7 +2571,7 @@ function renderOperations(){
   const hv=keys2.map(k=>{if(!b2[k])return null;const a=b2[k].hourly;if(!a.length)return null;return parseFloat((a.reduce((x,y)=>x+y,0)/a.length).toFixed(2));});
   const vH=hv.filter(v=>v!==null);const hMin=vH.length?Math.min(...vH)-1:0;
   const c2=document.getElementById('chart2'),sw2=document.getElementById('scroll2');
-  resizeCanvas(c2,sw2,keys2.length,isScroll,H.h2);
+  resizeCanvas(c2,sw2,keys2.length,isScroll,fillRowHeight(sw2,H.h2));
   if(chart2Inst){chart2Inst.destroy();chart2Inst=null;}
   chart2Inst=new Chart(c2,{
     data:{labels:disp2,datasets:[
@@ -3309,6 +3317,18 @@ function buildProdBuckets(gran, years, locs, selectedPeriods, isDaily, dateFrom,
 
 // ===================== WHY LCP CHANGED (waterfall, LMDI decomposition) =====================
 let lcpWfInst=null;
+// canvas height that fills the card up to the tallest NON-filling card in the same row (no feedback loop between filling cards)
+function fillRowHeight(wrap,base){
+  try{const card=wrap.closest('.chart-card');card.dataset.fill='1';const row=card.parentElement;
+    const pad=el=>{const cs=getComputedStyle(el);return parseFloat(cs.paddingTop||0)+parseFloat(cs.paddingBottom||0);};
+    // natural (content) height of a card, independent of row stretching
+    const natural=el=>[...el.children].filter(c=>c.offsetParent!==null&&getComputedStyle(c).position!=='absolute').reduce((h,c)=>{const cs=getComputedStyle(c);return h+c.offsetHeight+parseFloat(cs.marginTop||0)+parseFloat(cs.marginBottom||0);},0)+pad(el);
+    const sib=[...row.children].filter(c=>c!==card&&!c.dataset.fill&&c.offsetParent!==null).map(natural);
+    if(!sib.length)return base;
+    const others=natural(card)-wrap.offsetHeight; // title, legend, padding of this card
+    return Math.max(base,Math.floor(Math.max(...sib)-others-2));
+  }catch(e){return base;}
+}
 function wfUk(){return document.documentElement.lang==='uk';}
 function htmlTip(ctx,html){
   let el=document.getElementById('st-flow-tip');
@@ -3427,7 +3447,8 @@ function renderLcpWaterfall(){
     return head(`${x.lab}: ${sgn(x.v)}`)+`<div style="color:${x.v>0?'#e08a82':'#78c3a5'};margin-bottom:4px">${raise(x.v)} ${money(Math.abs(x.v))}</div>`+body;
   };
   const H=getHeights(true);
-  resizeCanvas(cv,wrap,labels.length,false,H.h2);
+  // fill the card height: match the tallest card in the same row
+  resizeCanvas(cv,wrap,labels.length,false,fillRowHeight(wrap,H.h2));
   const lblPlugin={id:'wfLbl',afterDatasetsDraw(ch){const ctx=ch.ctx,m=ch.getDatasetMeta(0);ctx.save();ctx.font='600 10.5px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';
     m.data.forEach((el,i)=>{const t=i===0?money(L0):i===labels.length-1?money(L1):sgn(facts[i-1].v);ctx.fillStyle=i===0||i===labels.length-1?'#c8d8f0':cols[i];ctx.fillText(t,el.x,Math.min(el.y,el.base)-4);});
     ctx.strokeStyle='rgba(255,255,255,0.18)';ctx.setLineDash([3,3]);
@@ -4067,7 +4088,7 @@ function renderProductivity(){
   }
 
   const c=document.getElementById('prodChart'),sw=document.getElementById('scroll-prod');
-  resizeCanvas(c,sw,keys.length,isScroll,Math.max(150,H.h1-30));
+  resizeCanvas(c,sw,keys.length,isScroll,fillRowHeight(sw,Math.max(150,H.h1-30)));
   if(prodInst){prodInst.destroy();prodInst=null;}
   prodInst=new Chart(c,{
     data:{labels:dispLabels,datasets},
@@ -4078,9 +4099,9 @@ function renderProductivity(){
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
-            if(ctx.dataset.label==='Target')return` Target: ${Number(ctx.raw).toFixed(2)} plt/hr`;
-            if(ctx.dataset.label==='All Hours')return` All hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
-            if(ctx.dataset.label==='Productive Hours')return` Prod hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='Target')return` Target: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='All Hours')return` All hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='Productive Hours')return` Prod hrs: ${Number(ctx.raw).toFixed(2)} plt/hr`;
             return` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} plt/hr`;
           },
           afterBody:ctx=>{
@@ -4105,7 +4126,7 @@ function renderProductivity(){
       const barDS=chart.data.datasets.filter(d=>d.type==='bar');
       if(!barDS.length)return;
       barDS.forEach(ds=>{
-        const isProd=ds.label==='Productive Hours';
+        const isProd=(ds._lbl??ds.label)==='Productive Hours';
         const color=isProd?'#78c3a5':'#7fc8d8';
         const mi=chart.data.datasets.indexOf(ds);
         const meta=chart.getDatasetMeta(mi);
@@ -4152,7 +4173,7 @@ function renderProductivity(){
       });
 
       // Draw worker strip below X-axis directly on canvas
-      const prodBarDS=chart.data.datasets.find(d=>d.label==='Productive Hours');
+      const prodBarDS=chart.data.datasets.find(d=>(d._lbl??d.label)==='Productive Hours');
       if(!prodBarDS)return;
       const mi2=chart.data.datasets.indexOf(prodBarDS);
       const meta2=chart.getDatasetMeta(mi2);
@@ -4580,8 +4601,8 @@ function renderCorrChart(){
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
-            if(ctx.dataset.label==='Prod plt/hr') return` plt/hr: ${Number(ctx.raw).toFixed(2)}`;
-            if(ctx.dataset.label==='LCP $') return` LCP: $${Number(ctx.raw).toFixed(2)}`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='Prod plt/hr') return` plt/hr: ${Number(ctx.raw).toFixed(2)}`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='LCP $') return` LCP: $${Number(ctx.raw).toFixed(2)}`;
             return` Hourly: $${Number(ctx.raw).toFixed(2)}`;
           }}}},
       scales:{
@@ -4716,7 +4737,7 @@ function renderRestackChart(){
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:'rgba(11,17,33,0.94)',borderColor:'rgba(255,255,255,0.14)',cornerRadius:12,padding:12,borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#8a9dba',
           callbacks:{label:ctx=>{
-            if(ctx.dataset.label==='Restack revenue ($)')return` Revenue: $${Number(ctx.raw).toLocaleString()}`;
+            if((ctx.dataset._lbl??ctx.dataset.label)==='Restack revenue ($)')return` Revenue: $${Number(ctx.raw).toLocaleString()}`;
             return` Equiv: ${Number(ctx.raw).toLocaleString()} pallets`;
           }}}},
       scales:{
@@ -5406,13 +5427,20 @@ function enhanceSelects(){
       const o=sel.options[sel.selectedIndex];trig.textContent=o?o.text:'';
       [...menu.children].forEach((it,i)=>it.classList.toggle('selected',i===sel.selectedIndex));
     };
-    [...sel.options].forEach((o,i)=>{
-      const it=document.createElement('div');it.className='dropdown-item';it.textContent=o.text;
-      it.onclick=()=>{sel.selectedIndex=i;sync();menu.classList.remove('open');trig.classList.remove('open');
-        sel.dispatchEvent(new Event('change',{bubbles:true}));};
-      menu.appendChild(it);
-    });
-    trig.onclick=()=>toggleDropdown(id);
+    const build=()=>{
+      menu.innerHTML='';
+      [...sel.options].forEach((o,i)=>{
+        const it=document.createElement('div');it.className='dropdown-item';it.textContent=o.text;
+        it.onclick=()=>{sel.selectedIndex=i;sync();menu.classList.remove('open');trig.classList.remove('open');
+          sel.dispatchEvent(new Event('change',{bubbles:true}));};
+        menu.appendChild(it);
+      });
+      sync();
+    };
+    build();
+    // options filled later by code (e.g. week lists) -> rebuild the custom list
+    new MutationObserver(build).observe(sel,{childList:true});
+    trig.onclick=()=>{toggleDropdown(id);const it=menu.querySelector('.selected');if(it&&menu.classList.contains('open'))it.scrollIntoView({block:'nearest'});};
     wrap.appendChild(trig);wrap.appendChild(menu);
     sel.style.display='none';sel.parentNode.insertBefore(wrap,sel.nextSibling);
     // keep label in sync when code sets sel.value programmatically
@@ -5499,7 +5527,16 @@ const D={
 'Effective productive hours':'Ефективні продуктивні години','effective':'ефективні',
 'Notifications':'Сповіщення','Mark all as seen':'Позначити всі переглянутими','All':'Усі','Critical':'Критичні','Attention':'Увага','Data':'Дані',
 'No notifications':'Сповіщень немає','Latest complete week · follows the Location / Region filter':'Останній повний тиждень · за фільтром Локація / Регіон','pallets':'палети',
-'Why labor cost per pallet changed':'Чому змінилась вартість палети','1 week':'1 тиждень','2 weeks':'2 тижні','4 weeks':'4 тижні','Not enough complete periods to compare.':'Замало повних періодів для порівняння.',
+'Why labor cost per pallet changed':'Чому змінилась вартість палети',
+'Each bar = how much this factor changed the cost of one pallet. Red raised it, green lowered it.':'Кожен стовпець — на скільки цей фактор змінив вартість однієї палети. Червоне підняло, зелене знизило.',
+'Hourly rate — labor cost (Costs2) ÷ all Deputy hours.':'Ставка/год — витрати на працю (Costs2) ÷ усі години Deputy.',
+'Volume — number of pallets (Sum Pallets).':'Обсяг — кількість палет (Sum Pallets).',
+'Experienced hrs — productive hours of experienced forklift operators (+75% of Supervisor/FO, LM/FO).':'Год. досвідчених — продуктивні години досвідчених форкліфтерів (+75% Supervisor/FO, LM/FO).',
+'New hires hrs — useful hours of new hires after the adaptation coefficient.':'Год. новачків — корисні години новачків після коефіцієнта адаптації.',
+'Adaptation loss — paid hours of new hires not yet productive (temporary).':'Втрата на адапт. — оплачені години новачків, ще не продуктивні (тимчасово).',
+'Non-productive — supervisors, spotters, managers, consolidators (+25% of Supervisor/FO, LM/FO).':'Непродуктивні — супервайзери, спотери, менеджери, консолідатори (+25% Supervisor/FO, LM/FO).',
+'All bars together = the difference between the first and the last bar.':'Усі стовпці разом = різниця між першим і останнім стовпцем.',
+'1 week':'1 тиждень','2 weeks':'2 тижні','4 weeks':'4 тижні','Not enough complete periods to compare.':'Замало повних періодів для порівняння.',
 'Operations rows':'Рядки операцій','Spotter':'Споттер','Sup/FO':'Суп/FO','LM/FO':'LM/FO','Consol.':'Консол.','Fleet':'Автопарк','Avg revenue / pallet':'Сер. виручка / палета','Labor cost / pallet':'Вартість праці / палета','Profit':'Прибуток','Loss':'Збиток','Connecting to Google Sheets...':'Підключення до Google Sheets...','Loading...':'Завантаження...'
 };
 const RX=[
